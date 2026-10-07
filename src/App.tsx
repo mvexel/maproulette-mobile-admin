@@ -6,6 +6,7 @@ import { navigate, usePath } from "./router";
 import { Audit } from "./screens/Audit";
 import { Callback } from "./screens/Callback";
 import { Clients } from "./screens/Clients";
+import { Challenges } from "./screens/Challenges";
 import { SignIn } from "./screens/SignIn";
 import { WritePolicy } from "./screens/WritePolicy";
 
@@ -13,6 +14,7 @@ const SCREENS: Record<string, { title: string; render: () => React.ReactNode }> 
   "/": { title: "Clients", render: () => <Clients /> },
   "/audit": { title: "Audit log", render: () => <Audit /> },
   "/writes": { title: "Task writes", render: () => <WritePolicy /> },
+  "/challenges": { title: "Challenges", render: () => <Challenges /> },
 };
 
 export function App() {

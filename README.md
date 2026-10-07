@@ -3,7 +3,7 @@
 A web admin for the mobile-enabled MapRoulette backend fork
 ([maproulette-mobile-backend](https://github.com/mvexel/maproulette-mobile-backend), branch
 `feat/mobile-oauth`). It registers the mobile OAuth clients and shows the admin audit log. Later
-versions will create choice challenges and clean up stale tasks and stuck submissions. It never
+versions may clean up stale tasks and stuck submissions. It never
 edits OpenStreetMap.
 
 Admins are MapRoulette super-users. They sign in through the fork's mobile OAuth with the
@@ -23,6 +23,9 @@ in the fork.
 - **Task writes.** On a field deployment, a super-user can turn mobile task and
   OSM edit submissions on or off for that backend. The switch starts off and
   every change is audited. The dev deployment keeps its fixed server policy.
+- **Challenges.** Create a challenge and import line-by-line GeoJSON choice
+  tasks with a per-line report. Setup works while the field task write switch
+  is off. The backend audits creation and import.
 
 The header always shows the backend origin and the signed-in user.
 

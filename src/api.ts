@@ -25,7 +25,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init,
       headers: {
         Accept: "application/json",
-        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
         ...init.headers,
         Authorization: `Bearer ${token}`,
       },
@@ -110,6 +110,32 @@ export interface Me {
   scope: string;
 }
 export const me = () => api<Me>("/oauth/mobile/me");
+
+export interface ChallengeDraft {
+  name: string;
+  description: string;
+  instruction: string;
+  checkinComment: string;
+  checkinSource: string;
+}
+
+export const createChallenge = (draft: ChallengeDraft) =>
+  api<{ id: number }>("/api/v2/challenge", { method: "POST", body: JSON.stringify(draft) });
+
+export interface TaskImportReport {
+  created: number;
+  updated: number;
+  rejected: { line: number; errors: string[] }[];
+}
+
+export const importChallengeTasks = (challengeId: number, file: File) => {
+  const body = new FormData();
+  body.append("json", file);
+  return api<TaskImportReport>(`/api/v2/challenge/${challengeId}/addFileTasks?lineByLine=true&report=true`, {
+    method: "PUT",
+    body,
+  });
+};
 
 /** A user-facing message for an admin API error. */
 export function describeError(e: unknown): { message: string; detail: string[] } {
