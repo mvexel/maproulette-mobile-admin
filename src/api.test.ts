@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MockBackend } from "../mock/server.ts";
-import { ApiError, createClient, describeError, listAudit, listClients, updateClient } from "./api";
+import { ApiError, createClient, describeError, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
 import { reset, setUp, signIn } from "./testing";
 
 let mock: MockBackend;
@@ -100,5 +100,16 @@ describe("audit", () => {
   it("rejects an out-of-range limit", async () => {
     const e = await failure(listAudit(0, 500));
     expect(e).toMatchObject({ status: 400, code: "invalid_request" });
+  });
+});
+
+describe("write policy", () => {
+  it("starts off and audits each state change", async () => {
+    expect(await getWritePolicy()).toEqual({ enabled: false, managed: true });
+    expect(await setWritePolicy(true)).toEqual({ enabled: true, managed: true });
+    expect(await setWritePolicy(true)).toEqual({ enabled: true, managed: true });
+    expect(await setWritePolicy(false)).toEqual({ enabled: false, managed: true });
+    const page = await listAudit(0, 2);
+    expect(page.items.map((entry) => entry.action)).toEqual(["write_policy.update", "write_policy.update"]);
   });
 });

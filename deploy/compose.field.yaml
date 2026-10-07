@@ -1,0 +1,25 @@
+# Reused by separate stage and prod Komodo projects. The alias is unique on
+# shared ingress, and runtime config binds each admin to its own API origin.
+services:
+  admin:
+    build: ..
+    image: maproulette-mobile-admin:${MR_DEPLOYMENT:?Set stage or prod}
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      BACKEND_ORIGIN: https://${MR_API_HOST:?Set the matching API host}
+      CLIENT_ID: maproulette-mobile-admin
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      ingress:
+        aliases:
+          - ${MR_ADMIN_NETWORK_ALIAS:?Set a unique admin network alias}
+
+networks:
+  ingress:
+    name: schaaltreinenhuis-ingress
+    external: true

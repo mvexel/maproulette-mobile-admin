@@ -91,6 +91,18 @@ export interface AuditPage {
 export const listAudit = (page: number, limit = 25) =>
   api<AuditPage>(`/api/v2/mobile-admin/audit?${new URLSearchParams({ limit: String(limit), page: String(page) })}`);
 
+export interface WritePolicy {
+  enabled: boolean;
+  managed: boolean;
+}
+
+export const getWritePolicy = () => api<WritePolicy>("/api/v2/mobile-admin/write-policy");
+export const setWritePolicy = (enabled: boolean) =>
+  api<WritePolicy>("/api/v2/mobile-admin/write-policy", {
+    method: "PUT",
+    body: JSON.stringify({ enabled }),
+  });
+
 export interface Me {
   id: number;
   osmId: number;
@@ -117,6 +129,8 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "Not found. It may have been removed; reload the list.", detail: [] };
     case "admin_required":
       return { message: "Your account is no longer a MapRoulette super-user.", detail: [] };
+    case "write_prerequisites_missing":
+      return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:
       return { message: `Request failed: ${e.message} (HTTP ${e.status})`, detail: [] };
   }

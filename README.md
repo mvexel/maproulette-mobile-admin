@@ -20,6 +20,9 @@ in the fork.
   enable. Validation errors from the backend are listed. The backend refuses (`409 self_lockout`)
   to disable this app's own client or to remove `mobile:admin` from it; the screen explains why.
 - **Audit log.** Every admin write, newest first, 25 per page. Read-only.
+- **Task writes.** On a field deployment, a super-user can turn mobile task and
+  OSM edit submissions on or off for that backend. The switch starts off and
+  every change is audited. The dev deployment keeps its fixed server policy.
 
 The header always shows the backend origin and the signed-in user.
 
@@ -121,6 +124,11 @@ https://admin.mr-dev.osm.lol {
 
 On the backend, the client `maproulette-mobile-admin` needs the redirect
 `https://admin.mr-dev.osm.lol/callback`, and `MR_MOBILE_ADMIN_ORIGIN=https://admin.mr-dev.osm.lol`.
+
+For the separate production-OSM field deployments, Komodo uses the same
+`deploy/compose.field.yaml` twice, with different project names, API hosts,
+image tags, and ingress aliases. The stage site points only to
+`mr-stage.osm.lol`; the prod site points only to `mr-prod.osm.lol`.
 
 ## License
 

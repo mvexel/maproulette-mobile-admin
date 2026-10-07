@@ -90,6 +90,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   let clients = new Map<string, Client>();
   let audit: Audit[] = [];
+  let writePolicy = false;
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -123,6 +124,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       scopes: ["tasks:read", "tasks:write"],
     });
     audit = [];
+    writePolicy = false;
     for (let i = 1; i <= (opts.auditSeed ?? 60); i++) {
       audit.push({
         id: i,
@@ -411,6 +413,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   });
 
   async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {
+    if (path === "/api/v2/mobile-admin/write-policy" && req.method === "GET")
+      return send(res, 200, { enabled: writePolicy, managed: true });
     if (path === "/api/v2/mobile-admin/clients" && req.method === "GET")
       return send(res, 200, { clients: [...clients.values()].sort((a, b) => a.id.localeCompare(b.id)).map(listJson) });
 
@@ -428,6 +432,17 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       body = JSON.parse(await readBody(req));
     } catch {
       return problem(res, 400, "invalid_request");
+    }
+
+    if (path === "/api/v2/mobile-admin/write-policy" && req.method === "PUT") {
+      const v = checkFields(body, ["enabled"]);
+      if (Array.isArray(v) || typeof v.enabled !== "boolean")
+        return problem(res, 400, "invalid_request", ["expected only enabled"]);
+      if (writePolicy !== v.enabled) {
+        record(user.id, "write_policy.update", "mobile", { enabled: writePolicy }, { enabled: v.enabled });
+        writePolicy = v.enabled;
+      }
+      return send(res, 200, { enabled: writePolicy, managed: true });
     }
 
     if (path === "/api/v2/mobile-admin/clients" && req.method === "POST") {
