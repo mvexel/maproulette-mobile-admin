@@ -1,0 +1,23 @@
+# Komodo stack `maproulette-mobile-admin`. Builds the image from this repo and joins the shared
+# ingress network as `maproulette-mobile-admin`; the shared Caddy proxies
+# https://admin.<deployment host> to maproulette-mobile-admin:80 (see README, "Deploy").
+services:
+  maproulette-mobile-admin:
+    build: ..
+    image: maproulette-mobile-admin:local
+    restart: unless-stopped
+    environment:
+      # Default: the current staging backend. Switch to https://mr-dev.osm.lol after the
+      # mr-api -> mr-dev rename (decision A15).
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-https://mr-api.osm.lol}
+      CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [ingress]
+networks:
+  ingress:
+    name: schaaltreinenhuis-ingress
+    external: true
