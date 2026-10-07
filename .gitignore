@@ -1,0 +1,8 @@
+node_modules
+dist
+*.local
+.DS_Store
+.claude/settings.local.json
+test-results
+playwright-report
+.claude/.cc-writes/
