@@ -5,6 +5,8 @@ services:
   maproulette-mobile-admin:
     build: ..
     image: maproulette-mobile-admin:local
+    # Built on the host, never pulled: Komodo runs `compose pull` before `up`.
+    pull_policy: build
     restart: unless-stopped
     environment:
       # Default: the current staging backend. Switch to https://mr-dev.osm.lol after the
