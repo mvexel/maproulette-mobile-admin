@@ -104,7 +104,7 @@ input[type="file"] { max-width: 100%; font-weight: 400; }
 .survey-editor { min-width: 0; margin: 0; padding: 0; border: 0; }
 .survey-editor > legend { margin-bottom: .6rem; font-size: 1.15rem; font-weight: 650; }
 .survey-editor .panel { display: grid; gap: .8rem; max-width: none; margin: 0; padding: 1.1rem 0; }
-.survey-editor textarea, .survey-editor input { min-height: 2.5rem; }
+.survey-builder .survey-editor textarea, .survey-builder .survey-editor input { min-height: 2.5rem; }
 .survey-editor .tag-input { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }
 .option-editor { display: grid; gap: .7rem; min-width: 0; padding: .9rem 0 .4rem; border: 0; border-top: 1px solid var(--line); }
 .option-editor legend { padding-right: .5rem; color: var(--muted); font-weight: 600; }
@@ -118,7 +118,7 @@ input[type="file"] { max-width: 100%; font-weight: 400; }
 .preview-answer small { display: block; margin-top: .35rem; color: var(--muted); overflow-wrap: anywhere; }
 .survey-publish { max-width: none; margin-top: 2rem; }
 .survey-publish pre { max-height: 24rem; }
-.survey-builder button { min-height: 2.4rem; }
+main .survey-builder button { min-height: 2.4rem; }
 
 @media (max-width: 850px) {
   header { flex-wrap: wrap; gap: .65rem 1rem; }
