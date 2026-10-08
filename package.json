@@ -16,7 +16,8 @@
     "lint": "biome lint --error-on-warnings",
     "test": "vitest run",
     "e2e": "playwright test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate-survey": "node scripts/generate-survey.ts"
   },
   "dependencies": {
     "react": "^19.0.0",

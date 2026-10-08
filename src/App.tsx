@@ -9,12 +9,14 @@ import { Clients } from "./screens/Clients";
 import { Challenges } from "./screens/Challenges";
 import { SignIn } from "./screens/SignIn";
 import { WritePolicy } from "./screens/WritePolicy";
+import { SurveyBuilder } from "./screens/SurveyBuilder";
 
 const SCREENS: Record<string, { title: string; render: () => React.ReactNode }> = {
   "/": { title: "Clients", render: () => <Clients /> },
   "/audit": { title: "Audit log", render: () => <Audit /> },
   "/writes": { title: "Task writes", render: () => <WritePolicy /> },
   "/challenges": { title: "Challenges", render: () => <Challenges /> },
+  "/surveys": { title: "Survey builder", render: () => <SurveyBuilder /> },
 };
 
 export function App() {

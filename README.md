@@ -26,6 +26,11 @@ in the fork.
 - **Challenges.** Create a challenge and import line-by-line GeoJSON choice
   tasks with a per-line report. Setup works while the field task write switch
   is off. The backend audits creation and import.
+- **Survey builder.** Author questions/help/options and OSM tag mappings, load
+  features, export a portable survey, preview generated tasks, and publish a
+  successfully imported new challenge for Android discovery. See the
+  [authoring guide](docs/survey-authoring.md). Restaurant and bus-stop examples
+  use the existing choice-task contract; no SDK/backend schema change is needed.
 
 The header always shows the backend origin and the signed-in user.
 

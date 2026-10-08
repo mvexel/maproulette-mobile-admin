@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "challenge": {
+    "name": "Bus stop details",
+    "description": "Help people know what to expect at their bus stop.",
+    "instruction": "Visit the mapped feature and answer only what you can confirm. Choose I can't tell if you are unsure.",
+    "checkinComment": "Survey bus stop details #maproulette",
+    "checkinSource": "survey"
+  },
+  "match": {
+    "highway": "bus_stop"
+  },
+  "questions": [
+    {
+      "id": "shelter",
+      "prompt": "Is there a shelter at this stop?",
+      "description": "Look for a roof that passengers can wait under.",
+      "expect": {
+        "shelter": null
+      },
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes",
+          "setTags": {
+            "shelter": "yes"
+          }
+        },
+        {
+          "id": "no",
+          "label": "No",
+          "setTags": {
+            "shelter": "no"
+          }
+        }
+      ]
+    }
+  ],
+  "features": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -111.891,
+            40.7608
+          ]
+        },
+        "properties": {
+          "@id": "node/9999999999999999",
+          "highway": "bus_stop"
+        }
+      }
+    ]
+  }
+}

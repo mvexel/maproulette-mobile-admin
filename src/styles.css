@@ -22,3 +22,25 @@ form h3 { margin: 0; }
 label { display: grid; gap: .2rem; }
 label.inline { display: flex; gap: .4rem; align-items: baseline; }
 .pager { display: flex; gap: 1rem; align-items: center; }
+.survey-builder { --survey-accent: #246b72; --survey-surface: #edf5f6; --survey-ink: #183b40; }
+.survey-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; margin: 1rem 0; }
+.survey-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, .75fr); gap: 2rem; align-items: start; }
+.survey-editor { border: 0; padding: 0; margin: 0; min-width: 0; }
+.survey-editor > legend { font-size: 1.2rem; font-weight: 650; }
+.survey-editor .panel { display: grid; gap: .8rem; max-width: none; }
+.survey-editor textarea, .survey-editor input { box-sizing: border-box; width: 100%; min-height: 2.5rem; padding: .45rem; font: inherit; }
+.survey-editor .tag-input { font-family: ui-monospace, monospace; font-size: .85rem; }
+.option-editor { display: grid; gap: .6rem; border: 1px solid #8885; border-left: 3px solid var(--survey-accent); padding: .8rem; min-width: 0; }
+.survey-preview { border-top: 5px solid var(--survey-accent); border-radius: 8px; padding: 1rem 1.3rem; background: var(--survey-surface); color: var(--survey-ink); }
+.survey-preview h3 { margin-top: 0; }
+.preview-question { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #246b7233; }
+.preview-question h4 { font-size: 1.15rem; margin: .5rem 0; }
+.preview-answer { border: 1px solid #246b7244; border-radius: 12px; background: #fff; padding: .8rem; margin: .6rem 0; }
+.preview-answer p { margin: .4rem 0; }
+.preview-answer small { display: block; margin-top: .4rem; overflow-wrap: anywhere; }
+.survey-publish { max-width: none; border-left: 4px solid var(--survey-accent); }
+.survey-publish pre { overflow: auto; max-height: 24rem; }
+.survey-builder button { min-height: 2.5rem; padding: .4rem .8rem; cursor: pointer; }
+.survey-builder button:disabled { cursor: default; }
+.survey-builder :focus-visible { outline: 3px solid #2c8c97; outline-offset: 3px; }
+@media (max-width: 760px) { .survey-workspace { grid-template-columns: 1fr; } header nav { flex-wrap: wrap; } }

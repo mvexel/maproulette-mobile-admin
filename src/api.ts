@@ -122,6 +122,17 @@ export interface ChallengeDraft {
 export const createChallenge = (draft: ChallengeDraft) =>
   api<{ id: number }>("/api/v2/challenge", { method: "POST", body: JSON.stringify(draft) });
 
+/** Keep new surveys out of discovery until their complete import has been reviewed. */
+export const createSurveyChallenge = (draft: ChallengeDraft, projectId: number) =>
+  api<{ id: number }>("/api/v2/challenge", {
+    method: "POST", body: JSON.stringify({ ...draft, parent: projectId, enabled: false, requiresLocal: true }),
+  });
+
+export const publishSurveyChallenge = (id: number) =>
+  api<unknown>(`/api/v2/challenge/${id}`, {
+    method: "PUT", body: JSON.stringify({ enabled: true, tags: ["mobile-survey-v1"] }),
+  });
+
 export interface TaskImportReport {
   created: number;
   updated: number;
