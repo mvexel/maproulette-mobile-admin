@@ -13,12 +13,32 @@ services:
       # mr-api -> mr-dev rename (decision A15).
       BACKEND_ORIGIN: ${BACKEND_ORIGIN:-https://mr-api.osm.lol}
       CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
+      JOBS_UPSTREAM: jobs:8000
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
       timeout: 5s
       retries: 3
-    networks: [ingress]
+    networks: [default, ingress]
+
+  # Extraction jobs: internal network only (see compose.field.yaml).
+  jobs:
+    build: ../worker
+    image: maproulette-mobile-admin-jobs:local
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-https://mr-api.osm.lol}
+      SLICEOSM_URL: ${SLICEOSM_URL:-https://slice.openstreetmap.us/}
+      MAX_AREA_KM2: ${MAX_AREA_KM2:-5000}
+      MAX_ACTIVE: ${MAX_ACTIVE:-3}
+      MAX_FEATURES: ${MAX_FEATURES:-10000}
+      RESULT_TTL_DAYS: ${RESULT_TTL_DAYS:-7}
+    volumes:
+      - jobs-data:/data
+    networks: [default]
+volumes:
+  jobs-data:
 networks:
   ingress:
     name: schaaltreinenhuis-ingress
