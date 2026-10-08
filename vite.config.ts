@@ -15,7 +15,7 @@ function runtimeConfig(): Plugin {
     if (!backend || req.url?.split("?")[0] !== "/config.json") return next();
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
-    res.end(JSON.stringify({ backend, clientId: process.env.ADMIN_CLIENT_ID ?? "maproulette-mobile-admin" }));
+    res.end(JSON.stringify({ backend, clientId: process.env.ADMIN_CLIENT_ID ?? "maproulette-mobile-admin", ...(process.env.ADMIN_JOBS ? { jobs: process.env.ADMIN_JOBS, jobsPollMs: Number(process.env.ADMIN_JOBS_POLL_MS ?? 2000) } : {}) }));
   };
   return {
     name: "runtime-config",

@@ -73,6 +73,21 @@ const SCOPE_SETS = [
 const token = () => randomBytes(32).toString("base64url"); // 43 characters, like the backend
 const s256 = (verifier: string) => createHash("sha256").update(verifier).digest("base64url");
 
+const JOB_STEPS = ["queued", "submitting", "slicing", "downloading", "converting", "complete"] as const;
+const MAX_ACTIVE_JOBS = 3;
+const MAX_JOB_AREA_KM2 = 5000;
+
+interface MockJob {
+  id: string;
+  state: string;
+  createdAt: string;
+  updatedAt: string;
+  input: { region: unknown; rules: Record<string, string>[]; name: string };
+  progress: { stage: string; fraction: number | null; message: string };
+  error: { code: string; message: string } | null;
+  result: unknown;
+}
+
 export interface MockBackend {
   server: Server;
   /** Base URL once listening, e.g. http://127.0.0.1:9300. */
@@ -91,6 +106,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let clients = new Map<string, Client>();
   let audit: Audit[] = [];
   let writePolicy = false;
+  let jobs: MockJob[] = [];
+  let jobSeq = 0;
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -125,6 +142,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     });
     audit = [];
     writePolicy = false;
+    jobs = [];
+    jobSeq = 0;
     for (let i = 1; i <= (opts.auditSeed ?? 60); i++) {
       audit.push({
         id: i,
@@ -239,7 +258,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   }
 
   const corsPaths = (path: string) =>
-    path.startsWith("/api/v2/mobile-admin/") || ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"].includes(path);
+    path.startsWith("/api/v2/mobile-admin/") || path === "/jobs" || path.startsWith("/jobs/") || ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"].includes(path);
 
   /** MobileCorsFilter: the admin origin only, no credentials; other origins' preflights get 403. */
   function cors(req: IncomingMessage, res: ServerResponse, path: string): boolean {
@@ -287,6 +306,19 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 204);
     }
     if (path === "/__mock/stats" && req.method === "GET") return send(res, 200, stats);
+    if (path === "/__mock/jobs/expire" && req.method === "POST") {
+      for (const j of jobs) if (j.state === "complete") expireJob(j);
+      return send(res, 204);
+    }
+
+    if (path === "/jobs/health" && req.method === "GET") return send(res, 200, { ok: true });
+    if (path === "/jobs" || path.startsWith("/jobs/")) {
+      // Like the real service: validate the bearer by the admin-only write-policy probe.
+      const b = bearer(req);
+      if (!b) return send(res, 401, { error: "invalid_token", message: "Sign in again." });
+      if (b.family.scope !== ADMIN_SCOPE || !b.user.superUser) return send(res, 403, { error: "admin_required", message: "Admin only." });
+      return jobsApi(req, res, path);
+    }
 
     if (path === "/oauth/mobile/authorize" && req.method === "GET") {
       const client = clients.get(q.get("client_id") ?? "");
@@ -394,6 +426,141 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
 
     return problem(res, 404, "not_found");
+  }
+
+  // --- extraction jobs (docs: .scratch-7/job-api.md) --------------------------------------------
+  const jobError = (res: ServerResponse, status: number, error: string, message: string) => send(res, status, { error, message });
+
+  function expireJob(j: MockJob) {
+    j.state = "expired";
+    j.result = null;
+    j.progress = { stage: "expired", fraction: null, message: "Results expired" };
+  }
+
+  /** Each read of an active job moves it one step: deterministic, no timers. */
+  function advance(j: MockJob) {
+    if (!["queued", "submitting", "slicing", "downloading", "converting"].includes(j.state)) return;
+    const now = new Date().toISOString();
+    j.updatedAt = now;
+    const failing = j.input.name.includes("[fail]");
+    if (failing && j.state === "slicing") {
+      j.state = "failed";
+      j.error = { code: "too_large", message: "The region contains too many nodes for one extract. Choose a smaller area." };
+      j.progress = { stage: "failed", fraction: null, message: j.error.message };
+      return;
+    }
+    const next = JOB_STEPS[JOB_STEPS.indexOf(j.state as (typeof JOB_STEPS)[number]) + 1];
+    j.state = next;
+    j.progress = { stage: next, fraction: next === "complete" ? 1 : JOB_STEPS.indexOf(next) / (JOB_STEPS.length - 1), message: next === "complete" ? "Done" : `Working: ${next}` };
+    if (next === "complete") j.result = jobResult(j);
+  }
+
+  function jobBbox(j: MockJob): [number, number, number, number] {
+    const region = j.input.region as { type: string; bbox?: number[]; geometry?: { coordinates: unknown } };
+    if (region.type === "bbox") return region.bbox as [number, number, number, number];
+    const pts: number[][] = [];
+    const walk = (c: unknown) => (Array.isArray(c) && typeof c[0] === "number" ? pts.push(c as number[]) : (c as unknown[]).forEach(walk));
+    walk(region.geometry?.coordinates);
+    const xs = pts.map((p) => p[0]); const ys = pts.map((p) => p[1]);
+    return [Math.min(...ys), Math.min(...xs), Math.max(...ys), Math.max(...xs)];
+  }
+
+  function jobFeatures(j: MockJob) {
+    const [s, w, n, e] = jobBbox(j);
+    const tags = Object.fromEntries(Object.entries(j.input.rules[0] ?? {}).map(([k, v]) => [k, v === "*" ? "yes" : v]));
+    return {
+      type: "FeatureCollection",
+      features: [0.25, 0.5, 0.75].map((f, i) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [w + (e - w) * f, s + (n - s) * f] },
+        properties: { "@id": `node/${1000001 + i}`, ...tags, name: `Fixture ${i + 1}` },
+      })),
+    };
+  }
+
+  function jobResult(j: MockJob) {
+    return {
+      featureCount: 3,
+      counts: { candidates: 5, emitted: 3, duplicates: 1, outside_region: 0, omitted: 1 },
+      omissions: [{ id: "way/4242", reason: "no_representative_point", detail: "Way has no resolvable nodes in the extract" }],
+      omissionTotal: 1,
+      provenance: {
+        sliceosmJobId: `00000000-0000-4000-8000-${String(jobSeq).padStart(12, "0")}`,
+        sourceTimestamp: "2026-10-07T00:00:00Z",
+        pbfSha256: "ab".repeat(32),
+        pbfBytes: 123456,
+        request: { region: j.input.region },
+        rules: j.input.rules,
+        createdAt: j.createdAt,
+      },
+    };
+  }
+
+  async function jobsApi(req: IncomingMessage, res: ServerResponse, path: string) {
+    if (path === "/jobs" && req.method === "GET") {
+      for (const j of jobs) advance(j);
+      return send(res, 200, { jobs: [...jobs].reverse().slice(0, 50) });
+    }
+    if (path === "/jobs" && req.method === "POST") {
+      let body: { name?: unknown; region?: { type?: unknown; bbox?: unknown; geometry?: unknown }; rules?: unknown };
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        return jobError(res, 422, "invalid_request", "Body must be JSON");
+      }
+      const problems: string[] = [];
+      if (typeof body.name !== "string" || !body.name.trim()) problems.push("name is required");
+      const rules = body.rules;
+      if (!Array.isArray(rules) || rules.length < 1 || rules.length > 10 || !rules.every((r) => r && typeof r === "object" && Object.keys(r).length > 0 && Object.values(r).every((v) => typeof v === "string" && v !== "")))
+        problems.push("rules: 1 to 10 non-empty rules");
+      const region = body.region;
+      if (region?.type === "bbox") {
+        const bb = region.bbox;
+        if (!Array.isArray(bb) || bb.length !== 4 || !bb.every((v) => typeof v === "number" && Number.isFinite(v))) problems.push("bbox: four numbers");
+        else {
+          const [s, w, n, e] = bb as number[];
+          if (s >= n || w >= e || s < -90 || n > 90 || w < -180 || e > 180) problems.push("bbox: order or range invalid");
+          else if (6371.0088 ** 2 * ((e - w) * Math.PI / 180) * (Math.sin(n * Math.PI / 180) - Math.sin(s * Math.PI / 180)) > MAX_JOB_AREA_KM2) problems.push("area exceeds the limit");
+        }
+      } else if (region?.type === "geojson") {
+        const g = region.geometry as { type?: string } | undefined;
+        if (g?.type !== "Polygon" && g?.type !== "MultiPolygon") problems.push("geometry: Polygon or MultiPolygon");
+      } else problems.push("region.type: bbox or geojson");
+      if (problems.length) return jobError(res, 422, "invalid_request", problems.join("; "));
+      if (jobs.filter((j) => ["queued", "submitting", "slicing", "downloading", "converting"].includes(j.state)).length >= MAX_ACTIVE_JOBS)
+        return jobError(res, 429, "too_many_active_jobs", `At most ${MAX_ACTIVE_JOBS} active jobs`);
+      const now = new Date().toISOString();
+      const job: MockJob = {
+        id: `00000000-0000-4000-8000-${String(++jobSeq).padStart(12, "0")}`,
+        state: "queued", createdAt: now, updatedAt: now,
+        input: { region: body.region, rules: rules as Record<string, string>[], name: body.name as string },
+        progress: { stage: "queued", fraction: 0, message: "Waiting for a worker" },
+        error: null, result: null,
+      };
+      jobs.push(job);
+      return send(res, 201, job);
+    }
+    const m = /^\/jobs\/([^/]+)(?:\/(features|cancel))?$/.exec(path);
+    const job = m && jobs.find((j) => j.id === m[1]);
+    if (!m || !job) return jobError(res, 404, "not_found", "No such job");
+    if (!m[2] && req.method === "GET") {
+      advance(job);
+      return send(res, 200, job);
+    }
+    if (m[2] === "cancel" && req.method === "POST") {
+      if (["queued", "submitting", "slicing", "downloading", "converting"].includes(job.state)) {
+        job.state = "cancelled";
+        job.progress = { stage: "cancelled", fraction: null, message: "Cancelled" };
+        job.updatedAt = new Date().toISOString();
+      }
+      return send(res, 200, job);
+    }
+    if (m[2] === "features" && req.method === "GET") {
+      if (job.state === "expired") return jobError(res, 410, "expired", "Results were purged");
+      if (job.state !== "complete") return jobError(res, 409, "not_complete", "Job is not complete");
+      return send(res, 200, jobFeatures(job), { "Content-Type": "application/geo+json" });
+    }
+    return jobError(res, 404, "not_found", "No such route");
   }
 
   const clientJson = (c: Client) => ({

@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { APP, MOCK } from "./e2e/env.ts";
+import { APP, MOCK, PORTS } from "./e2e/env.ts";
 
 /** End-to-end tests: the built app (vite preview) against the mock backend. No other network. */
 export default defineConfig({
@@ -15,13 +15,13 @@ export default defineConfig({
   webServer: [
     {
       command: "node mock/server.ts",
-      env: { MOCK_PORT: "9300", MOCK_ADMIN_ORIGIN: APP },
+      env: { MOCK_PORT: PORTS.mock, MOCK_ADMIN_ORIGIN: APP },
       url: `${MOCK}/__mock/stats`,
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "npx vite build && npx vite preview --port 4173 --strictPort",
-      env: { ADMIN_BACKEND: MOCK },
+      command: `npx vite build && npx vite preview --port ${PORTS.app} --strictPort`,
+      env: { ADMIN_BACKEND: MOCK, ADMIN_JOBS: MOCK, ADMIN_JOBS_POLL_MS: "300" },
       url: APP,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

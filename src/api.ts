@@ -16,12 +16,13 @@ export class ApiError extends Error {
 }
 
 /**
- * Calls the backend with the bearer token. A 401 gets one refresh and one retry; a second 401
- * ends the session.
+ * Fetches with the bearer token. A 401 gets one refresh and one re-send (a 401 means the request
+ * was rejected before it ran, so this is safe for POST too); a second 401 ends the session.
+ * Nothing else is ever retried here.
  */
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const send = async (token: string) =>
-    fetch(`${config().backend}${path}`, {
+    fetch(url, {
       ...init,
       headers: {
         Accept: "application/json",
@@ -36,6 +37,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     clearSession();
     throw new AuthError("Session expired. Please sign in again.");
   }
+  return res;
+}
+
+/** Calls the backend with the bearer token (see authedFetch). */
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authedFetch(`${config().backend}${path}`, init);
   const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);
   if (!res.ok) {
     const b = (body ?? {}) as { error?: string; detail?: string[] };
