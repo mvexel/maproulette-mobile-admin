@@ -7,6 +7,11 @@ interface OptionDraft { key: string; id: string; label: string; description: str
 interface QuestionDraft { key: string; id: string; prompt: string; description: string; expect: string; options: OptionDraft[] }
 interface Draft { challenge: SurveyDocument["challenge"]; match: string; features: string; questions: QuestionDraft[] }
 const pretty = (v: unknown) => JSON.stringify(v, null, 2);
+/**
+ * Our Layercake explorer: daily OSM extracts. `maproulette` unlocks its
+ * MapRoulette features export, which writes exactly the feature format below.
+ */
+const LAYERCAKE_EXPLORER = "https://layercake.osm.lol/explore/?layer=pois&maproulette";
 function draftOf(s: SurveyDocument): Draft {
   return { challenge: { ...s.challenge }, match: pretty(s.match), features: pretty(s.features), questions: s.questions.map(q => ({ ...q, key: crypto.randomUUID(), description: q.description ?? "", expect: pretty(q.expect), options: q.options.map(o => ({ ...o, key: crypto.randomUUID(), description: o.description ?? "", setTags: pretty(o.setTags ?? {}), unsetTags: pretty(o.unsetTags ?? []) })) })) };
 }
@@ -136,6 +141,7 @@ export function SurveyBuilder() {
         <button type="button" disabled={draft.questions.length >= 8} onClick={() => setDraft(d => ({ ...d, questions: [...d.questions, { key: crypto.randomUUID(), id: "", prompt: "", description: "", expect: "{}", options: [{ key: crypto.randomUUID(), id: "yes", label: "Yes", description: "", setTags: "{}", unsetTags: "[]" }, { key: crypto.randomUUID(), id: "no", label: "No", description: "", setTags: "{}", unsetTags: "[]" }] }] }))}>Add question</button>
         <div className="panel">
           <h3>Features to survey</h3>
+          <p className="hint">Download features from <a href={LAYERCAKE_EXPLORER} target="_blank" rel="noreferrer">our Layercake explorer</a> (Utah, OpenStreetMap data refreshed daily): choose a layer such as POIs, zoom in to your area, add filters (for example amenity = restaurant), fetch, then export as <strong>MapRoulette features</strong> and open that file here. Up to 10,000 features per survey.</p>
           <label>Open feature file<input type="file" accept=".json,.geojson" onChange={e => { void loadFile(e.target.files?.[0], true); e.target.value = ""; }} /></label>
           <label>FeatureCollection<textarea aria-label="FeatureCollection" rows={12} className="tag-input" value={draft.features} onChange={e => setDraft(d => ({ ...d, features: e.target.value }))} /></label>
           <p className="hint">Each feature needs properties.@id (node/ID, way/ID or relation/ID), its current OSM tags, and a representative Point location in [longitude, latitude] order. Examples are fictional.</p>
