@@ -14,13 +14,6 @@
 	header @nocache Cache-Control no-store
 	@assets path /assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-	# Extraction jobs service (same origin, so no CORS). Must be a handle block placed before the
-	# static handler: a top-level try_files would otherwise rewrite /jobs/* to /index.html first.
-	handle /jobs/* {
-		reverse_proxy {$JOBS_UPSTREAM:jobs:8000}
-	}
-	handle {
-		try_files {path} /index.html
-		file_server
-	}
+	try_files {path} /index.html
+	file_server
 }

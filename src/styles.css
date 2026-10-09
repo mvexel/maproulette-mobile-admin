@@ -150,10 +150,6 @@ input[type="file"]::file-selector-button { margin-right: .55rem; padding: .35rem
 main .survey-builder button { min-height: 2.4rem; }
 
 .survey-main { min-width: 0; }
-.bbox-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; }
-.job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
-.job-list li { padding: .6rem 0; border-bottom: 1px solid var(--line); }
-.job-review { padding-top: .6rem; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 
 @media (max-width: 850px) {
   header { flex-wrap: wrap; gap: .65rem 1rem; }

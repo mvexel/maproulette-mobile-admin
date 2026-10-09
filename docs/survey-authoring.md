@@ -59,17 +59,6 @@ The generator places `cooperativeWork` at each collection's top level and keeps 
 
 Check signs/menus or ask staff for service questions. Absence of a sign is not evidence for No. The volunteer can always choose **I can't tell**. Partial submissions close the complete task; the confirmation explains this.
 
-## Finding features in an area
-
-The **Find features in an area** panel (separate from **Open feature file**, which loads a file you already have) asks the jobs service to extract OpenStreetMap features for you.
-
-1. Choose the area: type south/west/north/east degrees, or upload a GeoJSON boundary (Polygon, MultiPolygon, Feature or FeatureCollection of polygons; at most 5 MiB and 5,000 vertices). Areas whose bounding box exceeds about 5,000 km2 show a warning; the service enforces its own limit. There is no map picker, so no map library or extra network access is needed.
-2. Review the identity rules. They start from the survey's identity tags (`key=value`, one per line, `*` matches any value; separate rules are alternatives). They are frozen into the job when queued, so later edits do not change a running search.
-3. **Queue feature search**. Jobs run on the server and are listed from it, so they survive a reload. A queue request is never retried automatically; if it was interrupted, check the list before queueing again.
-4. When a job completes, **Review results** shows the feature count, counts, omitted features, OpenStreetMap data timestamp and provenance. Nothing changes in the survey until you press **Load N features into preview**, which replaces the feature list exactly as opening a feature file does. It is blocked after a challenge was created, and you must export the survey again before creating one.
-
-Results expire after the service's retention period; queue the search again then. Deployments serve the service at same-origin `/jobs`; `config.json` may set `jobs` (origin) and `jobsPollMs` for development and tests.
-
 ## Revisions and interrupted setup
 
 Editing an authoring file changes future generated tasks. The builder never selects an existing challenge as its import target. Publish a new uniquely named challenge for a changed survey. Keep the definition file, generated task file, backend origin, and created challenge ID together for recovery.

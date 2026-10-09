@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { createSurveyChallenge, describeError, importChallengeTasks, publishSurveyChallenge, type TaskImportReport } from "../api";
 import { config } from "../config";
-import { FeatureAcquisition } from "./FeatureAcquisition";
 import { exampleSurvey, generateTasks, parseSurvey, type SurveyDocument, SurveyValidationError } from "../survey";
 
 interface OptionDraft { key: string; id: string; label: string; description: string; setTags: string; unsetTags: string }
@@ -68,16 +67,6 @@ export function SurveyBuilder() {
       setActionErrors([]); setExported(""); setNotice(featuresOnly ? "Feature file loaded. Review the generated tasks below." : "Survey file loaded.");
     } catch (e) { setActionErrors(errorsOf(e)); }
   }
-  function loadAcquired(fc: { type: "FeatureCollection"; features: unknown[] }): string[] {
-    if (creationAttempted) return ["A challenge was already created; features cannot be replaced."];
-    try { parseSurvey({ ...(result.survey ?? exampleSurvey("restaurant")), features: fc }); }
-    catch (e) {
-      const own = errorsOf(e).filter(p => /^(Feature \d+|features)/.test(p));
-      if (own.length) return [...own.slice(0, 5), ...(own.length > 5 ? [`and ${own.length - 5} more problems`] : [])];
-    }
-    setDraft(d => ({ ...d, features: pretty(fc) })); setExported(""); setActionErrors([]);
-    return [];
-  }
   function save(exportFile: boolean) {
     if (!result.survey) return;
     try {
@@ -121,7 +110,6 @@ export function SurveyBuilder() {
       <button type="button" disabled={!result.survey} onClick={() => save(true)}>Export survey file</button>
     </div>
     <div className="survey-workspace">
-      <div className="survey-main">
       <fieldset className="survey-editor" disabled={creationAttempted}>
         <legend>Survey definition</legend>
         <div className="panel">
@@ -148,13 +136,11 @@ export function SurveyBuilder() {
         <button type="button" disabled={draft.questions.length >= 8} onClick={() => setDraft(d => ({ ...d, questions: [...d.questions, { key: crypto.randomUUID(), id: "", prompt: "", description: "", expect: "{}", options: [{ key: crypto.randomUUID(), id: "yes", label: "Yes", description: "", setTags: "{}", unsetTags: "[]" }, { key: crypto.randomUUID(), id: "no", label: "No", description: "", setTags: "{}", unsetTags: "[]" }] }] }))}>Add question</button>
         <div className="panel">
           <h3>Features to survey</h3>
-          <label>Open feature file (a file you already have)<input type="file" accept=".json,.geojson" onChange={e => { void loadFile(e.target.files?.[0], true); e.target.value = ""; }} /></label>
+          <label>Open feature file<input type="file" accept=".json,.geojson" onChange={e => { void loadFile(e.target.files?.[0], true); e.target.value = ""; }} /></label>
           <label>FeatureCollection<textarea aria-label="FeatureCollection" rows={12} className="tag-input" value={draft.features} onChange={e => setDraft(d => ({ ...d, features: e.target.value }))} /></label>
           <p className="hint">Each feature needs properties.@id (node/ID, way/ID or relation/ID), its current OSM tags, and a representative Point location in [longitude, latitude] order. Examples are fictional.</p>
         </div>
       </fieldset>
-      <FeatureAcquisition match={draft.match} challengeName={draft.challenge.name} locked={creationAttempted} onLoad={loadAcquired} />
-      </div>
       <aside className="survey-preview" aria-label="Survey preview">
         <h3>Volunteer preview</h3>
         <p>Questions with already-known tags are omitted for each feature.</p>

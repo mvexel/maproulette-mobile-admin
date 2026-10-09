@@ -9,37 +9,15 @@ services:
     environment:
       BACKEND_ORIGIN: https://${MR_API_HOST:?Set the matching API host}
       CLIENT_ID: maproulette-mobile-admin
-      JOBS_UPSTREAM: jobs:8000
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
       timeout: 5s
       retries: 3
     networks:
-      default:
       ingress:
         aliases:
           - ${MR_ADMIN_NETWORK_ALIAS:?Set a unique admin network alias}
-
-  # Extraction jobs. Only on the project's own default network (never the shared ingress), so
-  # stage and prod each reach their own `jobs`.
-  jobs:
-    build: ../worker
-    image: maproulette-mobile-admin-jobs:${MR_DEPLOYMENT:?Set stage or prod}
-    pull_policy: build
-    restart: unless-stopped
-    environment:
-      BACKEND_ORIGIN: https://${MR_API_HOST:?Set the matching API host}
-      SLICEOSM_URL: ${SLICEOSM_URL:-https://slice.openstreetmap.us/}
-      MAX_AREA_KM2: ${MAX_AREA_KM2:-5000}
-      MAX_ACTIVE: ${MAX_ACTIVE:-3}
-      MAX_FEATURES: ${MAX_FEATURES:-10000}
-      RESULT_TTL_DAYS: ${RESULT_TTL_DAYS:-7}
-    volumes:
-      - jobs-data:/data
-
-volumes:
-  jobs-data:
 
 networks:
   ingress:
