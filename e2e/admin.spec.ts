@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import { MOCK, PORTS } from "./env.ts";
+import { MOCK } from "./env.ts";
 
 interface Stats {
   authorizationCodes: number;
@@ -17,7 +17,7 @@ async function signIn(page: Page, as: "mock-superuser" | "mock-mapper" = "mock-s
   await page.goto("/");
   await expect(page.getByTestId("backend")).toHaveText(MOCK);
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
-  await expect(page).toHaveURL(new RegExp(`127\\.0\\.0\\.1:${PORTS.mock}/oauth/mobile/authorize\\?`));
+  await expect(page).toHaveURL(/127\.0\.0\.1:9300\/oauth\/mobile\/authorize\?/);
   await page.getByRole("link", { name: new RegExp(`Sign in as ${as}`) }).click();
 }
 

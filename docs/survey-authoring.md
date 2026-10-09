@@ -7,7 +7,7 @@ The Survey builder creates native multiple-choice campaigns using the existing c
 1. Open **Survey builder** and choose **Restaurant example**, **Bus stop example**, or **Open survey file**.
 2. Set a unique challenge title, description, instructions, and OSM changeset comment/source. Instructions and help are plain text.
 3. Edit questions and answers. Keep question/answer IDs stable and give every answer an explicit OSM tag effect. The preview shows both volunteer text and tag effects.
-4. Open a feature file or edit the FeatureCollection. Supply representative Point locations, typed OSM IDs, and the features' current OSM tags. Replace the fictional example feature IDs before creating a challenge.
+4. Open a feature file or edit the FeatureCollection. Supply representative Point locations, typed OSM IDs, and the features' current OSM tags. Replace the fictional example feature IDs before creating a challenge. Get the file from [our Layercake explorer](https://layercake.osm.lol/explore/?layer=pois&maproulette) (Utah, refreshed daily; the `maproulette` parameter in this link unlocks the export): choose a layer, zoom in, filter (for example `amenity = restaurant`), fetch, and export as **MapRoulette features**; that export is already in the format below.
 5. Review generated and omitted features, then **Export survey file**. Keep this portable file as the authoring source. **Save browser draft** is a convenience copy scoped to the connected backend; it is not a server backup.
 6. Enter the **Project ID on this backend**, choosing an existing enabled project you can manage. **Create new challenge** creates a disabled challenge there. The editor freezes its definition for this import. Duplicate challenge names are rejected by the backend. Project IDs are deliberately excluded from portable survey files because they differ between environments. The builder cannot inspect the project's enabled state through the current admin read allowlist; verify that state in your project administration.
 7. **Import reviewed tasks** sends the generated GeoJSON lines to the existing import endpoint. Review the created/updated/rejected counts. Accepted lines remain even if other lines were rejected.
@@ -58,17 +58,6 @@ The generator places `cooperativeWork` at each collection's top level and keeps 
 | Customer toilets | `toilets` | `yes`, `no` |
 
 Check signs/menus or ask staff for service questions. Absence of a sign is not evidence for No. The volunteer can always choose **I can't tell**. Partial submissions close the complete task; the confirmation explains this.
-
-## Finding features in an area
-
-The **Find features in an area** panel (separate from **Open feature file**, which loads a file you already have) asks the jobs service to extract OpenStreetMap features for you.
-
-1. Choose the area: type south/west/north/east degrees, or upload a GeoJSON boundary (Polygon, MultiPolygon, Feature or FeatureCollection of polygons; at most 5 MiB and 5,000 vertices). Areas whose bounding box exceeds about 5,000 km2 show a warning; the service enforces its own limit. There is no map picker, so no map library or extra network access is needed.
-2. Review the identity rules. They start from the survey's identity tags (`key=value`, one per line, `*` matches any value; separate rules are alternatives). They are frozen into the job when queued, so later edits do not change a running search.
-3. **Queue feature search**. Jobs run on the server and are listed from it, so they survive a reload. A queue request is never retried automatically; if it was interrupted, check the list before queueing again.
-4. When a job completes, **Review results** shows the feature count, counts, omitted features, OpenStreetMap data timestamp and provenance. Nothing changes in the survey until you press **Load N features into preview**, which replaces the feature list exactly as opening a feature file does. It is blocked after a challenge was created, and you must export the survey again before creating one.
-
-Results expire after the service's retention period; queue the search again then. Deployments serve the service at same-origin `/jobs`; `config.json` may set `jobs` (origin) and `jobsPollMs` for development and tests.
 
 ## Revisions and interrupted setup
 
