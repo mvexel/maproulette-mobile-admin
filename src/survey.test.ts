@@ -14,6 +14,13 @@ describe("existing-contract survey generator", () => {
     expect(task.cooperativeWork.questions).toEqual(s.questions);
     expect(generated.text).toBe(readFileSync(new URL(`../examples/${kind}-tasks.geojsonl`, import.meta.url), "utf8"));
   });
+  it("generates the SLC bus stop survey's golden tasks", () => {
+    const read = (name: string) => readFileSync(new URL(`../examples/${name}`, import.meta.url), "utf8");
+    const generated = generateTasks(parseSurvey(JSON.parse(read("slc-bus-stops-survey.json"))));
+    expect(generated.count).toBe(2);
+    expect(generated.skipped).toEqual(["node/9999999999999903: identity tags do not match"]);
+    expect(generated.text).toBe(read("slc-bus-stops-tasks.geojsonl"));
+  });
   it("offers only absent restaurant tags, and reports fully known or mismatched features", () => {
     const s = exampleSurvey("restaurant");
     const original = s.features.features[0];

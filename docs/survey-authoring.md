@@ -19,7 +19,7 @@ Challenge publication does not change the backend's OSM Write Policy. Stage and 
 
 `survey.json` contains version 1, challenge metadata, identity tags (`match`), shared questions/options, and feature input. It carries no credentials or backend challenge IDs and can be reopened on another machine. Importing it creates a new challenge rather than editing an existing one.
 
-See [restaurant survey](../examples/restaurant-survey.json), [bus stop survey](../examples/bus-stop-survey.json), and their [generated restaurant tasks](../examples/restaurant-tasks.geojsonl) / [bus stop tasks](../examples/bus-stop-tasks.geojsonl). All example features are fictional; generated examples are for local contract testing.
+See [restaurant survey](../examples/restaurant-survey.json), [bus stop survey](../examples/bus-stop-survey.json), the [SLC bus stop pilot survey](../examples/slc-bus-stops-survey.json), and their [generated restaurant tasks](../examples/restaurant-tasks.geojsonl) / [bus stop tasks](../examples/bus-stop-tasks.geojsonl) / [SLC bus stop tasks](../examples/slc-bus-stops-tasks.geojsonl). All example features are fictional; generated examples are for local contract testing.
 
 Question guards use `expect`: `{"takeaway": null}` means offer the question only while `takeaway` is absent. Exact string values are also supported. A question may guard 1–4 tags, and all must match. Different questions cannot guard the same tag; identity tags cannot overlap guarded tags.
 
