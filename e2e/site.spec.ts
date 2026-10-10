@@ -8,15 +8,16 @@ test.describe("on an iPhone", () => {
 
   test("shows the campaign and links to install and open it", async ({ page }) => {
     await page.goto(`${SITE}/challenge/7`);
-    await expect(page.getByRole("heading", { name: "Join SLC Bus Stops" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "SLC Bus Stops" })).toBeVisible();
     await expect(page.getByText(/Help check every bus stop in Salt Lake City/)).toBeVisible();
-    await expect(page).toHaveTitle("Join SLC Bus Stops on Street Tally");
+    await expect(page).toHaveTitle("SLC Bus Stops · Street Tally");
     await expect(page.getByRole("link", { name: "Install the beta" })).toHaveAttribute(
       "href",
       "https://testflight.apple.com/join/TEST1234",
     );
     await expect(page.getByRole("link", { name: "Open the campaign" })).toHaveAttribute("href", "mrchoice://challenge/7");
     await expect(page.getByText("You don't need an account to take part.")).toBeVisible();
+    await expect(page.getByText("on Street Tally")).toBeVisible();
   });
 
   test("falls back to generic text when the campaign can't be read", async ({ page }) => {

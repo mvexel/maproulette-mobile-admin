@@ -31,8 +31,8 @@
         .then((c) => {
           if (!c || typeof c.name !== "string") return;
           // Text only: the name and blurb come from the server.
-          document.getElementById("name").textContent = `Join ${c.name}`;
-          document.title = `Join ${c.name} on Street Tally`;
+          document.getElementById("name").textContent = c.name;
+          document.title = `${c.name} · Street Tally`;
           const blurb = typeof c.blurb === "string" && c.blurb.trim() ? c.blurb.trim() : "";
           if (blurb) document.getElementById("blurb").textContent = blurb.length > 280 ? `${blurb.slice(0, 279)}…` : blurb;
         });

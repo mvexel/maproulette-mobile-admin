@@ -34,8 +34,9 @@ main { max-width: 480px; margin: 0 auto; padding: 24px 16px calc(32px + env(safe
 a { color: var(--accent-text); }
 .hero { background: #14213d; color: #f3f4f6; border-radius: 20px; padding: 24px 20px 28px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: #c9ced8; }
-.brand img { border-radius: 9px; }
-.eyebrow { margin: 20px 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f5a524; }
+.brand img { border-radius: 6px; }
+.brand.under { margin-top: 18px; font-size: 14px; font-weight: 500; }
+.eyebrow { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f5a524; }
 h1 { margin: 0; font-size: 34px; line-height: 1.1; font-weight: 800; overflow-wrap: anywhere; }
 .hero .lead { margin-top: 20px; }
 .hero p { margin: 12px 0 0; color: #c9ced8; }
