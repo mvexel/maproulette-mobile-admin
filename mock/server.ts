@@ -3,9 +3,12 @@
  * No network beyond loopback, no dependencies. Response shapes follow the backend's
  * docs/mobile-oauth.md and docs/mobile-admin-api.md (MobileOAuthController,
  * MobileAdminController). Instead of the OSM login, /oauth/mobile/authorize shows a page that
- * lets you sign in as a super-user or as a plain user (who gets access_denied).
+ * lets you sign in as a super-user or as a plain user (who gets access_denied for the admin
+ * client). It also mocks the deferred sign-up claim routes the claim page uses (design doc
+ * deferred-signup-api.md §3.6, §3.7 and §3.10), with fixed claim tokens in MOCK_CLAIM_TOKENS.
  *
- * Run: node mock/server.ts   (MOCK_PORT=9300, MOCK_ADMIN_ORIGIN=http://localhost:5173)
+ * Run: node mock/server.ts   (MOCK_PORT=9300, MOCK_ADMIN_ORIGIN=http://localhost:5173,
+ *                             MOCK_CLAIM_ORIGIN=http://localhost:5174)
  */
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -17,6 +20,50 @@ export interface MockOptions {
   accessSeconds?: number;
   /** Number of audit rows seeded at start and on reset. */
   auditSeed?: number;
+  /** Origin of the claim page, for CORS and the seeded claim client's redirect. */
+  claimOrigin?: string;
+}
+
+/** Fixed claim tokens (43 characters, like the backend's) for each token state. */
+export const MOCK_CLAIM_TOKENS = {
+  /** Four answers: two published (one with a dropped answer), one changed, one checked first. */
+  partial: "mock-claim-partial".padEnd(43, "x"),
+  /** Three answers, all published. */
+  all: "mock-claim-all".padEnd(43, "x"),
+  /** Already claimed by mock-mapper and published. */
+  claimed: "mock-claim-claimed".padEnd(43, "x"),
+  expired: "mock-claim-expired".padEnd(43, "x"),
+  deleted: "mock-claim-deleted".padEnd(43, "x"),
+} as const;
+
+interface PendingTask {
+  taskId: number;
+  lat: number;
+  lon: number;
+  answeredAt: string;
+  label: string;
+  answers: { prompt: string; label: string }[];
+  /** What the publish job will do with it. */
+  outcome: "published" | "skipped_stale" | "superseded" | "failed";
+  dropped?: string[];
+}
+
+interface Guest {
+  state: "active" | "claimed" | "expired" | "deleted";
+  expiresAt: string;
+  tasks: PendingTask[];
+  claimedBy?: number;
+  claimId?: number;
+  remindersStopped: boolean;
+}
+
+interface Claim {
+  id: number;
+  userId: number;
+  guest: Guest;
+  state: "queued" | "waiting" | "running" | "done" | "failed";
+  /** Items handled so far; each status poll handles one more. */
+  handled: number;
 }
 
 interface Client {
@@ -86,11 +133,15 @@ export interface MockBackend {
 
 export function createMockBackend(opts: MockOptions): MockBackend {
   const adminOrigin = opts.adminOrigin.replace(/\/+$/, "");
+  const claimOrigin = opts.claimOrigin?.replace(/\/+$/, "");
   const accessSeconds = opts.accessSeconds ?? 900;
 
   let clients = new Map<string, Client>();
   let audit: Audit[] = [];
   let writePolicy = false;
+  let guests = new Map<string, Guest>();
+  let claims = new Map<number, Claim>();
+  let claimWrites = true;
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -101,6 +152,39 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   function seedClient(c: Pick<Client, "id" | "name" | "redirectUris" | "scopes">) {
     const now = new Date(Date.UTC(2026, 9, 7)).toISOString();
     clients.set(c.id, { ...c, enabled: true, createdBy: null, updatedBy: null, createdAt: now, updatedAt: now });
+  }
+
+  function seedGuests() {
+    const day = 86_400_000;
+    const expiresAt = new Date(Date.now() + 20 * day).toISOString();
+    const answeredAt = new Date(Date.now() - 2 * day).toISOString();
+    const stop = (taskId: number, lat: number, lon: number, label: string, shelter: string, bench: string): PendingTask => ({
+      taskId,
+      lat,
+      lon,
+      answeredAt,
+      label,
+      answers: [
+        { prompt: "Is there a shelter with a roof?", label: shelter },
+        { prompt: "Is there a bench or seat?", label: bench },
+      ],
+      outcome: "published",
+    });
+    const four = [
+      stop(101, 40.7608, -111.891, "400 S & Main", "No", "Yes"),
+      { ...stop(102, 40.7621, -111.8882, "300 S & State", "No", "No"), dropped: ["bench"] },
+      { ...stop(103, 40.7645, -111.8905, "Stop 13042", "Yes", "Yes"), outcome: "skipped_stale" as const },
+      { ...stop(104, 40.7587, -111.8861, "500 S & 200 E", "No", "Yes"), outcome: "superseded" as const },
+    ];
+    guests = new Map([
+      [MOCK_CLAIM_TOKENS.partial, { state: "active", expiresAt, tasks: four, remindersStopped: false }],
+      [MOCK_CLAIM_TOKENS.all, { state: "active", expiresAt, tasks: four.slice(0, 2).concat(stop(105, 40.7667, -111.8835, "200 S & 300 E", "Yes", "No")).map((t) => ({ ...t, outcome: "published" as const, dropped: undefined })), remindersStopped: false }],
+      [MOCK_CLAIM_TOKENS.claimed, { state: "claimed", expiresAt, tasks: four.slice(0, 1), claimedBy: USERS.plain.id, remindersStopped: false }],
+      [MOCK_CLAIM_TOKENS.expired, { state: "expired", expiresAt: new Date(Date.now() - day).toISOString(), tasks: [], remindersStopped: false }],
+      [MOCK_CLAIM_TOKENS.deleted, { state: "deleted", expiresAt, tasks: [], remindersStopped: false }],
+    ]);
+    claims = new Map();
+    claimWrites = true;
   }
 
   function reset() {
@@ -123,6 +207,14 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       redirectUris: ["org.maproulette.example:/oauth2redirect"],
       scopes: ["tasks:read", "tasks:write"],
     });
+    if (claimOrigin)
+      seedClient({
+        id: "maproulette-claim",
+        name: "Street Tally claim page",
+        redirectUris: [`${claimOrigin}/claim/callback`],
+        scopes: ["tasks:read", "tasks:write", "osm:tagfix"],
+      });
+    seedGuests();
     audit = [];
     writePolicy = false;
     for (let i = 1; i <= (opts.auditSeed ?? 60); i++) {
@@ -238,21 +330,25 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     return Buffer.concat(chunks).toString("utf8");
   }
 
-  const corsPaths = (path: string) =>
-    path.startsWith("/api/v2/mobile-admin/") || ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"].includes(path);
+  const oauthPaths = ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"];
+  const adminPaths = (path: string) => path.startsWith("/api/v2/mobile-admin/") || oauthPaths.includes(path);
+  // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
+  const claimPaths = (path: string) =>
+    oauthPaths.includes(path) || /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+)?$/.test(path);
 
-  /** MobileCorsFilter: the admin origin only, no credentials; other origins' preflights get 403. */
+  /** MobileCorsFilter: the admin and claim origins only, no credentials; other preflights get 403. */
   function cors(req: IncomingMessage, res: ServerResponse, path: string): boolean {
     const origin = req.headers.origin;
-    if (!origin || !corsPaths(path)) return false;
-    if (origin !== adminOrigin) {
+    if (!origin || !(adminPaths(path) || claimPaths(path))) return false;
+    const allowed = (origin === adminOrigin && adminPaths(path)) || (origin === claimOrigin && claimPaths(path));
+    if (!allowed) {
       if (req.method === "OPTIONS") {
         send(res, 403);
         return true;
       }
       return false;
     }
-    res.setHeader("Access-Control-Allow-Origin", adminOrigin);
+    res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
@@ -287,6 +383,10 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 204);
     }
     if (path === "/__mock/stats" && req.method === "GET") return send(res, 200, stats);
+    if (path === "/__mock/claim-writes" && req.method === "POST") {
+      claimWrites = q.get("enabled") === "true";
+      return send(res, 204);
+    }
 
     if (path === "/oauth/mobile/authorize" && req.method === "GET") {
       const client = clients.get(q.get("client_id") ?? "");
@@ -300,24 +400,28 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         !q.get("state")
       )
         return problem(res, 400, "invalid_request");
-      if (q.get("scope") !== client.scopes.join(" ") || !client.scopes.includes(ADMIN_SCOPE))
-        return problem(res, 400, "invalid_scope");
+      if (q.get("scope") !== client.scopes.join(" ")) return problem(res, 400, "invalid_scope");
       const tx = token();
       interactions.set(tx, { clientId: client.id, redirectUri, state: q.get("state")!, challenge: q.get("code_challenge")! });
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
       res.end(`<!doctype html><title>Mock sign-in</title><h1>Mock MapRoulette sign-in</h1>
-<p>Client <code>${client.id}</code> asks for <code>${ADMIN_SCOPE}</code>. This mock replaces the OSM login and consent.</p>
+<p>Client <code>${client.id}</code> asks for <code>${client.scopes.join(" ")}</code>. This mock replaces the OSM login and consent.</p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=super">Sign in as ${USERS.super.displayName} (super-user)</a></p>
-<p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=plain">Sign in as ${USERS.plain.displayName} (not a super-user)</a></p>`);
+<p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=plain">Sign in as ${USERS.plain.displayName} (not a super-user)</a></p>
+<p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=cancel">Cancel</a></p>`);
       return;
     }
 
     if (path === "/oauth/mobile/authorize/decide" && req.method === "GET") {
       const i = interactions.get(q.get("tx") ?? "");
+      if (i && q.get("as") === "cancel") {
+        interactions.delete(q.get("tx")!);
+        return appRedirect(res, i.redirectUri, { error: "access_denied", state: i.state });
+      }
       const user = USERS[q.get("as") ?? ""];
       if (!i || !user) return problem(res, 400, "invalid_request");
       interactions.delete(q.get("tx")!);
-      if (!user.superUser)
+      if (!user.superUser && clients.get(i.clientId)?.scopes.includes(ADMIN_SCOPE))
         return appRedirect(res, i.redirectUri, {
           error: "access_denied",
           error_description: "MapRoulette super-user required",
@@ -345,7 +449,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         )
           return problem(res, 400, "invalid_grant");
         const familyId = token();
-        families.set(familyId, { userId: code.userId, clientId: client.id, scope: ADMIN_SCOPE, revoked: false, refresh: "", used: new Set() });
+        families.set(familyId, { userId: code.userId, clientId: client.id, scope: client.scopes.join(" "), revoked: false, refresh: "", used: new Set() });
         stats.authorizationCodes++;
         return send(res, 200, issue(familyId));
       }
@@ -384,6 +488,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, { id: b.user.id, osmId: b.user.osmId, displayName: b.user.displayName, scope: b.family.scope });
     }
 
+    if (path.startsWith("/api/v2/mobile-claim")) return claim(req, res, path);
+
     if (path.startsWith("/api/v2/mobile-admin/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
@@ -393,6 +499,130 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return admin(req, res, path, q, b.user, b.family);
     }
 
+    return problem(res, 404, "not_found");
+  }
+
+
+  // --- deferred sign-up claim routes (deferred-signup-api.md §3.6, §3.7, §3.10) ------------------
+  let nextClaimId = 1;
+
+  async function claimToken(req: IncomingMessage): Promise<string | undefined> {
+    try {
+      const v = JSON.parse(await readBody(req)) as { claimToken?: unknown };
+      return typeof v.claimToken === "string" && /^[A-Za-z0-9_-]{43}$/.test(v.claimToken) ? v.claimToken : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function preview(g: Guest) {
+    const tasks = g.state === "active" ? g.tasks : [];
+    const counts = (prompt: string) => {
+      const c: Record<string, number> = {};
+      for (const t of tasks) {
+        const a = t.answers.find((x) => x.prompt === prompt);
+        if (a) c[a.label.toLowerCase()] = (c[a.label.toLowerCase()] ?? 0) + 1;
+      }
+      return c;
+    };
+    return {
+      state: g.state,
+      expiresAt: g.expiresAt,
+      pending: tasks.length,
+      challenges: [{ id: 7, name: "SLC Bus Stops", pending: tasks.length }],
+      tasks: tasks.map((t) => ({ taskId: t.taskId, lat: t.lat, lon: t.lon, answeredAt: t.answeredAt, label: t.label, answers: t.answers })),
+      summary: [
+        { questionId: "shelter", label: "Shelter", counts: counts("Is there a shelter with a roof?") },
+        { questionId: "bench", label: "Bench", counts: counts("Is there a bench or seat?") },
+      ],
+      hashtag: "#StreetTallySLCStops",
+      wikiUrl: "https://wiki.openstreetmap.org/wiki/Organised_Editing/Activities/Street_Tally_SLC_Bus_Stops",
+      writesEnabled: claimWrites,
+    };
+  }
+
+  function status(c: Claim) {
+    if (c.state === "waiting" && claimWrites) c.state = "running";
+    if (c.state === "queued") c.state = "running";
+    else if (c.state === "running") c.handled = Math.min(c.handled + 1, c.guest.tasks.length);
+    const items = c.guest.tasks.slice(0, c.handled).map((t) => ({
+      taskId: t.taskId,
+      state: t.outcome,
+      ...(t.outcome === "published" ? { changesetId: 9_000_000 + t.taskId } : {}),
+      dropped: t.dropped ?? [],
+    }));
+    if (c.state === "running" && c.handled === c.guest.tasks.length)
+      c.state = items.some((i) => i.state === "failed") ? "failed" : "done";
+    const n = (s: string) => items.filter((i) => i.state === s).length;
+    return {
+      claimId: c.id,
+      state: c.state,
+      total: c.guest.tasks.length,
+      published: n("published"),
+      skipped: n("skipped_stale"),
+      superseded: n("superseded"),
+      failed: n("failed"),
+      items,
+    };
+  }
+
+  async function claim(req: IncomingMessage, res: ServerResponse, path: string) {
+    if (path === "/api/v2/mobile-claim/preview" && req.method === "POST") {
+      const t = await claimToken(req);
+      if (!t) return problem(res, 400, "invalid_request");
+      const g = guests.get(t);
+      return g ? send(res, 200, preview(g)) : problem(res, 404, "not_found");
+    }
+    if ((path === "/api/v2/mobile-claim/delete" || path === "/api/v2/mobile-claim/stop-reminders") && req.method === "POST") {
+      const t = await claimToken(req);
+      if (!t) return problem(res, 400, "invalid_request");
+      const g = guests.get(t);
+      if (g?.state !== "active") return problem(res, 404, "not_found");
+      if (path.endsWith("/delete")) {
+        g.state = "deleted";
+        g.tasks = [];
+      } else g.remindersStopped = true;
+      return send(res, 204);
+    }
+    if (path === "/api/v2/mobile-claim" && req.method === "POST") {
+      const b = bearer(req);
+      if (!b) return problem(res, 401, "invalid_token");
+      if (!b.family.scope.includes("tasks:write") || !b.family.scope.includes("osm:tagfix"))
+        return problem(res, 403, "insufficient_scope");
+      const t = await claimToken(req);
+      if (!t) return problem(res, 400, "invalid_request");
+      const g = guests.get(t);
+      if (!g || g.state === "expired" || g.state === "deleted") return problem(res, 404, "not_found");
+      const user = { displayName: b.user.displayName, osmId: b.user.osmId };
+      if (g.state === "claimed") {
+        if (g.claimedBy !== b.user.id) {
+          const other = Object.values(USERS).find((u) => u.id === g.claimedBy)!;
+          return send(res, 409, { error: "guest_claimed", claimedAs: { displayName: other.displayName, osmId: other.osmId } });
+        }
+        if (g.claimId === undefined) {
+          // Claimed before the mock started (fixture): a finished claim for that user.
+          const done: Claim = { id: nextClaimId++, userId: b.user.id, guest: g, state: "done", handled: g.tasks.length };
+          claims.set(done.id, done);
+          g.claimId = done.id;
+        }
+        const c = claims.get(g.claimId)!;
+        return send(res, 200, { claimId: c.id, state: c.state, pending: g.tasks.length, user });
+      }
+      const c: Claim = { id: nextClaimId++, userId: b.user.id, guest: g, state: claimWrites ? "queued" : "waiting", handled: 0 };
+      claims.set(c.id, c);
+      g.state = "claimed";
+      g.claimedBy = b.user.id;
+      g.claimId = c.id;
+      return send(res, 202, { claimId: c.id, state: c.state, pending: g.tasks.length, user });
+    }
+    const m = /^\/api\/v2\/mobile-claim\/([0-9]+)$/.exec(path);
+    if (m && req.method === "GET") {
+      const b = bearer(req);
+      if (!b) return problem(res, 401, "invalid_token");
+      const c = claims.get(Number(m[1]));
+      if (!c || c.userId !== b.user.id) return problem(res, 404, "not_found");
+      return send(res, 200, status(c));
+    }
     return problem(res, 404, "not_found");
   }
 
@@ -550,7 +780,8 @@ export async function startMockBackend(opts: MockOptions, port = 0): Promise<Moc
 if (import.meta.url === `file://${process.argv[1]}`) {
   const port = Number(process.env.MOCK_PORT ?? 9300);
   const adminOrigin = process.env.MOCK_ADMIN_ORIGIN ?? "http://localhost:5173";
+  const claimOrigin = process.env.MOCK_CLAIM_ORIGIN ?? "http://localhost:5174";
   const accessSeconds = process.env.MOCK_ACCESS_SECONDS ? Number(process.env.MOCK_ACCESS_SECONDS) : undefined;
-  const backend = await startMockBackend({ adminOrigin, accessSeconds }, port);
-  console.log(`Mock MapRoulette backend on ${backend.url} (admin origin ${adminOrigin})`);
+  const backend = await startMockBackend({ adminOrigin, claimOrigin, accessSeconds }, port);
+  console.log(`Mock MapRoulette backend on ${backend.url} (admin origin ${adminOrigin}, claim origin ${claimOrigin})`);
 }
