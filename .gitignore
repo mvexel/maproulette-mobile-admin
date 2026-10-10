@@ -6,3 +6,4 @@ dist
 test-results
 playwright-report
 .claude/.cc-writes/
+dist-e2e-claim
