@@ -96,12 +96,12 @@ th { color: #52666a; background: #edf3f1; font-size: .73rem; font-weight: 750; l
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: #f6faf8; }
 tr.disabled { color: #778582; }
+.pager { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; color: var(--muted); }
+.pager button { min-height: 2.25rem; }
 td.actions { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 15rem; }
 td.actions button { min-height: 2.15rem; padding: .35rem .6rem; font-size: .81rem; }
 pre { margin: .5rem 0; overflow: auto; padding: .8rem; color: #28434a; background: #f2f6f5; border: 1px solid var(--line); border-radius: 5px; font-size: .82rem; }
 details summary { color: var(--link); cursor: pointer; font-weight: 600; }
-.pager { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; color: var(--muted); }
-.pager button { min-height: 2.25rem; }
 
 form { display: grid; gap: 1rem; }
 form h3, .panel h3 { margin: 0; color: #25464c; font-size: 1.05rem; letter-spacing: -.015em; }
@@ -175,5 +175,6 @@ main .survey-builder button { min-height: 2.4rem; }
   .panel { padding: 1rem; }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* biome-ignore lint/complexity/noImportantStyles: reduced motion has to win over every transition. */
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
