@@ -28,7 +28,13 @@ test("puts answers on the map and explains the ones that weren't added", async (
   // The authorization code doesn't stay in the address bar or history.
   expect(new URL(page.url()).pathname).toBe("/claim");
   expect(new URL(page.url()).search).toBe("");
-  await expect(page.getByText("Signed in as @mock-mapper")).toBeVisible();
+  await expect(page.getByText("Signed in as mock-mapper")).toBeVisible();
+
+  // "Not now" goes back to the answers with a reassurance, and signing in is still one click away.
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(page.getByText(/No problem\. Your answers stay saved until/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "#StreetTallySLCStops · About this campaign" })).toBeVisible();
+  await signIn(page);
 
   await page.getByRole("button", { name: "Put them on the map" }).click();
   await expect(page.getByRole("heading", { name: "2 places are on the map" })).toBeVisible({ timeout: 20_000 });
@@ -88,8 +94,10 @@ test("deletes the participant's data from the delete link", async ({ page }) => 
 
 test("stops reminders and keeps the answers", async ({ page }) => {
   await page.goto(`${CLAIM}/claim/stop-reminders#t=${T.all}`);
+  await expect(page.getByRole("heading", { name: "Stop reminder emails?" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Keep reminders" })).toBeVisible();
   await page.getByRole("button", { name: "Stop reminders" }).click();
-  await expect(page.getByText(/No more reminders\. Your answers stay saved until/)).toBeVisible();
+  await expect(page.getByText(/No more reminders\. Your answers are saved until/)).toBeVisible();
   await page.goto(`${CLAIM}/claim#t=${T.all}`);
   await expect(page.getByRole("heading", { name: "You checked 3 places" })).toBeVisible();
 });

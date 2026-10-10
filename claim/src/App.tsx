@@ -30,14 +30,14 @@ import { count, found, shortDate } from "./words";
 /** Every screen of the claim page (deferred-signup-ux.md §3 and §4). */
 type View =
   | { k: "loading" }
-  | { k: "answers"; p: Preview }
+  | { k: "answers"; p: Preview; notNow?: boolean }
   | { k: "paused"; p: Preview }
   | { k: "signin-failed" }
   | { k: "confirm"; p: Preview; user: string }
   | { k: "working"; user: string; s?: ClaimStatus }
   | { k: "result"; user: string; s: ClaimStatus }
   | { k: "waiting" }
-  | { k: "reauth" }
+  | { k: "reauth"; s?: ClaimStatus }
   | { k: "other-user"; name: string }
   | { k: "finished" }
   | { k: "expired"; p: Preview }
@@ -214,7 +214,7 @@ function Page({ token, view, children }: { token?: string; view: View; children:
         {c.hashtag &&
           (c.wikiUrl ? (
             <a href={c.wikiUrl} rel="noreferrer">
-              {c.hashtag}
+              {c.hashtag} · About this campaign
             </a>
           ) : (
             <span>{c.hashtag}</span>
@@ -281,6 +281,7 @@ function Screen({
               <p className="muted">
                 Your answers will be added to OpenStreetMap under your own account, so riders, apps and the city can use them.
               </p>
+              {view.notNow && <p className="note">No problem. Your answers stay saved until {shortDate(p.expiresAt)}.</p>}
               <button type="button" className="btn primary" disabled={busy} onClick={run(onSignIn)}>
                 Sign in to OpenStreetMap
               </button>
@@ -315,7 +316,7 @@ function Screen({
         <Card>
           <h1>Ready to put {count(view.p.pending, view.p)} on the map?</h1>
           <p>
-            Signed in as <b>@{view.user}</b> ·{" "}
+            Signed in as <b>{view.user}</b> ·{" "}
             <button type="button" className="link" onClick={run(onSwitch)}>
               Not you? Switch account
             </button>
@@ -328,7 +329,7 @@ function Screen({
             <button type="button" className="btn primary" disabled={busy} onClick={run(() => onConfirm(view.user))}>
               Put them on the map
             </button>
-            <button type="button" className="btn secondary" onClick={() => onDone({ k: "answers", p: view.p })}>
+            <button type="button" className="btn secondary" onClick={() => onDone({ k: "answers", p: view.p, notNow: true })}>
               Not now
             </button>
           </div>
@@ -367,10 +368,15 @@ function Screen({
     case "reauth":
       return (
         <Card>
-          <h1>Please sign in again</h1>
-          <p>OpenStreetMap needs you to sign in again before we can put your answers on the map. Nothing was added twice.</p>
+          <h1>
+            {view.s ? `${view.s.published} of ${view.s.total} are on the map.` : "Sign in again to finish"}
+          </h1>
+          <p>
+            OpenStreetMap needs you to sign in again to add {view.s ? "the rest" : "your answers"}. Your answers are safe, and
+            nothing will be added twice.
+          </p>
           <button type="button" className="btn primary" disabled={busy} onClick={run(onSwitch)}>
-            Sign in again
+            Sign in to OpenStreetMap
           </button>
         </Card>
       );
@@ -379,7 +385,7 @@ function Screen({
       return (
         <Card>
           <h1>These answers are already taken care of</h1>
-          <p>They were put on the map by @{view.name}. If that's you, sign in as @{view.name}.</p>
+          <p>They were put on the map by {view.name}. If that's you, sign in as {view.name}.</p>
           <button type="button" className="btn secondary" disabled={busy} onClick={run(onSwitch)}>
             Switch account
           </button>
@@ -461,7 +467,7 @@ function Screen({
     case "deleted-now":
       return (
         <Card>
-          <h1>Done</h1>
+          <h1>Done.</h1>
           <p>We've deleted your email address and saved answers.</p>
         </Card>
       );
@@ -469,10 +475,10 @@ function Screen({
     case "stop":
       return (
         <Card>
-          <h1>Stop reminders?</h1>
+          <h1>Stop reminder emails?</h1>
           <p>
             We won't email you about these answers again. They stay saved until {shortDate(view.p.expiresAt)}, and the link in
-            your email keeps working.
+            your email still works.
           </p>
           <div className="row">
             <button
@@ -487,7 +493,7 @@ function Screen({
               Stop reminders
             </button>
             <a className="btn secondary" href={`/claim#t=${token}`}>
-              Put them on the map instead
+              Keep reminders
             </a>
           </div>
         </Card>
@@ -496,8 +502,8 @@ function Screen({
     case "stopped":
       return (
         <Card>
-          <h1>Done</h1>
-          <p>No more reminders. Your answers stay saved until {shortDate(view.p.expiresAt)}.</p>
+          <h1>Done.</h1>
+          <p>No more reminders. Your answers are saved until {shortDate(view.p.expiresAt)}.</p>
         </Card>
       );
   }
@@ -579,7 +585,7 @@ function Result({ s, user, edits }: { s: ClaimStatus; user: string; edits: strin
         </details>
       )}
       <p>
-        Thank you, @{user}. {seeEdits}
+        Thank you, {user}. {seeEdits}
       </p>
       <p className="muted">Your phone will sign in as you the next time you open Street Tally.</p>
     </Card>
