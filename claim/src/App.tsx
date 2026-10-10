@@ -7,6 +7,7 @@ import {
   me,
   type Preview,
   preview,
+  retryClaim,
   startClaim,
   stopReminders,
 } from "./api";
@@ -25,7 +26,7 @@ import {
   startSignIn,
 } from "./session";
 import { StopMap } from "./StopMap";
-import { count, found, shortDate } from "./words";
+import { count, found, needsSignIn, shortDate } from "./words";
 
 /** Every screen of the claim page (deferred-signup-ux.md §3 and §4). */
 type View =
@@ -35,9 +36,10 @@ type View =
   | { k: "signin-failed" }
   | { k: "confirm"; p: Preview; user: string }
   | { k: "working"; user: string; s?: ClaimStatus }
-  | { k: "result"; user: string; s: ClaimStatus }
+  | { k: "result"; user: string; s: ClaimStatus; onRetry?: () => void }
   | { k: "waiting" }
-  | { k: "reauth"; s?: ClaimStatus }
+  | { k: "reauth"; published?: number; total?: number }
+  | { k: "in-progress" }
   | { k: "other-user"; name: string }
   | { k: "finished" }
   | { k: "expired"; p: Preview }
@@ -54,19 +56,27 @@ const LABELS = "claim.labels";
 const POLL_MS = 2000;
 
 function keepCampaign(p: Preview) {
-  const c = p.challenges[0];
-  if (c) sessionStorage.setItem(CAMPAIGN, JSON.stringify({ name: c.name, hashtag: p.hashtag, wikiUrl: p.wikiUrl }));
+  const c = p.campaign;
+  sessionStorage.setItem(CAMPAIGN, JSON.stringify({ name: c.name, hashtag: c.hashtag, wikiUrl: c.wikiUrl, noun: c.noun }));
   if (p.tasks.length)
     sessionStorage.setItem(LABELS, JSON.stringify(Object.fromEntries(p.tasks.map((t) => [t.taskId, t.label ?? ""]))));
 }
-const campaign = (): { name?: string; hashtag?: string; wikiUrl?: string } =>
+const campaign = (): { name?: string; hashtag?: string | null; wikiUrl?: string | null; noun?: Preview["campaign"]["noun"] } =>
   JSON.parse(sessionStorage.getItem(CAMPAIGN) ?? "{}");
 const labelOf = (taskId: number): string =>
   (JSON.parse(sessionStorage.getItem(LABELS) ?? "{}") as Record<string, string>)[taskId] || `Place ${taskId}`;
 
 /** The view for a preview's token state, on the main claim link. */
 function fromPreview(p: Preview): View {
-  if (p.state === "claimed") return { k: "finished" };
+  if (p.state === "claimed") {
+    // §3.11: a claim that stopped short is not "already on the map".
+    const c = p.claim;
+    if (c?.state === "reauth_required") return { k: "reauth", published: c.counts.published, total: c.counts.total };
+    if (needsSignIn(c)) return { k: "reauth", published: c?.counts.published, total: c?.counts.total };
+    if (c?.state === "waiting") return { k: "waiting" };
+    if (c?.state === "queued" || c?.state === "running") return { k: "in-progress" };
+    return { k: "finished" };
+  }
   if (p.state === "expired") return { k: "expired", p };
   if (p.state === "deleted") return { k: "deleted" };
   return p.writesEnabled ? { k: "answers", p } : { k: "paused", p };
@@ -82,12 +92,18 @@ export function App() {
     setView({ k: "error", retry });
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retry is declared below and only called later, from a view.
   const follow = useCallback((claimId: number, user: string) => {
     window.clearTimeout(poll.current);
     const tick = async () => {
       try {
         const s = await claimStatus(claimId, await accessToken());
-        if (s.state === "done" || s.state === "failed") {
+        if (s.state === "reauth_required") return setView({ k: "reauth", published: s.published, total: s.total });
+        if (s.state === "failed" || (s.state === "partial" && s.failed > 0)) {
+          // Keep the grant: "Try again" retries with it (§3.11).
+          return setView({ k: "result", user, s, onRetry: () => void retry(claimId, user) });
+        }
+        if (s.state === "done" || s.state === "partial") {
           setView({ k: "result", user, s });
           await signOut(); // §3.7: the page revokes its own grant once the claim is finished
           return;
@@ -103,6 +119,22 @@ export function App() {
     setView({ k: "working", user });
     void tick();
   }, []);
+
+  /** Puts failed rows back in the queue and follows the claim again. */
+  const retry = useCallback(
+    async (claimId: number, user: string) => {
+      setView({ k: "working", user });
+      try {
+        await retryClaim(claimId, await accessToken());
+        follow(claimId, user);
+      } catch (e) {
+        if (e instanceof SignInError) return setView({ k: "reauth" });
+        if (e instanceof ApiError && (e.code === "osm_reauth_required" || e.code === "invalid_token")) return setView({ k: "reauth" });
+        fail(e, () => void retry(claimId, user));
+      }
+    },
+    [fail, follow],
+  );
 
   const load = useCallback(
     async (t: string, as: "claim" | "delete" | "stop-reminders") => {
@@ -125,6 +157,12 @@ export function App() {
       try {
         const [user, p] = await Promise.all([me(await accessToken()), preview(t)]);
         keepCampaign(p);
+        if (p.state === "claimed" && needsSignIn(p.claim)) {
+          // Signed in again to finish (§3.11): find the claim, put its failed rows back, follow it.
+          const started = await startClaim(t, await accessToken());
+          rememberClaim({ claimId: started.claimId, displayName: started.user.displayName });
+          return retry(started.claimId, started.user.displayName);
+        }
         if (p.state !== "active") return setView(fromPreview(p));
         setView({ k: "confirm", p, user: user.displayName });
       } catch (e) {
@@ -132,7 +170,7 @@ export function App() {
         fail(e, () => void afterSignIn(t));
       }
     },
-    [fail],
+    [fail, retry],
   );
 
   useEffect(() => {
@@ -262,18 +300,16 @@ function Screen({
       const what = found(p);
       return (
         <Card>
-          <h1>You checked {count(p.pending, p)}</h1>
+          <h1>You checked {count(p.pending, p.campaign.noun)}</h1>
           <StopMap tasks={p.tasks} />
           <StopList p={p} />
           <div className="facts">
             <div className="fact">
-              <b>What you found:</b> {what ?? `Your ${p.noun?.many ?? "places"} are in good shape.`}
+              <b>What you found:</b> {what ?? `Your ${p.campaign.noun.other} are in good shape.`}
             </div>
-            {p.tally && (
-              <div className="fact">
-                <b>The tally:</b> {p.tally.checked} of {count(p.tally.total, p)} checked in {p.challenges[0]?.name}.
-              </div>
-            )}
+            <div className="fact">
+              <b>The tally:</b> {p.tally.checked} of {count(p.tally.total, p.campaign.noun)} checked in {p.campaign.name}.
+            </div>
           </div>
           <h2>Put them on the map</h2>
           {view.k === "answers" ? (
@@ -314,7 +350,7 @@ function Screen({
     case "confirm":
       return (
         <Card>
-          <h1>Ready to put {count(view.p.pending, view.p)} on the map?</h1>
+          <h1>Ready to put {count(view.p.pending, view.p.campaign.noun)} on the map?</h1>
           <p>
             Signed in as <b>{view.user}</b> ·{" "}
             <button type="button" className="link" onClick={run(onSwitch)}>
@@ -322,8 +358,8 @@ function Screen({
             </button>
           </p>
           <p className="muted">
-            Your answers will be added to OpenStreetMap under your name, one edit per stop
-            {view.p.hashtag ? `, tagged ${view.p.hashtag}` : ""}. Edits on OpenStreetMap are public.
+            Your answers will be added to OpenStreetMap under your name, one edit per {view.p.campaign.noun.one}
+            {view.p.campaign.hashtag ? `, tagged ${view.p.campaign.hashtag}` : ""}. Edits on OpenStreetMap are public.
           </p>
           <div className="row">
             <button type="button" className="btn primary" disabled={busy} onClick={run(() => onConfirm(view.user))}>
@@ -354,7 +390,7 @@ function Screen({
     }
 
     case "result":
-      return <Result s={view.s} user={view.user} edits={edits(view.user)} />;
+      return <Result s={view.s} user={view.user} edits={edits(view.user)} onRetry={view.onRetry} />;
 
     case "waiting":
       return (
@@ -368,16 +404,23 @@ function Screen({
     case "reauth":
       return (
         <Card>
-          <h1>
-            {view.s ? `${view.s.published} of ${view.s.total} are on the map.` : "Sign in again to finish"}
-          </h1>
+          <h1>{view.total ? `${view.published ?? 0} of ${view.total} are on the map.` : "Sign in again to finish"}</h1>
           <p>
-            OpenStreetMap needs you to sign in again to add {view.s ? "the rest" : "your answers"}. Your answers are safe, and
-            nothing will be added twice.
+            Sign in to OpenStreetMap again to add {view.total ? "the rest" : "your answers"}. Your answers are safe, and nothing
+            will be added twice.
           </p>
           <button type="button" className="btn primary" disabled={busy} onClick={run(onSwitch)}>
             Sign in to OpenStreetMap
           </button>
+        </Card>
+      );
+
+    case "in-progress":
+      return (
+        <Card>
+          <h1>Your answers are going on the map</h1>
+          <p>This can take a few minutes. We'll email you when they're there.</p>
+          <p className="note">Nothing else to do. You can close this page.</p>
         </Card>
       );
 
@@ -442,7 +485,7 @@ function Screen({
         <Card>
           <h1>Delete my data</h1>
           <p>
-            This removes your email address and the {count(view.p.pending, view.p)} that aren't on the map yet. Answers already on
+            This removes your email address and the {count(view.p.pending, view.p.campaign.noun)} that aren't on the map yet. Answers already on
             OpenStreetMap stay there, because they belong to OpenStreetMap now.
           </p>
           <div className="row">
@@ -532,7 +575,8 @@ const REASON: Record<string, string> = {
   failed: "Something went wrong",
 };
 
-function Result({ s, user, edits }: { s: ClaimStatus; user: string; edits: string }) {
+function Result({ s, user, edits, onRetry }: { s: ClaimStatus; user: string; edits: string; onRetry?: () => void }) {
+  const noun = campaign().noun ?? { one: "place", other: "places" };
   const notAdded = s.items.filter((i) => i.state !== "published");
   const partly = s.items.filter((i) => i.state === "published" && i.dropped.length);
   const failed = s.items.filter((i) => i.state === "failed").length;
@@ -547,7 +591,12 @@ function Result({ s, user, edits }: { s: ClaimStatus; user: string; edits: strin
         <h1>
           {s.published} of {s.total} are on the map
         </h1>
-        <p>Something went wrong with the rest. We'll keep trying, and you won't add anything twice.</p>
+        <p>Something went wrong with the rest. Your answers are safe, and trying again won't add anything twice.</p>
+        {onRetry && (
+          <button type="button" className="btn primary" onClick={onRetry}>
+            Try again
+          </button>
+        )}
         <p>{seeEdits}</p>
       </Card>
     );
@@ -555,12 +604,12 @@ function Result({ s, user, edits }: { s: ClaimStatus; user: string; edits: strin
   return (
     <Card>
       <h1>
-        <span className="ok">✓</span> {s.published} {s.published === 1 ? "place is" : "places are"} on the map
+        <span className="ok">✓</span> {count(s.published, noun)} {s.published === 1 ? "is" : "are"} on the map
       </h1>
       {notAdded.length > 0 && (
         <p>
           <b>
-            {notAdded.length} {notAdded.length === 1 ? "place wasn't" : "places weren't"} added
+            {count(notAdded.length, noun)} {notAdded.length === 1 ? "wasn't" : "weren't"} added
           </b>
           , because someone updated {notAdded.length === 1 ? "it" : "them"} after you checked. Nothing to do;{" "}
           {notAdded.length === 1 ? "it's" : "they're"} up to date.

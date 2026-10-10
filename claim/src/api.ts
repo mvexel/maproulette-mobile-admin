@@ -11,7 +11,27 @@ export class ApiError extends Error {
   }
 }
 
-/** POST /api/v2/mobile-claim/preview (deferred-signup-api.md §3.6, with the §3.10 additions). */
+/** The campaign the guest's answers belong to (deferred-signup-api.md §3.11). */
+export interface Campaign {
+  challengeId: number;
+  name: string;
+  /** What the campaign's places are called; the backend defaults to place/places. */
+  noun: { one: string; other: string };
+  hashtag: string | null;
+  wikiUrl: string | null;
+  organizerName: string | null;
+  /** ISO date. */
+  eventDate: string | null;
+}
+
+/** The claim behind a claimed token (§3.11): lets the page tell "on the map" from "sign in again". */
+export interface PreviewClaim {
+  state: ClaimState;
+  claimedAs: { displayName: string };
+  counts: { total: number; published: number; pending: number; skipped: number; superseded: number; failed: number };
+}
+
+/** POST /api/v2/mobile-claim/preview (deferred-signup-api.md §3.6, with the §3.10 and §3.11 additions). */
 export interface Preview {
   state: "active" | "claimed" | "expired" | "deleted";
   expiresAt: string;
@@ -27,12 +47,12 @@ export interface Preview {
   }[];
   summary: { questionId: string; label: string; counts: Record<string, number> }[];
   writesEnabled: boolean;
-  hashtag?: string;
-  wikiUrl?: string;
-  /** Not in the plan yet: what the campaign's places are called ("stop"/"stops"). */
-  noun?: { one: string; many: string };
-  /** Not in the plan yet: the campaign tally (UX §3.1). */
-  tally?: { checked: number; total: number };
+  campaign: Campaign;
+  /** Campaign-wide: tasks checked of all tasks. */
+  tally: { checked: number; total: number };
+  /** Questions with at least one "no" answer. */
+  found: { questionId: string; prompt: string; noCount: number }[];
+  claim: PreviewClaim | null;
 }
 
 export interface ClaimUser {
@@ -48,7 +68,7 @@ export interface ClaimStarted {
   user: ClaimUser;
 }
 
-export type ClaimState = "queued" | "waiting" | "running" | "done" | "failed";
+export type ClaimState = "queued" | "running" | "waiting" | "reauth_required" | "done" | "partial" | "failed";
 export type ItemState = "published" | "superseded" | "skipped_stale" | "failed";
 
 /** GET /api/v2/mobile-claim/:id (§3.7). */
@@ -95,6 +115,10 @@ export const startClaim = (claimToken: string, accessToken: string) =>
 
 export const claimStatus = (claimId: number, accessToken: string) =>
   call<ClaimStatus>("GET", `/api/v2/mobile-claim/${claimId}`, undefined, accessToken);
+
+/** Puts failed rows back in the queue (§3.11); also the step after signing in again. */
+export const retryClaim = (claimId: number, accessToken: string) =>
+  call<ClaimStatus & { retried: number }>("POST", `/api/v2/mobile-claim/${claimId}/retry`, {}, accessToken);
 
 export const me = (accessToken: string) =>
   call<{ id: number; osmId: number; displayName: string; scope: string }>("GET", "/oauth/mobile/me", undefined, accessToken);

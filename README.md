@@ -105,7 +105,7 @@ or use the mock.
 
 `claim/` is a second, separate app: the page participants open from the deferred sign-up email
 to put their saved answers on OpenStreetMap (design docs `deferred-signup-ux.md` §3 and
-`deferred-signup-api.md` §3.6, §3.7 and §3.10). It uses the Street Tally brand, not the admin
+`deferred-signup-api.md` §3.6, §3.7, §3.10 and §3.11). It uses the Street Tally brand, not the admin
 styles, and shares only `src/pkce.ts` with the admin app.
 
 - Links: `/claim#t=<token>`, `/claim/delete#t=<token>`, `/claim/stop-reminders#t=<token>`. The
