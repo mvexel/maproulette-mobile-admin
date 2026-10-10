@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MOCK_CLAIM_TOKENS, type MockBackend, startMockBackend } from "../../mock/server.ts";
-import { ApiError, claimStatus, deleteData, me, preview, startClaim, stopReminders } from "./api";
+import { ApiError, type ClaimState, claimStatus, deleteData, me, preview, retryClaim, startClaim, stopReminders } from "./api";
 import { configure } from "./config";
 import { route, tokenFrom } from "./link";
 import { accessToken, completeSignIn, rememberClaim, rememberedClaim, SignInError, signedIn, signOut, startSignIn } from "./session";
-import { count, found } from "./words";
+import { count, found, needsSignIn } from "./words";
 
 const CLAIM_ORIGIN = "https://claim.test";
 const T = MOCK_CLAIM_TOKENS;
@@ -75,13 +75,25 @@ describe("words", () => {
   it("counts with the campaign noun or places", () => {
     expect(count(1)).toBe("1 place");
     expect(count(4)).toBe("4 places");
-    expect(count(1, { noun: { one: "stop", many: "stops" } })).toBe("1 stop");
+    expect(count(1, { one: "stop", other: "stops" })).toBe("1 stop");
+    expect(count(3, { one: "stop", other: "stops" })).toBe("3 stops");
   });
 
   it("summarises the no answers, most first", async () => {
     const p = await preview(T.partial);
     expect(found(p)).toMatch(/^\d+ had no \w+/);
-    expect(found({ ...p, summary: [] })).toBeUndefined();
+    expect(found({ ...p, found: [] })).toBeUndefined();
+  });
+
+  it("asks to sign in again only for a claim that stopped short", () => {
+    const counts = { total: 3, published: 1, pending: 2, skipped: 0, superseded: 0, failed: 0 };
+    const c = (state: ClaimState, failed = 0) => ({ state, claimedAs: { displayName: "x" }, counts: { ...counts, failed } });
+    expect(needsSignIn(null)).toBe(false);
+    expect(needsSignIn(c("reauth_required"))).toBe(true);
+    expect(needsSignIn(c("failed", 1))).toBe(true);
+    expect(needsSignIn(c("partial", 1))).toBe(true);
+    expect(needsSignIn(c("partial"))).toBe(false);
+    expect(needsSignIn(c("done"))).toBe(false);
   });
 });
 
@@ -93,6 +105,12 @@ describe("claim API against the mock", () => {
     expect(p.writesEnabled).toBe(true);
     expect(p.tasks[0]).toMatchObject({ taskId: 101, label: expect.any(String) });
     expect((await preview(T.claimed)).state).toBe("claimed");
+    expect((await preview(T.claimed)).claim?.state).toBe("done");
+    expect(p.campaign).toMatchObject({ name: "SLC Bus Stops", noun: { one: "stop", other: "stops" }, hashtag: "#StreetTallySLCStops" });
+    expect(p.tally).toEqual({ checked: 212, total: 410 });
+    expect(p.claim).toBeNull();
+    const stopped = await preview(T.reauth);
+    expect(stopped.claim).toMatchObject({ state: "reauth_required", claimedAs: { displayName: "mock-mapper" }, counts: { total: 3, published: 1 } });
     expect((await preview(T.expired)).state).toBe("expired");
     expect((await preview(T.deleted)).state).toBe("deleted");
     await expect(preview("z".repeat(43))).rejects.toMatchObject({ status: 404 });
@@ -120,8 +138,8 @@ describe("claim API against the mock", () => {
     const started = await startClaim(T.partial, await accessToken());
     expect(started).toMatchObject({ state: "queued", pending: 4, user: { displayName: "mock-mapper" } });
     let s = await claimStatus(started.claimId, await accessToken());
-    while (s.state !== "done" && s.state !== "failed") s = await claimStatus(started.claimId, await accessToken());
-    expect(s.state).toBe("done");
+    while (s.state === "queued" || s.state === "running") s = await claimStatus(started.claimId, await accessToken());
+    expect(s.state).toBe("partial");
     expect(s.items.map((i) => i.state)).toEqual(["published", "published", "skipped_stale", "superseded"]);
     expect(s.items[1].dropped).toEqual(["bench"]);
     expect((await startClaim(T.partial, await accessToken())).claimId).toBe(started.claimId);
@@ -137,6 +155,20 @@ describe("claim API against the mock", () => {
     expect((await claimStatus(started.claimId, await accessToken())).state).toBe("waiting");
     await fetch(`${mock.url}/__mock/claim-writes?enabled=true`, { method: "POST" });
     expect((await claimStatus(started.claimId, await accessToken())).state).not.toBe("waiting");
+  });
+
+  it("finishes a stopped claim after signing in again, and retries failed rows", async () => {
+    await completeSignIn(await signIn());
+    for (const t of [T.reauth, T.failed]) {
+      const existing = await startClaim(t, await accessToken());
+      const r = await retryClaim(existing.claimId, await accessToken());
+      expect(r.state).toBe("queued");
+      let s = await claimStatus(existing.claimId, await accessToken());
+      while (s.state === "queued" || s.state === "running") s = await claimStatus(existing.claimId, await accessToken());
+      expect(s).toMatchObject({ state: "done", published: 3, failed: 0 });
+      expect((await preview(t)).claim?.state).toBe("done");
+      expect((await retryClaim(existing.claimId, await accessToken())).retried).toBe(0);
+    }
   });
 
   it("needs a signed-in user to claim", async () => {

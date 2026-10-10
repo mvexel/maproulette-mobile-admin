@@ -32,6 +32,10 @@ export const MOCK_CLAIM_TOKENS = {
   all: "mock-claim-all".padEnd(43, "x"),
   /** Already claimed by mock-mapper and published. */
   claimed: "mock-claim-claimed".padEnd(43, "x"),
+  /** Claimed by mock-mapper; stopped on osm_reauth_required with 1 of 3 published (§3.11). */
+  reauth: "mock-claim-reauth".padEnd(43, "x"),
+  /** Claimed by mock-mapper; finished with one row failed, so it can be retried (§3.11). */
+  failed: "mock-claim-failed".padEnd(43, "x"),
   expired: "mock-claim-expired".padEnd(43, "x"),
   deleted: "mock-claim-deleted".padEnd(43, "x"),
 } as const;
@@ -61,7 +65,7 @@ interface Claim {
   id: number;
   userId: number;
   guest: Guest;
-  state: "queued" | "waiting" | "running" | "done" | "failed";
+  state: "queued" | "waiting" | "running" | "reauth_required" | "done" | "partial" | "failed";
   /** Items handled so far; each status poll handles one more. */
   handled: number;
 }
@@ -141,6 +145,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let writePolicy = false;
   let guests = new Map<string, Guest>();
   let claims = new Map<number, Claim>();
+  let nextClaimId = 1;
   let claimWrites = true;
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
@@ -176,14 +181,27 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       { ...stop(103, 40.7645, -111.8905, "Stop 13042", "Yes", "Yes"), outcome: "skipped_stale" as const },
       { ...stop(104, 40.7587, -111.8861, "500 S & 200 E", "No", "Yes"), outcome: "superseded" as const },
     ];
+    claims = new Map();
+    const three = (outcome: PendingTask["outcome"]) =>
+      [stop(111, 40.7602, -111.8851, "400 S & 200 E", "No", "No"), stop(112, 40.7633, -111.8871, "300 S & 100 E", "Yes", "No"), stop(113, 40.7655, -111.8889, "200 S & State", "No", "Yes")].map(
+        (t, i) => ({ ...t, outcome: i === 2 ? outcome : ("published" as const) }),
+      );
+    const stopped = (tasks: PendingTask[], state: Claim["state"], handled: number): Guest => {
+      const g: Guest = { state: "claimed", expiresAt, tasks, claimedBy: USERS.plain.id, remindersStopped: false };
+      const c: Claim = { id: nextClaimId++, userId: USERS.plain.id, guest: g, state, handled };
+      claims.set(c.id, c);
+      g.claimId = c.id;
+      return g;
+    };
     guests = new Map([
+      [MOCK_CLAIM_TOKENS.reauth, stopped(three("published"), "reauth_required", 1)],
+      [MOCK_CLAIM_TOKENS.failed, stopped(three("failed"), "failed", 3)],
       [MOCK_CLAIM_TOKENS.partial, { state: "active", expiresAt, tasks: four, remindersStopped: false }],
       [MOCK_CLAIM_TOKENS.all, { state: "active", expiresAt, tasks: four.slice(0, 2).concat(stop(105, 40.7667, -111.8835, "200 S & 300 E", "Yes", "No")).map((t) => ({ ...t, outcome: "published" as const, dropped: undefined })), remindersStopped: false }],
       [MOCK_CLAIM_TOKENS.claimed, { state: "claimed", expiresAt, tasks: four.slice(0, 1), claimedBy: USERS.plain.id, remindersStopped: false }],
       [MOCK_CLAIM_TOKENS.expired, { state: "expired", expiresAt: new Date(Date.now() - day).toISOString(), tasks: [], remindersStopped: false }],
       [MOCK_CLAIM_TOKENS.deleted, { state: "deleted", expiresAt, tasks: [], remindersStopped: false }],
     ]);
-    claims = new Map();
     claimWrites = true;
   }
 
@@ -335,8 +353,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
   const claimPaths = (path: string) =>
     oauthPaths.includes(path) ||
-    /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+)?$/.test(path) ||
-    // The campaign landing page reads the public challenge (name, blurb). Not in the plan yet.
+    /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+|\/[0-9]+\/retry)?$/.test(path) ||
+    // The campaign landing page reads the public challenge (name, blurb); §3.11 CORS.
     /^\/api\/v2\/challenge\/[0-9]+$/.test(path);
 
   /** MobileCorsFilter: the admin and claim origins only, no credentials; other preflights get 403. */
@@ -517,7 +535,6 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
 
   // --- deferred sign-up claim routes (deferred-signup-api.md §3.6, §3.7, §3.10) ------------------
-  let nextClaimId = 1;
 
   async function claimToken(req: IncomingMessage): Promise<string | undefined> {
     try {
@@ -548,16 +565,53 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         { questionId: "shelter", label: "Shelter", counts: counts("Is there a shelter with a roof?") },
         { questionId: "bench", label: "Bench", counts: counts("Is there a bench or seat?") },
       ],
-      hashtag: "#StreetTallySLCStops",
-      wikiUrl: "https://wiki.openstreetmap.org/wiki/Organised_Editing/Activities/Street_Tally_SLC_Bus_Stops",
       writesEnabled: claimWrites,
+      campaign: {
+        challengeId: 7,
+        name: "SLC Bus Stops",
+        noun: { one: "stop", other: "stops" },
+        hashtag: "#StreetTallySLCStops",
+        wikiUrl: "https://wiki.openstreetmap.org/wiki/Organised_Editing/Activities/Street_Tally_SLC_Bus_Stops",
+        organizerName: "Salt Lake Transit Riders",
+        eventDate: "2026-11-08",
+      },
+      tally: { checked: 212, total: 410 },
+      found: [
+        { questionId: "shelter", prompt: "Is there a shelter with a roof?", noCount: counts("Is there a shelter with a roof?").no ?? 0 },
+        { questionId: "bench", prompt: "Is there a bench or seat?", noCount: counts("Is there a bench or seat?").no ?? 0 },
+      ].filter((f) => f.noCount > 0),
+      claim: claimOf(g),
     };
   }
 
-  function status(c: Claim) {
-    if (c.state === "waiting" && claimWrites) c.state = "running";
-    if (c.state === "queued") c.state = "running";
-    else if (c.state === "running") c.handled = Math.min(c.handled + 1, c.guest.tasks.length);
+  /** The preview's view of a claimed token's claim (§3.11), without advancing it. */
+  function claimOf(g: Guest) {
+    const c = g.claimId === undefined ? undefined : claims.get(g.claimId);
+    if (g.state !== "claimed") return null;
+    const user = Object.values(USERS).find((u) => u.id === g.claimedBy)!;
+    const items = g.tasks.slice(0, c?.handled ?? g.tasks.length);
+    const n = (o: string) => items.filter((t) => t.outcome === o).length;
+    return {
+      state: c?.state ?? "done",
+      claimedAs: { displayName: user.displayName },
+      counts: {
+        total: g.tasks.length,
+        published: n("published"),
+        pending: g.tasks.length - items.length,
+        skipped: n("skipped_stale"),
+        superseded: n("superseded"),
+        failed: n("failed"),
+      },
+    };
+  }
+
+  /** A claim's 3.7 status. Each poll moves it on one step, unless `advance` is false. */
+  function status(c: Claim, advance = true) {
+    if (advance) {
+      if (c.state === "waiting" && claimWrites) c.state = "running";
+      if (c.state === "queued") c.state = "running";
+      else if (c.state === "running") c.handled = Math.min(c.handled + 1, c.guest.tasks.length);
+    }
     const items = c.guest.tasks.slice(0, c.handled).map((t) => ({
       taskId: t.taskId,
       state: t.outcome,
@@ -565,7 +619,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       dropped: t.dropped ?? [],
     }));
     if (c.state === "running" && c.handled === c.guest.tasks.length)
-      c.state = items.some((i) => i.state === "failed") ? "failed" : "done";
+      c.state = items.some((i) => i.state === "failed") ? "failed" : items.every((i) => i.state === "published" && !i.dropped.length) ? "done" : "partial";
     const n = (s: string) => items.filter((i) => i.state === s).length;
     return {
       claimId: c.id,
@@ -627,6 +681,22 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       g.claimedBy = b.user.id;
       g.claimId = c.id;
       return send(res, 202, { claimId: c.id, state: c.state, pending: g.tasks.length, user });
+    }
+    const r = /^\/api\/v2\/mobile-claim\/([0-9]+)\/retry$/.exec(path);
+    if (r && req.method === "POST") {
+      const b = bearer(req);
+      if (!b) return problem(res, 401, "invalid_token");
+      const c = claims.get(Number(r[1]));
+      if (!c || c.userId !== b.user.id) return problem(res, 404, "not_found");
+      // Failed rows go back to pending; the mock lets them succeed this time.
+      const retried = c.guest.tasks.filter((t) => t.outcome === "failed").length;
+      const stopped = c.state === "reauth_required";
+      for (const t of c.guest.tasks) if (t.outcome === "failed") t.outcome = "published";
+      if (retried || stopped) {
+        c.state = claimWrites ? "queued" : "waiting";
+        c.handled = stopped ? c.handled : c.handled - retried;
+      }
+      return send(res, 202, { ...status(c, false), retried });
     }
     const m = /^\/api\/v2\/mobile-claim\/([0-9]+)$/.exec(path);
     if (m && req.method === "GET") {

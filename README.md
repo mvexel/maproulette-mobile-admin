@@ -119,7 +119,7 @@ serves them on port 8080, and the shared Caddy puts them on https://streettally.
   at start from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`.
 - `/claim` (`claim/`): the page participants open from the deferred sign-up email to put their
   saved answers on OpenStreetMap (design docs `deferred-signup-ux.md` §3 and
-  `deferred-signup-api.md` §3.6, §3.7 and §3.10). It is a React app with the Street Tally brand
+  `deferred-signup-api.md` §3.6, §3.7, §3.10 and §3.11). It is a React app with the Street Tally brand
   and shares only `src/pkce.ts` with the admin app.
   - Links: `/claim#t=<token>`, `/claim/delete#t=<token>`, `/claim/stop-reminders#t=<token>`. The
     token stays in the fragment and `sessionStorage`; the page POSTs it to the claim routes.
