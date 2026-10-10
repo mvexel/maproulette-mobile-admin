@@ -25,5 +25,9 @@ All notable changes to this project are documented here. The format follows
   wasn't added. Also the delete-my-data and stop-reminders links, and the paused state while
   mobile writes are off. Built with `npm run build`; runtime `/claim/config.json`. Adds the
   `maplibre-gl` dependency, loaded only when the map is shown.
+- The participant site for streettally.osm.lol, served by the same image on port 8080: a root
+  page, the campaign landing page at `/challenge/<id>` (formerly a brand mock), the
+  apple-app-site-association file for universal links, and the claim page, which moves there
+  from the admin port. `vite.street.config.ts` replaces `vite.claim.config.ts`.
 - The mock backend serves the claim routes (fixed tokens in `MOCK_CLAIM_TOKENS`, a
   `maproulette-claim` client, `POST /__mock/claim-writes`).

@@ -1,0 +1,82 @@
+/* Street Tally participant site (streettally.osm.lol): brand tokens from brand/colors.json. */
+:root {
+  color-scheme: light dark;
+  --bg: #fff;
+  --surface: #f4f5f7;
+  --text: #14213d;
+  --text2: #4a5468;
+  --accent: #f5a524;
+  --on-accent: #14213d;
+  --accent-text: #a84f00;
+  --line: #dde1e7;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --surface: #16213a;
+    --text: #f3f4f6;
+    --text2: #a7b0c0;
+    --on-accent: #0b1220;
+    --accent-text: #fbbf24;
+    --line: #26324d;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+main { max-width: 480px; margin: 0 auto; padding: 24px 16px calc(32px + env(safe-area-inset-bottom)); }
+a { color: var(--accent-text); }
+.hero { background: #14213d; color: #f3f4f6; border-radius: 20px; padding: 24px 20px 28px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; color: #c9ced8; }
+.brand img { border-radius: 9px; }
+.eyebrow { margin: 20px 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f5a524; }
+h1 { margin: 0; font-size: 34px; line-height: 1.1; font-weight: 800; overflow-wrap: anywhere; }
+.hero .lead { margin-top: 20px; }
+.hero p { margin: 12px 0 0; color: #c9ced8; }
+h2 { font-size: 20px; margin: 32px 0 12px; }
+ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+li { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.step { display: flex; gap: 12px; align-items: baseline; }
+.num {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+}
+.step h3 { margin: 0 0 4px; font-size: 17px; }
+.step p { margin: 0 0 12px; color: var(--text2); font-size: 15px; }
+.btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 17px;
+  min-height: 50px;
+  line-height: 50px;
+  border-radius: 12px;
+  padding: 0 16px;
+}
+.primary { background: var(--accent); color: var(--on-accent); }
+.secondary { border: 2px solid var(--text); color: var(--text); line-height: 46px; }
+.note { margin-top: 24px; font-size: 15px; color: var(--text2); }
+.reassure { margin-top: 24px; padding: 16px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 12px 12px 0; }
+.reassure p { margin: 0; font-size: 15px; color: var(--text2); }
+.reassure strong { color: var(--text); }
+footer { margin-top: 32px; font-size: 13px; color: var(--text2); }
+footer a { color: var(--text2); }
+.other { display: none; }
+.not-ios .ios-only { display: none; }
+.not-ios .other { display: block; }
+[hidden] { display: none; }

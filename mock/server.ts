@@ -334,7 +334,10 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   const adminPaths = (path: string) => path.startsWith("/api/v2/mobile-admin/") || oauthPaths.includes(path);
   // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
   const claimPaths = (path: string) =>
-    oauthPaths.includes(path) || /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+)?$/.test(path);
+    oauthPaths.includes(path) ||
+    /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+)?$/.test(path) ||
+    // The campaign landing page reads the public challenge (name, blurb). Not in the plan yet.
+    /^\/api\/v2\/challenge\/[0-9]+$/.test(path);
 
   /** MobileCorsFilter: the admin and claim origins only, no credentials; other preflights get 403. */
   function cors(req: IncomingMessage, res: ServerResponse, path: string): boolean {
@@ -489,6 +492,16 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
 
     if (path.startsWith("/api/v2/mobile-claim")) return claim(req, res, path);
+
+    const challenge = /^\/api\/v2\/challenge\/([0-9]+)$/.exec(path);
+    if (challenge && req.method === "GET") {
+      if (Number(challenge[1]) !== 7) return problem(res, 404, "not_found");
+      return send(res, 200, {
+        id: 7,
+        name: "SLC Bus Stops",
+        blurb: "Help check every bus stop in Salt Lake City for a shelter, a bench, light and wheelchair access.",
+      });
+    }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
