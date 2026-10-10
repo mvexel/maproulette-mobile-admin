@@ -13,6 +13,9 @@ services:
       # mr-api -> mr-dev rename (decision A15).
       BACKEND_ORIGIN: ${BACKEND_ORIGIN:-https://mr-api.osm.lol}
       CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
+      # The claim page (/claim): its OAuth client and the OpenStreetMap site the backend edits.
+      CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      OSM_WEB: ${OSM_WEB:-https://master.apis.dev.openstreetmap.org}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
