@@ -51,3 +51,9 @@ test("serves the apple-app-site-association file as JSON", async ({ request }) =
     applinks: { details: [{ appIDs: ["ABCDE12345.lol.osm.streettally"], components: [{ "/": "/challenge/*" }] }] },
   });
 });
+
+test("has a privacy page", async ({ page }) => {
+  await page.goto(`${SITE}/privacy`);
+  await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Delete your data" })).toBeVisible();
+});

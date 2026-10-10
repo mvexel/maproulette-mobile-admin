@@ -53,7 +53,7 @@ function participantSite(): Plugin {
       });
     }
     if (path.startsWith("/claim/")) return next();
-    const file = /^\/challenge\/[^/]+\/?$/.test(path) ? "challenge.html" : path === "/" ? "index.html" : path.slice(1);
+    const file = /^\/challenge\/[^/]+\/?$/.test(path) ? "challenge.html" : path === "/" ? "index.html" : path === "/privacy" ? "privacy.html" : path.slice(1);
     const full = join(SITE, file);
     if (!full.startsWith(SITE) || !existsSync(full) || !statSync(full).isFile()) return next();
     res.setHeader("Content-Type", TYPES[extname(full)] ?? "application/octet-stream");

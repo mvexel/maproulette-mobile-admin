@@ -7,6 +7,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Participant site `/privacy` page (draft wording, placeholders for operator and contact), linked
+  from the claim page footer and the email footers.
+
 - Sign-in through the backend's mobile OAuth (`mobile:admin`, authorization code + PKCE). Access
   token in memory, refresh token in `sessionStorage`, single-flight refresh, one retry after a
   401, sign-out with revocation.

@@ -53,6 +53,11 @@
 		file_server
 	}
 
+	handle /privacy {
+		rewrite * /privacy.html
+		file_server
+	}
+
 	handle {
 		file_server
 	}
