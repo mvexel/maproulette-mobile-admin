@@ -19,12 +19,12 @@ async function signIn(page: Page) {
 
 test("puts answers on the map and explains the ones that weren't added", async ({ page, request }) => {
   await page.goto(`${CLAIM}/claim#t=${T.partial}`);
-  await expect(page.getByRole("heading", { name: "You checked 4 places" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You checked 4 stops" })).toBeVisible();
   await page.getByText("Show the list").click();
   await expect(page.locator(".stops li")).toHaveCount(4);
 
   await signIn(page);
-  await expect(page.getByRole("heading", { name: "Ready to put 4 places on the map?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ready to put 4 stops on the map?" })).toBeVisible();
   // The authorization code doesn't stay in the address bar or history.
   expect(new URL(page.url()).pathname).toBe("/claim");
   expect(new URL(page.url()).search).toBe("");
@@ -37,8 +37,8 @@ test("puts answers on the map and explains the ones that weren't added", async (
   await signIn(page);
 
   await page.getByRole("button", { name: "Put them on the map" }).click();
-  await expect(page.getByRole("heading", { name: "2 places are on the map" })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("2 places weren't added")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "2 stops are on the map" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("2 stops weren't added")).toBeVisible();
   await page.getByText("Show which").click();
   await expect(page.getByText("It changed on the map since you were there")).toBeVisible();
   await expect(page.getByText("Someone else checked it first")).toBeVisible();
@@ -54,6 +54,27 @@ test("puts answers on the map and explains the ones that weren't added", async (
   await expect(page.getByRole("heading", { name: /These answers are already on the map/ })).toBeVisible();
 });
 
+test("shows the tally and what was found", async ({ page }) => {
+  await page.goto(`${CLAIM}/claim#t=${T.partial}`);
+  await expect(page.getByText("212 of 410 stops checked in SLC Bus Stops.")).toBeVisible();
+  await expect(page.getByText(/3 had no shelter/)).toBeVisible();
+});
+
+test("asks to sign in again when a claim stopped, then finishes it", async ({ page }) => {
+  await page.goto(`${CLAIM}/claim#t=${T.reauth}`);
+  await expect(page.getByRole("heading", { name: "1 of 3 are on the map." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /already on the map/ })).toHaveCount(0);
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "3 stops are on the map" })).toBeVisible({ timeout: 20_000 });
+});
+
+test("retries the answers that failed", async ({ page }) => {
+  await page.goto(`${CLAIM}/claim#t=${T.failed}`);
+  await expect(page.getByRole("heading", { name: "2 of 3 are on the map." })).toBeVisible();
+  await signIn(page);
+  await expect(page.getByRole("heading", { name: "3 stops are on the map" })).toBeVisible({ timeout: 20_000 });
+});
+
 test("says so when sign-in was cancelled", async ({ page }) => {
   await page.goto(`${CLAIM}/claim#t=${T.all}`);
   await page.getByRole("button", { name: "Sign in to OpenStreetMap" }).click();
@@ -65,7 +86,7 @@ test("says so when sign-in was cancelled", async ({ page }) => {
 test("tells the participant to come back while writes are paused", async ({ page, request }) => {
   await request.post(`${MOCK}/__mock/claim-writes?enabled=false`);
   await page.goto(`${CLAIM}/claim#t=${T.all}`);
-  await expect(page.getByRole("heading", { name: "You checked 3 places" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You checked 3 stops" })).toBeVisible();
   await expect(page.getByText("We can't put answers on the map right this minute")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in to OpenStreetMap" })).toHaveCount(0);
 });
@@ -99,5 +120,5 @@ test("stops reminders and keeps the answers", async ({ page }) => {
   await page.getByRole("button", { name: "Stop reminders" }).click();
   await expect(page.getByText(/No more reminders\. Your answers are saved until/)).toBeVisible();
   await page.goto(`${CLAIM}/claim#t=${T.all}`);
-  await expect(page.getByRole("heading", { name: "You checked 3 places" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You checked 3 stops" })).toBeVisible();
 });
