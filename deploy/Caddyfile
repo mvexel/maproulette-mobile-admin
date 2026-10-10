@@ -1,29 +1,59 @@
-# The admin app's own Caddy, inside its container: serves the static build on :80 (plain HTTP on
-# the internal network). TLS and the public hostname are handled by the shared Caddy in front.
-:80 {
-	root * /srv
+# The container's own Caddy (plain HTTP on the internal network). TLS and the public hostnames are
+# handled by the shared Caddy in front:
+#   :80   the admin app (admin.<deployment host>)
+#   :8080 the participant site (streettally.osm.lol): root page, campaign landing pages, the claim
+#         page and the apple-app-site-association file.
+(common) {
 	encode gzip
 	header {
 		Referrer-Policy no-referrer
 		X-Content-Type-Options nosniff
-		Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN}; img-src 'self' data: https://*.openfreemap.org; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 	}
-	# config.json is written at container start from the environment, and index.html (served for
-	# every app route) must not be cached so a deploy picks up the new hashed assets.
+	# config.json is written at container start from the environment, and HTML must not be
+	# cached so a deploy picks up the new hashed assets.
 	@nocache not path /assets/* /claim/assets/*
 	header @nocache Cache-Control no-store
 	@assets path /assets/* /claim/assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-	# The participant claim page (claim/): its own SPA under /claim. MapLibre fetches the
-	# OpenFreeMap style, tiles, fonts and sprites, and runs its worker from a blob: URL.
+}
+
+:80 {
+	root * /srv/admin
+	import common
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN}; img-src 'self' data: https://*.openfreemap.org; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	try_files {path} /index.html
+	file_server
+}
+
+:8080 {
+	root * /srv/street
+	import common
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN}; img-src 'self' data:; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+	# Universal links (/challenge/*) for the app. Written at start only when APPLE_TEAM_ID and
+	# APPLE_BUNDLE_ID are set; iOS needs it as JSON, at this exact path, with no redirect.
+	handle /.well-known/apple-app-site-association {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
+	# The claim page: its own SPA under /claim. MapLibre fetches the OpenFreeMap style, tiles,
+	# fonts and sprites, and runs its worker from a blob: URL.
 	@claim path /claim /claim/*
 	handle @claim {
 		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		try_files {path} /claim/index.html
 		file_server
 	}
+
+	# Campaign landing page, shown when a campaign link opens without the app installed.
+	handle /challenge/* {
+		rewrite * /challenge.html
+		file_server
+	}
+
 	handle {
-		try_files {path} /index.html
 		file_server
 	}
 }
