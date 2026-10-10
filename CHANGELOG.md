@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0] - Unreleased
 
+### Changed
+
+- Street Tally brand pass on the admin UI: navy and amber tokens from the brand palette, exposed as
+  CSS variables (`--brand-navy`, `--brand-amber`, `--accent`, `--on-accent`, `--accent-text`,
+  `--pin-todo`, `--pin-done` and the role tokens) for new screens to build on; icon A as favicon and
+  header logo; system font stack; amber primary buttons. Text colors pass WCAG AA. Style only.
+
 ### Added
 
 - Sign-in through the backend's mobile OAuth (`mobile:admin`, authorization code + PKCE). Access

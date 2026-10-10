@@ -6,7 +6,7 @@ export function SignIn({ error }: { error?: string }) {
   const [busy, setBusy] = useState(false);
   return (
     <main className="center">
-      <h1>MapRoulette mobile admin</h1>
+      <h1>Street Tally admin</h1>
       <p>
         Backend: <code data-testid="backend">{config().backend}</code>
       </p>
