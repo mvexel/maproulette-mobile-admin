@@ -20,6 +20,18 @@ export class ApiError extends Error {
  * ends the session.
  */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authorized(path, init);
+  const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);
+  if (!res.ok) throw errorFrom(res, body);
+  return body as T;
+}
+
+function errorFrom(res: Response, body: unknown): ApiError {
+  const b = (body ?? {}) as { error?: string; detail?: string[] };
+  return new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
+}
+
+async function authorized(path: string, init: RequestInit): Promise<Response> {
   const send = async (token: string) =>
     fetch(`${config().backend}${path}`, {
       ...init,
@@ -36,12 +48,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     clearSession();
     throw new AuthError("Session expired. Please sign in again.");
   }
-  const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);
-  if (!res.ok) {
-    const b = (body ?? {}) as { error?: string; detail?: string[] };
-    throw new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
-  }
-  return body as T;
+  return res;
 }
 
 export interface Client {
@@ -171,4 +178,15 @@ export function describeError(e: unknown): { message: string; detail: string[] }
     default:
       return { message: `Request failed: ${e.message} (HTTP ${e.status})`, detail: [] };
   }
+}
+
+export type ResultsFormat = "csv" | "geojson";
+
+/** A challenge's campaign results as a file: tasks, statuses, answers, changesets. */
+export async function fetchChallengeResults(challengeId: number, format: ResultsFormat): Promise<{ blob: Blob; filename: string }> {
+  const res = await authorized(`/api/v2/mobile-admin/challenges/${challengeId}/results?format=${format}`, {
+    headers: { Accept: format === "csv" ? "text/csv" : "application/geo+json" },
+  });
+  if (!res.ok) throw errorFrom(res, await res.json().catch(() => undefined));
+  return { blob: await res.blob(), filename: `challenge-${challengeId}-results.${format}` };
 }
