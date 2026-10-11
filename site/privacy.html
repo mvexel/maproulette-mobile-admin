@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/site.css">
 </head>
 <!-- Draft for Martijn's review: wording follows design/deferred-signup.md §6 and deferred-signup-api.md.
-     Fill in [contact email] and the log-retention line (backlog 9a) before deploying. -->
+     Fill in [contact email] before deploying. -->
 <body>
 <main>
   <section class="hero">
@@ -26,7 +26,6 @@
 
   <h2>Server logs</h2>
   <p>Our app server doesn't record your IP address in its logs or its database. When you sign up, your IP address is held in memory for up to an hour to limit sign-up abuse, and then it's gone. It's never written to disk. The server logs record which pages and map areas the app asked for, without your IP address or your name, and they're cleared each time we update the server.</p>
-  <p>[Front proxy: whether it keeps access logs with IP addresses, and for how long. To be confirmed.]</p>
 
   <h2>Your email address</h2>
   <p>Giving an email is optional. We use it only to send the link to put your answers on the map, two reminders, and a last note when your answers are added or removed. It's stored encrypted and deleted after that last note. Our emails don't track whether you open them.</p>
