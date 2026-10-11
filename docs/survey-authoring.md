@@ -27,6 +27,8 @@ Each option sets/removes only its question's guarded tags. A no-op answer is inv
 
 An identity match such as `{"amenity":"restaurant"}` checks all specified tags. Features with different identity tags are omitted. Questions whose expected tags do not match the source feature are omitted; features with no remaining questions are omitted. For absent-tag-only tasks, the generator uses existing `liveMissingQuestions` behavior so the backend can filter questions again against live OSM when a volunteer opens the task.
 
+Optional `outcomes` adds up to 4 of the campaign's own choices under "Something's wrong here", next to the app's built-in ones (`too-hard`, `not-here`, `moved`, which can't be redefined). Each has an `id`, a `label` (up to 60 characters), an optional `description` (up to 300) and a `status`: 6 (can't complete) or 2 (not an issue). Choosing one closes the task without changing tags. Example: `[{"id":"no-door","label":"There's no door","description":"It's an open doorway or a gate.","status":6}]`. Every generated task carries the same list.
+
 Validation limits match the existing choice contract: 1–8 questions, 2–12 options each, stable lowercase IDs of up to 32 characters, question text up to 200 characters, question help up to 500, answer labels up to 60, answer help up to 300, and a 16 KiB UTF-8 choice payload. Feature input is limited to 10,000 features and file uploads to 10 MiB.
 
 ## Feature input

@@ -31,6 +31,21 @@ describe("existing-contract survey generator", () => {
     s.features.features[0].properties.shelter = "unknown";
     expect(JSON.parse(generateTasks(s).text).cooperativeWork.liveMissingQuestions).toBeUndefined();
   });
+  it("carries campaign outcomes into every task, and leaves them out when there are none", () => {
+    const s = exampleSurvey("bus-stop");
+    expect(JSON.parse(generateTasks(s).text).cooperativeWork.outcomes).toBeUndefined();
+    s.outcomes = [{ id: "no-door", label: "There's no door", description: "It's an open doorway or a gate.", status: 6 }];
+    expect(JSON.parse(generateTasks(s).text).cooperativeWork.outcomes).toEqual(s.outcomes);
+  });
+  it.each([
+    ["a built-in outcome", [{ id: "not-here", label: "Gone", status: 6 }]],
+    ["an outcome status other than 2 or 6", [{ id: "no-door", label: "There's no door", status: 5 }]],
+    ["duplicate outcome IDs", [{ id: "a", label: "A", status: 2 }, { id: "a", label: "B", status: 6 }]],
+    ["more than 4 outcomes", ["a", "b", "c", "d", "e"].map(id => ({ id, label: id, status: 6 }))],
+    ["an outcome that deletes", [{ id: "gone", label: "Gone", delete: true }]],
+  ])("rejects %s", (_, outcomes) => {
+    expect(() => parseSurvey({ ...exampleSurvey("bus-stop"), outcomes })).toThrow();
+  });
   it.each([
     ["duplicate feature IDs", (s: ReturnType<typeof exampleSurvey>) => s.features.features.push(s.features.features[0])],
     ["overlapping guarded keys", (s: ReturnType<typeof exampleSurvey>) => s.questions.push({ ...s.questions[0], id: "duplicate" })],

@@ -14,6 +14,13 @@ export interface SurveyQuestion {
   expect: Record<string, string | null>;
   options: SurveyOption[];
 }
+/** A campaign's own "Something's wrong here" outcome: closes the task with `status`, no tag change. */
+export interface SurveyOutcome {
+  id: string;
+  label: string;
+  description?: string;
+  status: 2 | 6;
+}
 export interface SurveyFeature {
   type: "Feature";
   geometry: { type: "Point"; coordinates: [number, number] };
@@ -25,6 +32,7 @@ export interface SurveyDocument {
   challenge: ChallengeDraft;
   match: Record<string, string>;
   questions: SurveyQuestion[];
+  outcomes?: SurveyOutcome[];
   features: { type: "FeatureCollection"; features: SurveyFeature[] };
 }
 export class SurveyValidationError extends Error {
@@ -34,6 +42,8 @@ export class SurveyValidationError extends Error {
     this.problems = problems;
   }
 }
+/** The app's own outcomes; a survey can't redefine them. */
+const builtInOutcomes = new Set(["too-hard", "not-here", "moved"]);
 const identifier = /^[a-z0-9][a-z0-9-]{0,31}$(?![\s\S])/;
 const element = /^(node|way|relation)\/[1-9][0-9]{0,15}$(?![\s\S])/;
 const size = (s: string) => [...s].length;
@@ -69,7 +79,7 @@ export function parseSurvey(value: unknown): SurveyDocument {
     return v;
   };
   const unique = (ids: string[], path: string) => { if (new Set(ids).size !== ids.length) fail(`${path}: duplicate IDs`); };
-  const root = obj(value, "survey", ["version", "challenge", "match", "questions", "features"]);
+  const root = obj(value, "survey", ["version", "challenge", "match", "questions", "outcomes", "features"]);
   if (root.version !== 1) fail("survey.version: only version 1 is supported");
   const c = obj(root.challenge, "challenge", ["name", "description", "instruction", "checkinComment", "checkinSource"]);
   for (const k of ["name", "description", "instruction", "checkinComment", "checkinSource"]) text(c[k], `challenge.${k}`, k === "name" ? 100 : 2000);
@@ -106,6 +116,17 @@ export function parseSurvey(value: unknown): SurveyDocument {
   unique(questions.map(q => String(q.id)), "questions");
   if (new Set(guarded).size !== guarded.length) fail("questions: a tag must be guarded by only one question");
   for (const k of guarded) if (Object.hasOwn(match, k)) fail(`match: ${k} is also guarded by a question`);
+  if (root.outcomes !== undefined) {
+    const outcomes = list(root.outcomes, "outcomes", 0, 4).map((ov, oi) => {
+      const path = `Outcome ${oi + 1}`;
+      const o = obj(ov, path, ["id", "label", "description", "status"]);
+      id(o.id, `${path}.id`); text(o.label, `${path}.label`, 60); text(o.description, `${path}.description`, 300, true);
+      if (typeof o.id === "string" && builtInOutcomes.has(o.id)) fail(`${path}.id: ${o.id} is built into the app`);
+      if (o.status !== 2 && o.status !== 6) fail(`${path}.status: use 2 (not an issue) or 6 (can't complete)`);
+      return o;
+    });
+    unique(outcomes.map(o => String(o.id)), "outcomes");
+  }
   const fc = obj(root.features, "features", ["type", "features"]);
   if (fc.type !== "FeatureCollection") fail("features: expected a GeoJSON FeatureCollection");
   const features = list(fc.features, "features.features", 1, 10000).map((fv, i) => {
@@ -140,6 +161,7 @@ export function generateTasks(input: SurveyDocument) {
     const work = {
       meta: { version: 2, type: 3, choiceVersion: 1 }, element: featureId,
       ...(Object.keys(survey.match).length ? { match: survey.match } : {}), questions,
+      ...(survey.outcomes?.length ? { outcomes: survey.outcomes } : {}),
       ...(questions.every(q => Object.values(q.expect).every(v => v === null)) ? { liveMissingQuestions: true } : {}),
     };
     if (new TextEncoder().encode(JSON.stringify(work)).length > 16384) throw new SurveyValidationError([`${featureId}: choice payload exceeds the backend's 16 KiB limit`]);
