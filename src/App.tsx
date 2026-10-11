@@ -44,7 +44,7 @@ export function App() {
   return (
     <>
       <header>
-        <strong>MapRoulette mobile admin</strong>
+        <strong>Street Tally admin</strong>
         <nav>
           {Object.entries(SCREENS).map(([to, s]) => (
             <a
