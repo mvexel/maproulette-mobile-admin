@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MockBackend } from "../mock/server.ts";
 import { RESULTS_CHALLENGE_ID, RESULTS_CSV } from "../mock/server.ts";
-import { ApiError, createClient, describeError, fetchChallengeResults, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
+import { ApiError, createClient, describeError, fetchChallengeResults, idEditorUrl, listReports, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
 import { reset, setUp, signIn } from "./testing";
 
 let mock: MockBackend;
@@ -129,5 +129,19 @@ describe("results export", () => {
     const e = await failure(fetchChallengeResults(7, "csv"));
     expect(e.status).toBe(404);
     expect(e.code).toBe("not_found");
+  });
+});
+
+describe("reports", () => {
+  it("lists not-here and moved reports, newest first, with the moved spot", async () => {
+    const reports = await listReports(RESULTS_CHALLENGE_ID);
+    expect(reports.map((r) => [r.taskId, r.outcome, r.count])).toEqual([[3, "moved", 1], [2, "not-here", 2]]);
+    expect(reports[0].moved).toEqual({ at: [-111.8912, 40.76091], source: "tap", distanceM: 21 });
+    expect(reports[1].moved).toBeUndefined();
+  });
+
+  it("links iD to the element, centered on a point", () => {
+    expect(idEditorUrl("node/103", [-111.8912, 40.76091])).toBe("https://www.openstreetmap.org/edit?editor=id&node=103#map=20/40.760910/-111.891200");
+    expect(idEditorUrl("way/7")).toBe("https://www.openstreetmap.org/edit?editor=id&way=7");
   });
 });
