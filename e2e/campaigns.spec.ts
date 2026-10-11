@@ -100,7 +100,7 @@ test("a campaign's live page is created, set up, ended and given a new link", as
   await expect(live.getByRole("button", { name: "Stop counting" })).toHaveCount(0);
 
   await live.getByLabel("Page on").click();
-  await expect(live.locator(".live-status")).toHaveText("Turned off. The link says the page is turned off.");
+  await expect(live.locator(".live-status")).toHaveText("Turned off. Anyone with the link sees that the page is turned off.");
   await expect(live.locator(".qr-warning")).toBeVisible();
   expect((await (await pub(first)).json()).error).toBe("turned_off");
   await live.getByLabel("Page on").click();

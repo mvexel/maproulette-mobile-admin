@@ -6,7 +6,7 @@ import { ErrorMessage } from "./ErrorMessage";
 import { ShareLine } from "./Share";
 
 function status(p: LivePage): string {
-  if (!p.enabled) return "Turned off. The link says the page is turned off.";
+  if (!p.enabled) return "Turned off. Anyone with the link sees that the page is turned off.";
   if (p.endedAt) return `Ended ${shortDateTime(p.endedAt)}. The page shows the final tally and no longer updates.`;
   return "On. The page updates every 30 seconds.";
 }
@@ -52,7 +52,7 @@ export function LivePanel({ challenge }: { challenge: number }) {
       <h3>Live page</h3>
       <p className="hint">
         A page for a projector or a group chat: the tally and a map of what's checked. Anyone with the link can see it. It never shows who checked
-        what.
+        which place.
       </p>
       <ErrorMessage error={error} />
       {page === undefined && !error && <p>Loading live page…</p>}
@@ -73,7 +73,7 @@ export function LivePanel({ challenge }: { challenge: number }) {
             label="Live page link"
             url={liveLink(page.token)}
             file={`campaign-${challenge}-live-qr.png`}
-            warning={page.enabled ? undefined : "Turned off. This code shows “This page is turned off” until you turn it on."}
+            warning={page.enabled ? undefined : "Turned off. This code opens a page that says “This page is turned off” until you turn it back on."}
           />
           <div className="live-settings">
             <label>
