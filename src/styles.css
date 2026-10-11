@@ -195,6 +195,16 @@ main .survey-builder button { min-height: 2.4rem; }
   .center { margin-top: 8vh; padding: 1.6rem 1.2rem; }
   .panel { padding: 1rem; }
 }
+.report-label, .report-element { display: block; }
+.report-element { color: var(--muted); font-size: .8rem; }
+.report-cards { display: none; list-style: none; margin: 1.25rem 0 0; padding: 0; }
+.report-cards li { display: flex; flex-direction: column; gap: .25rem; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.report-cards li + li { margin-top: .5rem; }
+@media (max-width: 700px) {
+  .reports-table { display: none; }
+  .report-cards { display: block; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion override must beat every component rule */
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }

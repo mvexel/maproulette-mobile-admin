@@ -10,6 +10,29 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
+
+/** The one challenge the mock has results for (GET /api/v2/mobile-admin/challenges/:id/results). */
+export const RESULTS_CHALLENGE_ID = 42;
+export const RESULTS_CSV =
+  "task_id,task_name,element,lon,lat,status,status_name,completed_by,completed_by_osm_id,completed_at,changeset_id,stale_reason,deleted,tags_set,tags_unset,answer:shelter\r\n" +
+  "1,node/101,node/101,-111.891,40.7608,1,Fixed,Mapper,456,2026-10-10T17:00:00,9001,,false,shelter=yes,,yes\r\n";
+const RESULTS_GEOJSON = {
+  type: "FeatureCollection",
+  features: [{
+    type: "Feature", id: 1, geometry: { type: "Point", coordinates: [-111.891, 40.7608] },
+    properties: { taskId: 1, taskName: "node/101", element: "node/101", status: 1, statusName: "Fixed", answers: { shelter: "yes" } },
+  }, {
+    type: "Feature", id: 2, geometry: { type: "Point", coordinates: [-111.892, 40.7612] },
+    properties: { taskId: 2, taskName: "node/102", featureName: null, featureRef: "1234", element: "node/102", status: 6, statusName: "Too hard", completedAt: "2026-10-10T17:05:00", outcome: "not-here", outcomeLabel: "It's not here", reportCount: 2 },
+  }, {
+    type: "Feature", id: 3, geometry: { type: "Point", coordinates: [-111.8912, 40.7609] },
+    properties: { taskId: 3, taskName: "node/103", featureName: "900 E / 1300 S", featureRef: "1235", element: "node/103", status: 6, statusName: "Too hard", completedAt: "2026-10-10T17:10:00", outcome: "moved", outcomeLabel: "It's moved", reportCount: 1 },
+  }, {
+    type: "Feature", id: "3-reported", geometry: { type: "Point", coordinates: [-111.8912, 40.76091] },
+    properties: { kind: "reported_position", taskId: 3, element: "node/103", source: "tap", distanceM: 21 },
+  }],
+};
+
 export interface MockOptions {
   /** Origin of the admin app, for CORS and the seeded admin client's redirect. */
   adminOrigin: string;
@@ -460,6 +483,20 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   };
 
   async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {
+    const results = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/results$/.exec(path);
+    if (results && req.method === "GET") {
+      const format = q.get("format") ?? "csv";
+      if (format !== "csv" && format !== "geojson")
+        return problem(res, 400, "invalid_request", ["format must be csv or geojson"]);
+      if (results[1] !== String(RESULTS_CHALLENGE_ID)) return problem(res, 404, "not_found");
+      const disposition = { "Content-Disposition": `attachment; filename="challenge-${results[1]}-results.${format}"` };
+      if (format === "geojson") {
+        res.writeHead(200, { "Content-Type": "application/geo+json", "Cache-Control": "no-store", ...disposition });
+        return res.end(JSON.stringify(RESULTS_GEOJSON));
+      }
+      res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store", ...disposition });
+      return res.end(RESULTS_CSV);
+    }
     if (path === "/api/v2/mobile-admin/write-policy" && req.method === "GET")
       return send(res, 200, { enabled: writePolicy, managed: true });
     if (path === "/api/v2/mobile-admin/clients" && req.method === "GET")
