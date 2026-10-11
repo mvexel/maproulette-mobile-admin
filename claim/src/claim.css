@@ -1,0 +1,102 @@
+/* Street Tally brand tokens (brand/colors.json). Every text pair passes WCAG AA in both schemes. */
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7;
+  --card: #fff;
+  --text: #14213d;
+  --text2: #4a5468;
+  --line: #dde1e7;
+  --accent: #f5a524;
+  --on-accent: #14213d;
+  --accent-text: #a84f00;
+  --done: #1f7a4d;
+  --danger: #b42318;
+  --on-danger: #fff;
+  --navy: #14213d;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --card: #16213a;
+    --text: #f3f4f6;
+    --text2: #a7b0c0;
+    --line: #26324d;
+    --on-accent: #0b1220;
+    --accent-text: #fbbf24;
+    --done: #34d399;
+    --danger: #f97066;
+    --on-danger: #0b1220;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+header { background: var(--navy); color: #f3f4f6; }
+header .in, main, footer { max-width: 760px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+header .in { padding-top: 18px; padding-bottom: 18px; display: flex; align-items: center; gap: 12px; }
+header img { border-radius: 10px; }
+.campaign { font-weight: 800; font-size: 19px; line-height: 1.2; }
+.on { font-size: 14px; color: #c9ced8; }
+main { padding-top: 24px; padding-bottom: 8px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; margin-bottom: 16px; }
+h1 { font-size: 32px; line-height: 1.15; margin: 0 0 12px; font-weight: 800; }
+h2 { font-size: 22px; margin: 16px 0 8px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--text2); }
+.small { font-size: 15px; }
+a { color: var(--accent-text); }
+
+.btn {
+  display: inline-block;
+  min-height: 48px;
+  line-height: 48px;
+  padding: 0 24px;
+  border-radius: 12px;
+  border: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:disabled { opacity: .6; cursor: progress; }
+.primary { background: var(--accent); color: var(--on-accent); }
+.secondary { background: transparent; color: var(--text); border: 2px solid var(--text); line-height: 44px; }
+.danger { background: var(--danger); color: var(--on-danger); }
+button.link { background: none; border: 0; padding: 0; font-family: inherit; font-size: inherit; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
+.card > .btn { margin: 4px 0 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 8px; }
+
+.map { width: 100%; height: 320px; border-radius: 12px; border: 1px solid var(--line); margin: 8px 0 16px; overflow: hidden; }
+.map .maplibregl-popup-content { color: #14213d; font-size: 15px; }
+.facts { display: grid; gap: 8px; margin: 16px 0 20px; }
+.fact { background: var(--bg); border-radius: 10px; padding: 10px 14px; font-size: 16px; }
+.ok { color: var(--done); }
+.bar { height: 12px; background: var(--line); border-radius: 6px; overflow: hidden; margin: 16px 0 8px; }
+.bar > div { height: 100%; background: var(--accent); transition: width 300ms ease; }
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--accent-text); font-weight: 600; }
+.stops ul, ul.list { padding-left: 20px; margin: 10px 0 0; }
+.stops li, ul.list li { margin-bottom: 6px; font-size: 16px; }
+.note { border-left: 4px solid var(--accent); padding: 12px 16px; background: var(--bg); border-radius: 0 10px 10px 0; }
+
+footer { padding-top: 8px; padding-bottom: 40px; font-size: 14px; color: var(--text2); display: flex; gap: 16px; flex-wrap: wrap; }
+footer a { color: var(--text2); }
+.boot-error { max-width: 760px; margin: 40px auto; padding: 0 16px; }
+
+@media (max-width: 520px) {
+  h1 { font-size: 26px; }
+  .card { padding: 22px 18px; }
+  .map { height: 240px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar > div { transition: none; }
+}

@@ -15,6 +15,9 @@ services:
       CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
       # Optional dev, stage or prod; the app infers it from the backend host otherwise.
       ADMIN_ENVIRONMENT: ${ADMIN_ENVIRONMENT:-}
+      # The claim page (/claim): its OAuth client and the OpenStreetMap site the backend edits.
+      CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      OSM_WEB: ${OSM_WEB:-https://master.apis.dev.openstreetmap.org}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s

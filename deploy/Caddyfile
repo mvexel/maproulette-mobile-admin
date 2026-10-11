@@ -10,10 +10,20 @@
 	}
 	# config.json is written at container start from the environment, and index.html (served for
 	# every app route) must not be cached so a deploy picks up the new hashed assets.
-	@nocache not path /assets/*
+	@nocache not path /assets/* /claim/assets/*
 	header @nocache Cache-Control no-store
-	@assets path /assets/*
+	@assets path /assets/* /claim/assets/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
-	try_files {path} /index.html
-	file_server
+	# The participant claim page (claim/): its own SPA under /claim. MapLibre fetches the
+	# OpenFreeMap style, tiles, fonts and sprites, and runs its worker from a blob: URL.
+	@claim path /claim /claim/*
+	handle @claim {
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		try_files {path} /claim/index.html
+		file_server
+	}
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }

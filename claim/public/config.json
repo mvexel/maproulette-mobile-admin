@@ -1,0 +1,6 @@
+{
+  "backend": "https://mr-api.osm.lol",
+  "clientId": "maproulette-claim",
+  "mapStyle": "https://tiles.openfreemap.org/styles/positron",
+  "osmWeb": "https://master.apis.dev.openstreetmap.org"
+}

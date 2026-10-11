@@ -9,17 +9,20 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:claim": "vite -c vite.claim.config.ts",
     "dev:mock": "node mock/dev.ts",
     "mock": "node mock/server.ts",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && vite build -c vite.claim.config.ts",
     "typecheck": "tsc",
     "lint": "biome lint --error-on-warnings",
     "test": "vitest run",
     "e2e": "playwright test",
     "preview": "vite preview",
-    "generate-survey": "node scripts/generate-survey.ts"
+    "generate-survey": "node scripts/generate-survey.ts",
+    "build:claim": "vite build -c vite.claim.config.ts"
   },
   "dependencies": {
+    "maplibre-gl": "^6.10.0",
     "qrcode-generator": "^2.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

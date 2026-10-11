@@ -32,5 +32,5 @@ function runtimeConfig(): Plugin {
 
 export default defineConfig({
   plugins: [react(), runtimeConfig()],
-  test: { environment: "node", include: ["src/**/*.test.ts"] },
+  test: { environment: "node", include: ["src/**/*.test.ts", "claim/**/*.test.ts"] },
 });
