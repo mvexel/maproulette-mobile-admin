@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { startSignIn } from "../auth";
 import { config } from "../config";
+import { EnvironmentBadge } from "./Environment";
 
 export function SignIn({ error }: { error?: string }) {
   const [busy, setBusy] = useState(false);
@@ -8,7 +9,7 @@ export function SignIn({ error }: { error?: string }) {
     <main className="center">
       <h1>Street Tally admin</h1>
       <p>
-        Backend: <code data-testid="backend">{config().backend}</code>
+        <EnvironmentBadge /> Backend: <code data-testid="backend">{config().backend}</code>
       </p>
       {error && (
         <p className="error" role="alert">

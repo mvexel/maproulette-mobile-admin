@@ -14,6 +14,8 @@ services:
       # mr-api -> mr-dev rename (decision A15).
       BACKEND_ORIGIN: ${BACKEND_ORIGIN:-https://mr-api.osm.lol}
       CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
+      # Optional dev, stage or prod; the app infers it from the backend host otherwise.
+      ADMIN_ENVIRONMENT: ${ADMIN_ENVIRONMENT:-}
       # The participant site on :8080 (streettally.osm.lol): the claim page's OAuth client, the
       # OpenStreetMap site the backend edits, the beta install link, and the app IDs for
       # universal links (leave both empty to serve no apple-app-site-association file).

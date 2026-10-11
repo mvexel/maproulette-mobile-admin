@@ -47,6 +47,10 @@ The app reads `/config.json` at start, so one build serves any backend:
   alias); change `BACKEND_ORIGIN` in the deployment then.
 - `clientId`: the backend's OAuth client for this app, registered with `scopes = ["mobile:admin"]`
   and the redirect `https://<admin origin>/callback`.
+- `environment` (optional): `dev`, `stage` or `prod`, shown as the header badge (PROD also turns
+  the header border red). Without it the app infers it from the backend host (`mr-prod.*`,
+  `mr-stage.*`, `mr-api.*`/`mr-dev.*`/localhost); any other host shows `UNKNOWN BACKEND`. The
+  container sets it from `ADMIN_ENVIRONMENT`, and `vite` from `ADMIN_ENVIRONMENT` too.
 
 The redirect URI is always `<the app's origin>/callback`. The backend must list it exactly for
 the client, and must have `MR_MOBILE_ADMIN_ORIGIN` set to the app's origin for CORS.
@@ -114,7 +118,6 @@ serves them on port 8080, and the shared Caddy puts them on https://streettally.
   own domain. It reads the campaign's name and blurb from `GET /api/v2/challenge/<id>` when the
   backend allows it, and otherwise shows generic text.
 - `/privacy` (`site/privacy.html`): the privacy page every email footer and the claim page link to.
-  Draft wording; `[operator]`, `[contact email]` and the server-log line must be filled in before deploying.
 - `/.well-known/apple-app-site-association`: the universal-link file for `/challenge/*`, written
   at start from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`.
 - `/claim` (`claim/`): the page participants open from the deferred sign-up email to put their
@@ -142,10 +145,10 @@ http://localhost:5174/challenge/7.
 
 The image (`Dockerfile`) builds both sites and serves them with its own small Caddy: the admin app
 on port 80 and the participant site on port 8080. At start, `deploy/entrypoint.sh` writes the
-admin `config.json` from `BACKEND_ORIGIN` and `CLIENT_ID`; the participant site's `config.json`
-from `BACKEND_ORIGIN` and `INSTALL_URL`; `claim/config.json` from `BACKEND_ORIGIN`,
-`CLAIM_CLIENT_ID` and `OSM_WEB`; and the apple-app-site-association file when `APPLE_TEAM_ID`
-and `APPLE_BUNDLE_ID` are set. The
+admin `config.json` from `BACKEND_ORIGIN`, `CLIENT_ID` and the optional `ADMIN_ENVIRONMENT`; the
+participant site's `config.json` from `BACKEND_ORIGIN` and `INSTALL_URL`; `claim/config.json` from
+`BACKEND_ORIGIN`, `CLAIM_CLIENT_ID` and `OSM_WEB`; and the apple-app-site-association file when
+`APPLE_TEAM_ID` and `APPLE_BUNDLE_ID` are set. The
 container's Caddyfile (`deploy/Caddyfile`) sets the CSP (with `BACKEND_ORIGIN` in
 `connect-src`), `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on `config.json` and the
 app's HTML, and the single-page-app fallback. It does no TLS.

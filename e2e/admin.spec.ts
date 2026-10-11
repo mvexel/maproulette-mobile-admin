@@ -27,7 +27,8 @@ test("signs in and shows the clients and the connected backend", async ({ page, 
   await signIn(page);
   await expect(page).toHaveURL("/");
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
-  await expect(page.getByTestId("backend")).toHaveText(MOCK);
+  await expect(page.getByTestId("environment")).toHaveText(`DEV backend: ${MOCK}`);
+  await expect(page.getByTestId("environment")).toHaveAttribute("data-backend", MOCK);
   await expect(row(page, "maproulette-mobile-admin")).toContainText("this app");
   await expect(row(page, "maproulette-android-example")).toBeVisible();
   expect((await stats(request)).authorizationCodes).toBe(1);
@@ -180,4 +181,15 @@ test("signs out and revokes the session", async ({ page, request }) => {
   await expect.poll(async () => (await stats(request)).revokes).toBe(1);
   await page.reload();
   await expect(page.getByRole("button", { name: "Sign in with OpenStreetMap" })).toBeVisible();
+});
+
+test("shows whether task writes are on, and follows a change", async ({ page }) => {
+  await signIn(page);
+  const pill = page.getByTestId("writes-pill");
+  await expect(pill).toHaveText("Writes off");
+  await pill.click();
+  await expect(page).toHaveURL("/writes");
+  page.once("dialog", (d) => void d.accept());
+  await page.getByRole("button", { name: "Enable writes" }).click();
+  await expect(pill).toHaveText("Writes on");
 });
