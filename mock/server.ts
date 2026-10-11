@@ -13,6 +13,29 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
+
+/** The one challenge the mock has results for (GET /api/v2/mobile-admin/challenges/:id/results). */
+export const RESULTS_CHALLENGE_ID = 42;
+export const RESULTS_CSV =
+  "task_id,task_name,element,lon,lat,status,status_name,completed_by,completed_by_osm_id,completed_at,changeset_id,stale_reason,deleted,tags_set,tags_unset,answer:shelter\r\n" +
+  "1,node/101,node/101,-111.891,40.7608,1,Fixed,Mapper,456,2026-10-10T17:00:00,9001,,false,shelter=yes,,yes\r\n";
+const RESULTS_GEOJSON = {
+  type: "FeatureCollection",
+  features: [{
+    type: "Feature", id: 1, geometry: { type: "Point", coordinates: [-111.891, 40.7608] },
+    properties: { taskId: 1, taskName: "node/101", element: "node/101", status: 1, statusName: "Fixed", answers: { shelter: "yes" } },
+  }, {
+    type: "Feature", id: 2, geometry: { type: "Point", coordinates: [-111.892, 40.7612] },
+    properties: { taskId: 2, taskName: "node/102", featureName: null, featureRef: "1234", element: "node/102", status: 6, statusName: "Too hard", completedAt: "2026-10-10T17:05:00", outcome: "not-here", outcomeLabel: "It's not here", reportCount: 2 },
+  }, {
+    type: "Feature", id: 3, geometry: { type: "Point", coordinates: [-111.8912, 40.7609] },
+    properties: { taskId: 3, taskName: "node/103", featureName: "900 E / 1300 S", featureRef: "1235", element: "node/103", status: 6, statusName: "Too hard", completedAt: "2026-10-10T17:10:00", outcome: "moved", outcomeLabel: "It's moved", reportCount: 1 },
+  }, {
+    type: "Feature", id: "3-reported", geometry: { type: "Point", coordinates: [-111.8912, 40.76091] },
+    properties: { kind: "reported_position", taskId: 3, element: "node/103", source: "tap", distanceM: 21 },
+  }],
+};
+
 export interface MockOptions {
   /** Origin of the admin app, for CORS and the seeded admin client's redirect. */
   adminOrigin: string;
@@ -135,6 +158,28 @@ export interface MockBackend {
   stats: { authorizationCodes: number; refreshes: number; revokes: number; replays: number };
 }
 
+interface MockProject {
+  id: number;
+  name: string;
+  displayName: string | null;
+  enabled: boolean;
+}
+interface MockCampaign {
+  id: number;
+  name: string;
+  projectId: number;
+  enabled: boolean;
+  published: boolean;
+  total: number;
+  checked: number;
+  needsLook: number;
+  modified: string;
+  description: string;
+  instruction: string;
+  checkinComment: string;
+  checkinSource: string;
+}
+
 export function createMockBackend(opts: MockOptions): MockBackend {
   const adminOrigin = opts.adminOrigin.replace(/\/+$/, "");
   const claimOrigin = opts.claimOrigin?.replace(/\/+$/, "");
@@ -147,6 +192,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let claims = new Map<number, Claim>();
   let nextClaimId = 1;
   let claimWrites = true;
+  let projects = new Map<number, MockProject>();
+  let campaigns: MockCampaign[] = [];
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -235,6 +282,15 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     seedGuests();
     audit = [];
     writePolicy = false;
+    projects = new Map([
+      [1, { id: 1, name: "SLC test", displayName: null, enabled: false }],
+      [2, { id: 2, name: "Street Tally pilots", displayName: "Street Tally pilots", enabled: true }],
+    ]);
+    campaigns = [
+      { id: 3, name: "Street Tally test: 1300 S 900 E bus stops", projectId: 1, enabled: true, published: true, total: 28, checked: 12, needsLook: 2, modified: "2026-10-11T02:30:00Z", description: "Check what each bus stop has: a bench, a shelter, a bin.", instruction: "Stand at the stop and answer what you can see.", checkinComment: "Bus stop survey #StreetTally", checkinSource: "survey" },
+      { id: 7, name: "SLC Bus Stops", projectId: 2, enabled: true, published: true, total: 410, checked: 128, needsLook: 9, modified: "2026-10-10T18:00:00Z", description: "Check what each bus stop has: a bench, a shelter, a bin.", instruction: "Stand at the stop and answer what you can see.", checkinComment: "Bus stop survey #StreetTally", checkinSource: "survey" },
+      { id: 9, name: "Restaurant check (draft)", projectId: 2, enabled: false, published: false, total: 5, checked: 0, needsLook: 0, modified: "2026-10-09T12:00:00Z", description: "Takes about 2 minutes per stop. More at https://example.org", instruction: "Visit the restaurant and answer what you can confirm.", checkinComment: "Restaurant survey", checkinSource: "local knowledge" },
+    ];
     for (let i = 1; i <= (opts.auditSeed ?? 60); i++) {
       audit.push({
         id: i,
@@ -349,7 +405,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   }
 
   const oauthPaths = ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"];
-  const adminPaths = (path: string) => path.startsWith("/api/v2/mobile-admin/") || oauthPaths.includes(path);
+  const adminPaths = (path: string) =>
+    path.startsWith("/api/v2/mobile-admin/") || /^\/api\/v2\/challenge\/[0-9]+$/.test(path) || oauthPaths.includes(path);
   // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
   const claimPaths = (path: string) =>
     oauthPaths.includes(path) || /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+|\/[0-9]+\/retry)?$/.test(path);
@@ -507,6 +564,25 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
 
     if (path.startsWith("/api/v2/mobile-claim")) return claim(req, res, path);
+
+    // The stock challenge read and publish, as an admin grant reaches them (docs/mobile-admin-api.md).
+    const cm = /^\/api\/v2\/challenge\/([0-9]+)$/.exec(path);
+    if (cm && (req.method === "GET" || req.method === "PUT")) {
+      const b = bearer(req);
+      if (!b) return problem(res, 401, "invalid_token");
+      if (b.family.scope !== ADMIN_SCOPE || !b.user.superUser) return problem(res, 403, "insufficient_scope");
+      const c = campaigns.find((x) => x.id === Number(cm[1]));
+      if (!c) return problem(res, 404, "not_found");
+      if (req.method === "PUT") {
+        const v = JSON.parse((await readBody(req)) || "{}") as { enabled?: boolean; tags?: string[] };
+        if (typeof v.enabled === "boolean") c.enabled = v.enabled;
+        if (v.tags?.includes("mobile-survey-v1")) c.published = true;
+        c.modified = new Date().toISOString();
+        record(b.user.id, "stock.PUT", path, null, { status: 200 });
+      }
+      const { id, name, enabled, projectId, description, instruction, checkinComment, checkinSource } = c;
+      return send(res, 200, { id, name, enabled, parent: projectId, description, instruction, checkinComment, checkinSource });
+    }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
@@ -712,7 +788,42 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     updatedAt: c.updatedAt,
   });
 
+  const projectJson = (p: MockProject) => {
+    const own = campaigns.filter((c) => c.projectId === p.id);
+    return { ...p, campaigns: own.length, published: own.filter((c) => c.enabled && c.published).length };
+  };
+  const campaignJson = (c: MockCampaign) => {
+    const p = projects.get(c.projectId)!;
+    return {
+      id: c.id,
+      name: c.name,
+      enabled: c.enabled,
+      published: c.published,
+      listed: c.enabled && c.published && p.enabled,
+      modified: c.modified,
+      project: { id: p.id, name: p.name, displayName: p.displayName, enabled: p.enabled },
+      tasks: { total: c.total, checked: c.checked, needsLook: c.needsLook },
+    };
+  };
+
   async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {
+    const results = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/results$/.exec(path);
+    if (results && req.method === "GET") {
+      const format = q.get("format") ?? "csv";
+      if (format !== "csv" && format !== "geojson")
+        return problem(res, 400, "invalid_request", ["format must be csv or geojson"]);
+      // The campaigns have results with no reports yet.
+      const campaign = campaigns.some((c) => String(c.id) === results[1]);
+      if (results[1] !== String(RESULTS_CHALLENGE_ID) && !campaign) return problem(res, 404, "not_found");
+      const full = results[1] === String(RESULTS_CHALLENGE_ID);
+      const disposition = { "Content-Disposition": `attachment; filename="challenge-${results[1]}-results.${format}"` };
+      if (format === "geojson") {
+        res.writeHead(200, { "Content-Type": "application/geo+json", "Cache-Control": "no-store", ...disposition });
+        return res.end(JSON.stringify(full ? RESULTS_GEOJSON : { type: "FeatureCollection", features: [] }));
+      }
+      res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store", ...disposition });
+      return res.end(full ? RESULTS_CSV : `${RESULTS_CSV.split("\r\n")[0]}\r\n`);
+    }
     if (path === "/api/v2/mobile-admin/write-policy" && req.method === "GET")
       return send(res, 200, { enabled: writePolicy, managed: true });
     if (path === "/api/v2/mobile-admin/clients" && req.method === "GET")
@@ -726,6 +837,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       const newest = [...audit].reverse();
       return send(res, 200, { items: newest.slice(page * limit, page * limit + limit), page, limit, total: audit.length });
     }
+
+    if (path === "/api/v2/mobile-admin/projects" && req.method === "GET")
+      return send(res, 200, { projects: [...projects.values()].sort((a, b) => a.name.localeCompare(b.name)).map(projectJson) });
+    if (path === "/api/v2/mobile-admin/campaigns" && req.method === "GET")
+      return send(res, 200, { campaigns: campaigns.map(campaignJson) });
 
     let body: unknown;
     try {
@@ -743,6 +859,33 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         writePolicy = v.enabled;
       }
       return send(res, 200, { enabled: writePolicy, managed: true });
+    }
+
+    if (path === "/api/v2/mobile-admin/projects" && req.method === "POST") {
+      const v = checkFields(body, ["name", "displayName"]);
+      if (Array.isArray(v)) return problem(res, 400, "invalid_request", v);
+      const errors: string[] = [];
+      if (!validName(v.name)) errors.push(nameError);
+      if ("displayName" in v && !validName(v.displayName)) errors.push("displayName: 1 to 200 characters");
+      if (errors.length) return problem(res, 400, "invalid_request", errors);
+      const name = v.name as string;
+      if ([...projects.values()].some((p) => p.name.toLowerCase() === name.toLowerCase())) return problem(res, 409, "project_exists");
+      const p: MockProject = { id: Math.max(0, ...projects.keys()) + 1, name, displayName: (v.displayName as string) ?? null, enabled: true };
+      projects.set(p.id, p);
+      record(user.id, "project.create", `project:${p.id}`, undefined, projectJson(p));
+      return send(res, 201, projectJson(p));
+    }
+    const pm = /^\/api\/v2\/mobile-admin\/projects\/([0-9]+)\/enabled$/.exec(path);
+    if (pm && req.method === "PUT") {
+      const v = checkFields(body, ["enabled"]);
+      if (Array.isArray(v) || typeof v.enabled !== "boolean") return problem(res, 400, "invalid_request", ["expected only enabled"]);
+      const p = projects.get(Number(pm[1]));
+      if (!p) return problem(res, 404, "not_found");
+      if (p.enabled !== v.enabled) {
+        p.enabled = v.enabled;
+        record(user.id, p.enabled ? "project.enable" : "project.disable", `project:${p.id}`, undefined, projectJson(p));
+      }
+      return send(res, 200, projectJson(p));
     }
 
     if (path === "/api/v2/mobile-admin/clients" && req.method === "POST") {

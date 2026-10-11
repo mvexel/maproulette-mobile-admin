@@ -1,32 +1,46 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { describeError, me, type Me } from "./api";
 import { hasSession, onAuthChange, signOut } from "./auth";
-import { config } from "./config";
 import { navigate, usePath } from "./router";
 import { Audit } from "./screens/Audit";
 import { Callback } from "./screens/Callback";
 import { Clients } from "./screens/Clients";
-import { Challenges } from "./screens/Challenges";
+import { CampaignList, CampaignPage } from "./screens/Campaigns";
+import { EnvironmentBadge, WritesPill } from "./screens/Environment";
 import { SignIn } from "./screens/SignIn";
 import { WritePolicy } from "./screens/WritePolicy";
 import { SurveyBuilder } from "./screens/SurveyBuilder";
 
 const SCREENS: Record<string, { title: string; render: () => React.ReactNode }> = {
-  "/": { title: "Clients", render: () => <Clients /> },
-  "/audit": { title: "Audit log", render: () => <Audit /> },
+  "/": { title: "Campaigns", render: () => <CampaignList /> },
+  "/new": { title: "New campaign", render: () => <SurveyBuilder /> },
   "/writes": { title: "Task writes", render: () => <WritePolicy /> },
-  "/challenges": { title: "Challenges", render: () => <Challenges /> },
-  "/surveys": { title: "Survey builder", render: () => <SurveyBuilder /> },
+  "/clients": { title: "Clients", render: () => <Clients /> },
+  "/audit": { title: "Audit log", render: () => <Audit /> },
 };
+
+/** Old addresses, kept working: the survey builder and challenge import now live in New campaign. */
+const MOVED: Record<string, string> = { "/surveys": "/new", "/challenges": "/new" };
+
+/** The screen for a path, and which nav entry it belongs to. */
+function route(path: string): { nav: string; node: React.ReactNode } | undefined {
+  const m = /^\/campaigns\/([1-9][0-9]{0,15})$/.exec(path);
+  if (m) return { nav: "/", node: <CampaignPage key={m[1]} id={Number(m[1])} /> };
+  const screen = SCREENS[path];
+  return screen && { nav: path, node: screen.render() };
+}
 
 export function App() {
   const path = usePath();
   const signedIn = useSyncExternalStore(onAuthChange, hasSession);
+  useEffect(() => {
+    if (MOVED[path]) history.replaceState(null, "", MOVED[path]);
+  }, [path]);
 
   if (path === "/callback") return <Callback />;
   if (!signedIn) return <SignIn />;
 
-  const screen = SCREENS[path];
+  const screen = route(MOVED[path] ?? path);
   return (
     <>
       <header>
@@ -36,7 +50,7 @@ export function App() {
             <a
               key={to}
               href={to}
-              aria-current={to === path ? "page" : undefined}
+              aria-current={to === screen?.nav ? "page" : undefined}
               onClick={(e) => {
                 e.preventDefault();
                 navigate(to);
@@ -51,12 +65,12 @@ export function App() {
           Sign out
         </button>
       </header>
-      <main>{screen ? screen.render() : <p>Page not found.</p>}</main>
+      <main>{screen ? screen.node : <p>Page not found.</p>}</main>
     </>
   );
 }
 
-/** Who is signed in, and against which backend. */
+/** Who is signed in, against which backend, and whether task writes are on. */
 function Identity() {
   const [user, setUser] = useState<Me>();
   const [error, setError] = useState<string>();
@@ -67,9 +81,8 @@ function Identity() {
   }, []);
   return (
     <span className="identity">
-      <span data-testid="backend" title="Connected backend">
-        {config().backend}
-      </span>
+      <EnvironmentBadge />
+      <WritesPill />
       {user && <span data-testid="user">{user.displayName}</span>}
       {error && <span className="error">{error}</span>}
     </span>

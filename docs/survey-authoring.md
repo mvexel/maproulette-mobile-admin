@@ -1,17 +1,17 @@
 # Authoring Android survey challenges
 
-The Survey builder creates native multiple-choice campaigns using the existing choice-task contract. It adds no backend endpoint or SDK schema. Admins author once; generated tasks contain a snapshot of that definition.
+New campaign (formerly the Survey builder) creates native multiple-choice campaigns using the existing choice-task contract. It adds no backend endpoint or SDK schema. Admins author once; generated tasks contain a snapshot of that definition.
 
 ## Create a campaign
 
-1. Open **Survey builder** and choose **Restaurant example**, **Bus stop example**, or **Open survey file**.
+1. Open **New campaign** and choose **Restaurant example**, **Bus stop example**, or **Open survey file**.
 2. Set a unique challenge title, description, instructions, and OSM changeset comment/source. Instructions and help are plain text.
 3. Edit questions and answers. Keep question/answer IDs stable and give every answer an explicit OSM tag effect. The preview shows both volunteer text and tag effects.
 4. Open a feature file or edit the FeatureCollection. Supply representative Point locations, typed OSM IDs, and the features' current OSM tags. Replace the fictional example feature IDs before creating a challenge. Get the file from [our Layercake explorer](https://layercake.osm.lol/explore/?layer=pois&maproulette) (Utah, refreshed daily; the `maproulette` parameter in this link unlocks the export): choose a layer, zoom in, filter (for example `amenity = restaurant`), fetch, and export as **MapRoulette features**; that export is already in the format below.
 5. Review generated and omitted features, then **Export survey file**. Keep this portable file as the authoring source. **Save browser draft** is a convenience copy scoped to the connected backend; it is not a server backup.
-6. Enter the **Project ID on this backend**, choosing an existing enabled project you can manage. **Create new challenge** creates a disabled challenge there. The editor freezes its definition for this import. Duplicate challenge names are rejected by the backend. Project IDs are deliberately excluded from portable survey files because they differ between environments. The builder cannot inspect the project's enabled state through the current admin read allowlist; verify that state in your project administration.
+6. Pick the **Project** from the projects on this backend. A project that is off is marked, and its campaigns stay hidden in the app; **Turn it on** asks once and is recorded in the audit log. **New project** creates one (name and display name), on. A project the list can't show can be entered by ID under **Advanced**. **Create new challenge** creates a disabled challenge there. The editor freezes its definition for this import. Duplicate challenge names are rejected by the backend. Project IDs are deliberately excluded from portable survey files because they differ between environments.
 7. **Import reviewed tasks** sends the generated GeoJSON lines to the existing import endpoint. Review the created/updated/rejected counts. Accepted lines remain even if other lines were rejected.
-8. **Publish for Android** is available only when every expected task was created, with zero updates or rejections. It enables the challenge and adds `mobile-survey-v1`. Refresh challenge selection in the Android app connected to the same backend.
+8. **Publish** opens the checks before the campaign goes live. Blocks stop it: a rejected or updated import line, or the project being off (with a **Turn on project** button). Warnings need a tick: no #hashtag in the changeset comment, a source other than `survey`, or a link or time per stop in the description. It also says whether task writes are on, and warns in bold on production. **Publish to the app** enables the challenge and adds `mobile-survey-v1`. Refresh the campaign list in the app connected to the same backend.
 
 Challenge publication does not change the backend's OSM Write Policy. Stage and Production are independent MapRoulette databases but can both target live OSM. Publish/enable writes only under the operator's release process.
 
@@ -63,7 +63,7 @@ Check signs/menus or ask staff for service questions. Absence of a sign is not e
 
 Editing an authoring file changes future generated tasks. The builder never selects an existing challenge as its import target. Publish a new uniquely named challenge for a changed survey. Keep the definition file, generated task file, backend origin, and created challenge ID together for recovery.
 
-Create/import/publish are not retried automatically after uncertain responses. A failed request can hide an accepted operation. Check the challenge, its tasks, and admin audit before using the existing Challenges screen for any reviewed manual recovery. Browser navigation/reload discards the active setup session, so keep the challenge ID and exported files.
+Create/import/publish are not retried automatically after uncertain responses. A failed request can hide an accepted operation. Check the challenge, its tasks, and admin audit before using **Advanced: import a task file into an existing challenge** (under New campaign) for any reviewed manual recovery. Browser navigation/reload discards the active setup session, so keep the challenge ID and exported files.
 
 ## Command-line generation
 
