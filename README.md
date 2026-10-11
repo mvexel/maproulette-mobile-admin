@@ -115,7 +115,6 @@ serves them on port 8080, and the shared Caddy puts them on https://streettally.
   own domain. It reads the campaign's name and blurb from `GET /api/v2/challenge/<id>` when the
   backend allows it, and otherwise shows generic text.
 - `/privacy` (`site/privacy.html`): the privacy page every email footer and the claim page link to.
-  Draft wording; `[operator]`, `[contact email]` and the server-log line must be filled in before deploying.
 - `/faq` (`site/faq.html`): questions and answers for the Woodbine pilot, from
   `community/participant-faq-woodbine.md`. Keep it in step with `/privacy`.
 - `/.well-known/apple-app-site-association`: the universal-link file for `/challenge/*`, written
