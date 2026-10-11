@@ -194,6 +194,7 @@ export async function fetchChallengeResults(challengeId: number, format: Results
 /** A stop someone reported as not there or moved (the built-in outcomes). */
 export interface StopReport {
   taskId: number;
+  /** The stop's name tag, else "Stop <ref>", else "Unnamed stop" (as the app labels it). */
   label: string;
   element: string;
   outcome: "not-here" | "moved";
@@ -226,7 +227,7 @@ export async function listReports(challengeId: number): Promise<StopReport[]> {
       const spot = moved.get(p.taskId as number);
       return {
         taskId: p.taskId as number,
-        label: (p.taskName as string) || (p.element as string),
+        label: stopLabel(p.featureName as string | null, p.featureRef as string | null),
         element: p.element as string,
         outcome: p.outcome as StopReport["outcome"],
         outcomeLabel: (p.outcomeLabel as string) ?? (p.outcome as string),
@@ -239,6 +240,11 @@ export async function listReports(challengeId: number): Promise<StopReport[]> {
       };
     })
     .sort((a, b) => (b.reportedAt ?? "").localeCompare(a.reportedAt ?? ""));
+}
+
+export function stopLabel(name?: string | null, ref?: string | null): string {
+  if (name) return name;
+  return ref ? `Stop ${ref}` : "Unnamed stop";
 }
 
 /** iD on openstreetmap.org with the element selected, centered on `at` when given. */

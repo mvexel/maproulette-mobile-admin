@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MockBackend } from "../mock/server.ts";
 import { RESULTS_CHALLENGE_ID, RESULTS_CSV } from "../mock/server.ts";
-import { ApiError, createClient, describeError, fetchChallengeResults, idEditorUrl, listReports, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
+import { ApiError, createClient, describeError, fetchChallengeResults, idEditorUrl, listReports, stopLabel, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
+import { shortDateTime } from "./format";
 import { reset, setUp, signIn } from "./testing";
 
 let mock: MockBackend;
@@ -138,6 +139,18 @@ describe("reports", () => {
     expect(reports.map((r) => [r.taskId, r.outcome, r.count])).toEqual([[3, "moved", 1], [2, "not-here", 2]]);
     expect(reports[0].moved).toEqual({ at: [-111.8912, 40.76091], source: "tap", distanceM: 21 });
     expect(reports[1].moved).toBeUndefined();
+    expect(reports.map((r) => r.label)).toEqual(["900 E / 1300 S", "Stop 1234"]);
+  });
+
+  it("labels a stop by name, then ref, then as unnamed", () => {
+    expect(stopLabel("Main St", "9")).toBe("Main St");
+    expect(stopLabel(null, "9")).toBe("Stop 9");
+    expect(stopLabel(undefined, null)).toBe("Unnamed stop");
+  });
+
+  it("formats report times without seconds or year", () => {
+    expect(shortDateTime("2026-10-10T17:05:00")).toBe("Oct 10, 5:05 pm");
+    expect(shortDateTime("2026-01-02T09:30:00")).toBe("Jan 2, 9:30 am");
   });
 
   it("links iD to the element, centered on a point", () => {
