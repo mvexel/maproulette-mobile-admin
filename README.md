@@ -187,6 +187,9 @@ For the separate production-OSM field deployments, Komodo uses the same
 `deploy/compose.field.yaml` twice, with different project names, API hosts,
 image tags, and ingress aliases. The stage site points only to
 `mr-stage.osm.lol`; the prod site points only to `mr-prod.osm.lol`.
+The field file passes the participant-site variables through as well (`OSM_WEB` defaults to
+`https://www.openstreetmap.org`), so `streettally.osm.lol` can be served from the stage or prod
+admin on port 8080 per [docs/deploy-streettally.md](docs/deploy-streettally.md).
 
 ## License
 
