@@ -165,6 +165,10 @@ export function SurveyBuilder() {
           {q.options.map(o => <div className="preview-answer" key={o.key}><strong>{o.label || "Answer"}</strong>{o.description && <p>{o.description}</p>}<small>Set <code>{o.setTags}</code> · Remove <code>{o.unsetTags}</code></small></div>)}
           <div className="preview-answer">I can't tell <small>Leaves this question unanswered.</small></div>
         </div>)}
+        <div className="preview-question">
+          <span className="hint">Something's wrong here</span>
+          <p>Built in: It's not here, It's moved, I can't check this. Every survey offers these; they can't be changed. Reports appear on the campaign's page.</p>
+        </div>
         <p className="hint">Volunteers review answers before saving a public OpenStreetMap edit. Partial answers still close the task.</p>
       </aside>
     </div>

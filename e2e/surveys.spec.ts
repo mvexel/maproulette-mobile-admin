@@ -73,14 +73,14 @@ test("creates disabled, imports reviewed existing-contract tasks, then publishes
   await expect(page.getByText("Created 1; updated 0; rejected 0.")).toBeVisible();
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Publish to the app?" });
-  await expect(sheet.locator("[data-check=import]")).toContainText("All 1 reviewed tasks were created.");
+  await expect(sheet.locator("[data-check=import]")).toContainText("The reviewed task was created.");
   await expect(sheet.locator("[data-check=project]")).toContainText("Project “SLC test” is off.");
   await expect(sheet.locator("[data-check=writes]")).toContainText("Task writes are off on DEV");
   const go = sheet.getByRole("button", { name: "Publish to the app" });
   await expect(go).toBeDisabled();
   await sheet.getByRole("button", { name: "Turn on project" }).click();
   const toggle = page.getByRole("dialog", { name: "Turn on project “SLC test”?" });
-  await expect(toggle).toContainText("Its campaign that is published will show in the app on DEV. Task writes are unchanged.");
+  await expect(toggle).toContainText("Its 1 published campaign will show in the app on DEV. Task writes are unchanged.");
   await toggle.getByRole("button", { name: "Turn on" }).click();
   await expect(sheet.locator("[data-check=project]")).toContainText("Project “SLC test” is on.");
   await expect(go).toBeDisabled();

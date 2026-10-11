@@ -36,10 +36,12 @@ test("a hidden campaign's page turns its project on, and shares and exports", as
   await expect(page).toHaveURL("/campaigns/3");
   const status = page.locator(".status-line");
   await expect(status).toHaveText(/Hidden from the app: project “SLC test” is off\./);
+  await expect(page.locator(".qr-warning")).toHaveText("Hidden from the app. This code won't work until the project is on.");
   await status.getByRole("button", { name: "Turn project on" }).click();
   await page.getByRole("dialog", { name: "Turn on project “SLC test”?" }).getByRole("button", { name: "Turn on" }).click();
-  await expect(status).toHaveText("Listed in the app. Task writes are off for this backend.");
+  await expect(status).toHaveText("Listed in the app, but task writes are off on DEV: people can open it but can't save yet.");
 
+  await expect(page.locator(".qr-warning")).toHaveCount(0);
   await expect(page.getByText("mrchoice://challenge/3")).toBeVisible();
   await expect(page.getByRole("img", { name: "QR code for mrchoice://challenge/3" })).toBeVisible();
   await expect(page.getByText("Doesn't open the app yet: needs the App Store build.")).toBeVisible();
@@ -51,6 +53,9 @@ test("a hidden campaign's page turns its project on, and shares and exports", as
   await page.getByRole("button", { name: "Download CSV" }).click();
   expect((await csv).suggestedFilename()).toBe("challenge-3-results.csv");
   await expect(page.getByText("Bus stop survey #StreetTally")).toBeVisible();
+  const reports = page.locator(".panel", { has: page.getByRole("heading", { name: "Reports" }) });
+  await expect(reports).toContainText("No reports yet.");
+  await expect(reports.getByLabel("Challenge ID")).toHaveCount(0);
 });
 
 test("a draft is published from its page after the checks", async ({ page }) => {
@@ -58,6 +63,7 @@ test("a draft is published from its page after the checks", async ({ page }) => 
   await page.goto("/campaigns/9");
   const status = page.locator(".status-line");
   await expect(status).toHaveText(/Draft: not in the app yet\./);
+  await expect(page.locator(".qr-warning")).toHaveText("Not in the app yet. This code won't work until you publish.");
   await status.getByRole("button", { name: "Publish" }).click();
   const sheet = page.getByRole("dialog", { name: "Publish to the app?" });
   await expect(sheet.locator("[data-check=hashtag]")).toContainText("no #hashtag");
@@ -65,7 +71,7 @@ test("a draft is published from its page after the checks", async ({ page }) => 
   await expect(sheet.locator("[data-check=import]")).toHaveCount(0);
   for (const box of await sheet.getByRole("checkbox").all()) await box.check();
   await sheet.getByRole("button", { name: "Publish to the app" }).click();
-  await expect(status).toHaveText("Listed in the app. Task writes are off for this backend.");
+  await expect(status).toHaveText("Listed in the app, but task writes are off on DEV: people can open it but can't save yet.");
   await page.getByRole("link", { name: "Audit log" }).click();
   await expect(page.getByText("/api/v2/challenge/9").first()).toBeVisible();
 });

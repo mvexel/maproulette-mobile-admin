@@ -20,26 +20,18 @@ export class ApiError extends Error {
  * ends the session.
  */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await request(path, init);
+  const res = await authorized(path, init);
   const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);
-  if (!res.ok) {
-    const b = (body ?? {}) as { error?: string; detail?: string[] };
-    throw new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
-  }
+  if (!res.ok) throw errorFrom(res, body);
   return body as T;
 }
 
-/** As [[api]], for a file download: the response body as a Blob. */
-export async function apiBlob(path: string): Promise<Blob> {
-  const res = await request(path, { headers: { Accept: "*/*" } });
-  if (!res.ok) {
-    const b = ((await res.json().catch(() => undefined)) ?? {}) as { error?: string; detail?: string[] };
-    throw new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
-  }
-  return res.blob();
+function errorFrom(res: Response, body: unknown): ApiError {
+  const b = (body ?? {}) as { error?: string; detail?: string[] };
+  return new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
 }
 
-async function request(path: string, init: RequestInit): Promise<Response> {
+async function authorized(path: string, init: RequestInit): Promise<Response> {
   const send = async (token: string) =>
     fetch(`${config().backend}${path}`, {
       ...init,
@@ -244,5 +236,76 @@ export interface ChallengeDetail extends ChallengeDraft {
 
 export const getChallenge = (id: number) => api<ChallengeDetail>(`/api/v2/challenge/${id}`);
 
-export const downloadResults = (id: number, format: "csv" | "geojson") =>
-  apiBlob(`/api/v2/mobile-admin/challenges/${id}/results?format=${format}`);
+export type ResultsFormat = "csv" | "geojson";
+
+/** A challenge's campaign results as a file: tasks, statuses, answers, changesets. */
+export async function fetchChallengeResults(challengeId: number, format: ResultsFormat): Promise<{ blob: Blob; filename: string }> {
+  const res = await authorized(`/api/v2/mobile-admin/challenges/${challengeId}/results?format=${format}`, {
+    headers: { Accept: format === "csv" ? "text/csv" : "application/geo+json" },
+  });
+  if (!res.ok) throw errorFrom(res, await res.json().catch(() => undefined));
+  return { blob: await res.blob(), filename: `challenge-${challengeId}-results.${format}` };
+}
+
+/** A stop someone reported as not there or moved (the built-in outcomes). */
+export interface StopReport {
+  taskId: number;
+  /** The stop's name tag, else "Stop <ref>", else "Unnamed stop" (as the app labels it). */
+  label: string;
+  element: string;
+  outcome: "not-here" | "moved";
+  outcomeLabel: string;
+  reportedAt?: string;
+  count: number;
+  /** The stop's map position, [longitude, latitude]. */
+  at?: [number, number];
+  /** For a moved stop, the spot the mapper reported. */
+  moved?: { at: [number, number]; source: string; distanceM?: number };
+}
+
+const reportOutcomes = new Set(["not-here", "moved"]);
+
+type ResultFeature = {
+  geometry: { coordinates: [number, number] } | null;
+  properties: Record<string, unknown>;
+};
+
+/** The challenge's not-here and moved reports, read from its GeoJSON results export. */
+export async function listReports(challengeId: number): Promise<StopReport[]> {
+  const { blob } = await fetchChallengeResults(challengeId, "geojson");
+  const features = (JSON.parse(await blob.text()) as { features: ResultFeature[] }).features;
+  const moved = new Map<number, ResultFeature>();
+  for (const f of features) if (f.properties.kind === "reported_position") moved.set(f.properties.taskId as number, f);
+  return features
+    .filter((f) => f.properties.kind === undefined && reportOutcomes.has(f.properties.outcome as string))
+    .map((f) => {
+      const p = f.properties;
+      const spot = moved.get(p.taskId as number);
+      return {
+        taskId: p.taskId as number,
+        label: stopLabel(p.featureName as string | null, p.featureRef as string | null),
+        element: p.element as string,
+        outcome: p.outcome as StopReport["outcome"],
+        outcomeLabel: (p.outcomeLabel as string) ?? (p.outcome as string),
+        reportedAt: (p.completedAt as string | null) ?? undefined,
+        count: (p.reportCount as number) || 1,
+        at: f.geometry?.coordinates,
+        moved: spot?.geometry
+          ? { at: spot.geometry.coordinates, source: spot.properties.source as string, distanceM: (spot.properties.distanceM as number | null) ?? undefined }
+          : undefined,
+      };
+    })
+    .sort((a, b) => (b.reportedAt ?? "").localeCompare(a.reportedAt ?? ""));
+}
+
+export function stopLabel(name?: string | null, ref?: string | null): string {
+  if (name) return name;
+  return ref ? `Stop ${ref}` : "Unnamed stop";
+}
+
+/** iD on openstreetmap.org with the element selected, centered on `at` when given. */
+export function idEditorUrl(element: string, at?: [number, number]): string {
+  const [type, id] = element.split("/");
+  const map = at ? `#map=20/${at[1].toFixed(6)}/${at[0].toFixed(6)}` : "";
+  return `https://www.openstreetmap.org/edit?editor=id&${type}=${id}${map}`;
+}

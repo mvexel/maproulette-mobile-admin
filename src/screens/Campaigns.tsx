@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   type Campaign,
   type ChallengeDetail,
-  downloadResults,
+  fetchChallengeResults,
   getChallenge,
   getWritePolicy,
   listCampaigns,
@@ -16,6 +16,7 @@ import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { ProjectToggle } from "./Projects";
 import { PublishSheet } from "./PublishSheet";
+import { Reports } from "./Reports";
 
 function Link({ to, children }: { to: string; children: React.ReactNode }) {
   return (
@@ -161,7 +162,8 @@ function Qr({ text, file }: { text: string; file: string }) {
   );
 }
 
-function ShareLine({ label, url, file, note }: { label: string; url: string; file: string; note?: string }) {
+/** A link with Copy; `note` replaces the QR (a link that can't work yet), `warning` sits above it. */
+function ShareLine({ label, url, file, note, warning }: { label: string; url: string; file: string; note?: string; warning?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="share-line">
@@ -181,7 +183,12 @@ function ShareLine({ label, url, file, note }: { label: string; url: string; fil
         </button>
         {note && <p className="share-note">{note}</p>}
       </div>
-      {!note && <Qr text={url} file={file} />}
+      {!note && (
+        <div className="qr-block">
+          {warning && <p className="share-note qr-warning">{warning}</p>}
+          <Qr text={url} file={file} />
+        </div>
+      )}
     </div>
   );
 }
@@ -219,15 +226,22 @@ export function CampaignPage({ id }: { id: number }) {
 
   const state = appState(c);
   const env = config().environment?.toUpperCase();
-  const writesLine = writes === undefined ? "" : ` Task writes are ${writes ? "on" : "off"} for this backend.`;
+  const writesOff = state === "listed" && writes === false;
+  const QR_WARNING: Partial<Record<AppState, string>> = {
+    draft: "Not in the app yet. This code won't work until you publish.",
+    "not-published": "Hidden from the app. This code won't work until you publish.",
+    "project-off": "Hidden from the app. This code won't work until the project is on.",
+    "turned-off": "Hidden from the app. This code won't work until the challenge is on.",
+  };
 
   async function download(format: "csv" | "geojson") {
     setActionError(undefined);
     try {
-      const url = URL.createObjectURL(await downloadResults(id, format));
+      const { blob, filename } = await fetchChallengeResults(id, format);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `challenge-${id}-results.${format}`;
+      a.download = filename;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
@@ -243,8 +257,16 @@ export function CampaignPage({ id }: { id: number }) {
       <h2>
         {c.name} <small className="hint">Challenge {c.id}</small>
       </h2>
-      <div className={`status-line state-${state}`} role="status">
-        {state === "listed" && <p>Listed in the app.{writesLine}</p>}
+      <div className={`status-line state-${state}${writesOff ? " writes-off" : ""}`} role="status">
+        {state === "listed" && (
+          <p>
+            {writes === undefined
+              ? "Listed in the app."
+              : writes
+                ? "Listed in the app. Task writes are on for this backend."
+                : `Listed in the app, but task writes are off on ${env ?? "this backend"}: people can open it but can't save yet.`}
+          </p>
+        )}
         {state === "project-off" && (
           <p>
             Hidden from the app: project “{c.project.name}” is off.{" "}
@@ -276,7 +298,7 @@ export function CampaignPage({ id }: { id: number }) {
 
       <div className="panel">
         <h3>Share</h3>
-        <ShareLine label="App link" url={appLink(c.id)} file={`campaign-${c.id}-app-qr.png`} />
+        <ShareLine label="App link" url={appLink(c.id)} file={`campaign-${c.id}-app-qr.png`} warning={QR_WARNING[state]} />
         <ShareLine
           label="Web link"
           url={webLink(c.id)}
@@ -294,6 +316,8 @@ export function CampaignPage({ id }: { id: number }) {
           </progress>
         )}
       </div>
+
+      <Reports challenge={c.id} />
 
       <div className="panel">
         <h3>Export</h3>

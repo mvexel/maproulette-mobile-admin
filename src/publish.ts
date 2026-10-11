@@ -38,7 +38,11 @@ export function publishChecks(input: PublishInput): Check[] {
     const bad = report.rejected + report.updated + Math.max(0, report.expected - report.created - report.updated - report.rejected);
     checks.push(
       bad === 0
-        ? { id: "import", kind: "pass", text: `All ${report.created} reviewed tasks were created.` }
+        ? {
+            id: "import",
+            kind: "pass",
+            text: report.created === 1 ? "The reviewed task was created." : `All ${report.created} reviewed tasks were created.`,
+          }
         : {
             id: "import",
             kind: "block",
