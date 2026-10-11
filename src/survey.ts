@@ -31,6 +31,8 @@ export interface SurveyDocument {
   version: 1;
   challenge: ChallengeDraft;
   match: Record<string, string>;
+  /** Identity keys whose value each task takes from its own feature, e.g. ["entrance"]. */
+  matchKeys?: string[];
   questions: SurveyQuestion[];
   outcomes?: SurveyOutcome[];
   features: { type: "FeatureCollection"; features: SurveyFeature[] };
@@ -79,12 +81,16 @@ export function parseSurvey(value: unknown): SurveyDocument {
     return v;
   };
   const unique = (ids: string[], path: string) => { if (new Set(ids).size !== ids.length) fail(`${path}: duplicate IDs`); };
-  const root = obj(value, "survey", ["version", "challenge", "match", "questions", "outcomes", "features"]);
+  const root = obj(value, "survey", ["version", "challenge", "match", "matchKeys", "questions", "outcomes", "features"]);
   if (root.version !== 1) fail("survey.version: only version 1 is supported");
   const c = obj(root.challenge, "challenge", ["name", "description", "instruction", "checkinComment", "checkinSource"]);
   for (const k of ["name", "description", "instruction", "checkinComment", "checkinSource"]) text(c[k], `challenge.${k}`, k === "name" ? 100 : 2000);
   const match = tags(root.match, "match");
-  if (Object.keys(match).length > 4) fail("match: at most 4 identity tags");
+  const matchKeys = root.matchKeys === undefined ? [] : list(root.matchKeys, "matchKeys", 1, 4);
+  for (const k of matchKeys) if (!tag(k)) fail("matchKeys: invalid OSM key");
+  if (new Set(matchKeys).size !== matchKeys.length) fail("matchKeys: duplicate keys");
+  for (const k of matchKeys) if (typeof k === "string" && Object.hasOwn(match, k)) fail(`matchKeys: ${k} is also in match`);
+  if (Object.keys(match).length + matchKeys.length > 4) fail("match: at most 4 identity tags, counting matchKeys");
   const guarded: string[] = [];
   const questions = list(root.questions, "questions", 1, 8).map((qv, qi) => {
     const path = `Question ${qi + 1}`;
@@ -115,7 +121,7 @@ export function parseSurvey(value: unknown): SurveyDocument {
   });
   unique(questions.map(q => String(q.id)), "questions");
   if (new Set(guarded).size !== guarded.length) fail("questions: a tag must be guarded by only one question");
-  for (const k of guarded) if (Object.hasOwn(match, k)) fail(`match: ${k} is also guarded by a question`);
+  for (const k of guarded) if (Object.hasOwn(match, k) || matchKeys.includes(k)) fail(`match: ${k} is also guarded by a question`);
   if (root.outcomes !== undefined) {
     const outcomes = list(root.outcomes, "outcomes", 0, 4).map((ov, oi) => {
       const path = `Outcome ${oi + 1}`;
@@ -156,11 +162,14 @@ export function generateTasks(input: SurveyDocument) {
     if (!Object.entries(survey.match).every(([k, v]) => f.properties[k] === v)) {
       skipped.push(`${featureId}: identity tags do not match`); continue;
     }
+    const missingKey = survey.matchKeys?.find(k => !Object.hasOwn(f.properties, k));
+    if (missingKey) { skipped.push(`${featureId}: no ${missingKey} tag to match`); continue; }
+    const match = { ...survey.match, ...Object.fromEntries((survey.matchKeys ?? []).map(k => [k, f.properties[k]])) };
     const questions = survey.questions.filter(q => Object.entries(q.expect).every(([k, v]) => (Object.hasOwn(f.properties, k) ? f.properties[k] : null) === v));
     if (!questions.length) { skipped.push(`${featureId}: no applicable questions`); continue; }
     const work = {
       meta: { version: 2, type: 3, choiceVersion: 1 }, element: featureId,
-      ...(Object.keys(survey.match).length ? { match: survey.match } : {}), questions,
+      ...(Object.keys(match).length ? { match } : {}), questions,
       ...(survey.outcomes?.length ? { outcomes: survey.outcomes } : {}),
       ...(questions.every(q => Object.values(q.expect).every(v => v === null)) ? { liveMissingQuestions: true } : {}),
     };

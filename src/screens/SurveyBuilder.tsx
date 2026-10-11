@@ -9,7 +9,7 @@ import { exampleSurvey, generateTasks, parseSurvey, type SurveyDocument, SurveyV
 
 interface OptionDraft { key: string; id: string; label: string; description: string; setTags: string; unsetTags: string }
 interface QuestionDraft { key: string; id: string; prompt: string; description: string; expect: string; options: OptionDraft[] }
-interface Draft { challenge: SurveyDocument["challenge"]; match: string; outcomes: string; features: string; questions: QuestionDraft[] }
+interface Draft { challenge: SurveyDocument["challenge"]; match: string; matchKeys: string; outcomes: string; features: string; questions: QuestionDraft[] }
 const pretty = (v: unknown) => JSON.stringify(v, null, 2);
 /**
  * Our Layercake explorer: daily OSM extracts. `maproulette` unlocks its
@@ -17,14 +17,15 @@ const pretty = (v: unknown) => JSON.stringify(v, null, 2);
  */
 const LAYERCAKE_EXPLORER = "https://layercake.osm.lol/explore/?layer=pois&maproulette";
 function draftOf(s: SurveyDocument): Draft {
-  return { challenge: { ...s.challenge }, match: pretty(s.match), outcomes: pretty(s.outcomes ?? []), features: pretty(s.features), questions: s.questions.map(q => ({ ...q, key: crypto.randomUUID(), description: q.description ?? "", expect: pretty(q.expect), options: q.options.map(o => ({ ...o, key: crypto.randomUUID(), description: o.description ?? "", setTags: pretty(o.setTags ?? {}), unsetTags: pretty(o.unsetTags ?? []) })) })) };
+  return { challenge: { ...s.challenge }, match: pretty(s.match), matchKeys: pretty(s.matchKeys ?? []), outcomes: pretty(s.outcomes ?? []), features: pretty(s.features), questions: s.questions.map(q => ({ ...q, key: crypto.randomUUID(), description: q.description ?? "", expect: pretty(q.expect), options: q.options.map(o => ({ ...o, key: crypto.randomUUID(), description: o.description ?? "", setTags: pretty(o.setTags ?? {}), unsetTags: pretty(o.unsetTags ?? []) })) })) };
 }
 function readJson(value: string, label: string): unknown {
   try { return JSON.parse(value); } catch { throw new SurveyValidationError([`${label}: enter valid JSON`]); }
 }
 function documentOf(d: Draft): SurveyDocument {
   const outcomes = readJson(d.outcomes, "Campaign outcomes");
-  return parseSurvey({ version: 1, challenge: d.challenge, match: readJson(d.match, "Identity tags"), ...(Array.isArray(outcomes) && outcomes.length === 0 ? {} : { outcomes }), features: readJson(d.features, "Features"), questions: d.questions.map(q => ({
+  const matchKeys = readJson(d.matchKeys, "Identity keys per feature");
+  return parseSurvey({ version: 1, challenge: d.challenge, match: readJson(d.match, "Identity tags"), ...(Array.isArray(matchKeys) && matchKeys.length === 0 ? {} : { matchKeys }), ...(Array.isArray(outcomes) && outcomes.length === 0 ? {} : { outcomes }), features: readJson(d.features, "Features"), questions: d.questions.map(q => ({
     id: q.id, prompt: q.prompt, ...(q.description ? { description: q.description } : {}), expect: readJson(q.expect, `Question ${q.id} expected tags`), options: q.options.map(o => {
       const set = readJson(o.setTags, `Option ${o.id} tags to set`);
       const unset = readJson(o.unsetTags, `Option ${o.id} tags to remove`);
@@ -132,6 +133,8 @@ export function SurveyBuilder() {
           {([ ["name", "Title"], ["description", "Description"], ["instruction", "Instructions"], ["checkinComment", "OSM changeset comment"], ["checkinSource", "OSM changeset source"] ] as const).map(([key, label]) => <label key={key}>{label}<textarea aria-label={label} rows={key === "instruction" ? 3 : 2} value={draft.challenge[key]} onChange={e => setDraft(d => ({ ...d, challenge: { ...d.challenge, [key]: e.target.value } }))} /></label>)}
           <label>Identity tags<textarea aria-label="Identity tags" className="tag-input" value={draft.match} onChange={e => setDraft(d => ({ ...d, match: e.target.value }))} /></label>
           <p className="hint">All of these OSM tags must match, for example {`{"amenity":"restaurant"}`}.</p>
+          <label>Identity keys per feature<textarea aria-label="Identity keys per feature" className="tag-input" value={draft.matchKeys} onChange={e => setDraft(d => ({ ...d, matchKeys: e.target.value }))} /></label>
+          <p className="hint">Keys whose value each task keeps from its own feature, for example {`["entrance"]`}: a task for an entrance=main node then only applies while that node is still entrance=main. Features without the key are left out.</p>
           <label>Campaign outcomes<textarea aria-label="Campaign outcomes" className="tag-input" value={draft.outcomes} onChange={e => setDraft(d => ({ ...d, outcomes: e.target.value }))} /></label>
           <p className="hint">Extra "Something's wrong here" choices, up to 4. Each closes the task without changing tags, for example {`[{"id":"no-door","label":"There's no door","status":6}]`}. Status 6 is "can't complete", 2 is "not an issue".</p>
         </div>

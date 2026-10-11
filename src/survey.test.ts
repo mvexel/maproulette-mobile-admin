@@ -37,6 +37,23 @@ describe("existing-contract survey generator", () => {
     s.outcomes = [{ id: "no-door", label: "There's no door", description: "It's an open doorway or a gate.", status: 6 }];
     expect(JSON.parse(generateTasks(s).text).cooperativeWork.outcomes).toEqual(s.outcomes);
   });
+  it("matches each task on its own feature's value for matchKeys, and leaves out features without the key", () => {
+    const s = exampleSurvey("bus-stop");
+    s.match = {};
+    s.matchKeys = ["highway"];
+    const base = s.features.features[0];
+    s.features.features.push({ ...base, properties: { "@id": "node/2", highway: "platform" } }, { ...base, properties: { "@id": "node/3" } });
+    const g = generateTasks(s);
+    expect(g.text.trim().split("\n").map(l => JSON.parse(l).cooperativeWork.match)).toEqual([{ highway: "bus_stop" }, { highway: "platform" }]);
+    expect(g.skipped).toEqual(["node/3: no highway tag to match"]);
+  });
+  it.each([
+    ["a matchKey that is also in match", { matchKeys: ["highway"] }],
+    ["a matchKey a question guards", { match: {}, matchKeys: ["shelter"] }],
+    ["more than 4 identity tags", { match: { a: "1", b: "2", c: "3" }, matchKeys: ["d", "e"] }],
+  ])("rejects %s", (_, change) => {
+    expect(() => parseSurvey({ ...exampleSurvey("bus-stop"), ...change })).toThrow();
+  });
   it.each([
     ["a built-in outcome", [{ id: "not-here", label: "Gone", status: 6 }]],
     ["an outcome status other than 2 or 6", [{ id: "no-door", label: "There's no door", status: 5 }]],
