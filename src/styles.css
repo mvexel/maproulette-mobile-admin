@@ -257,7 +257,7 @@ button.primary:hover:not(:disabled) { background: #06615f; border-color: #06615f
 .status-line { margin: .5rem 0 1rem; padding: .8rem 1rem; border-left: 4px solid var(--muted); border-radius: 4px; background: var(--paper); }
 .status-line p { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0; font-size: 1.05rem; }
 .status-line.state-listed { border-left-color: var(--success); }
-.status-line.writes-off { border-left-color: var(--signal); }
+.status-line.writes-off { color: #7a4f00; border-left-color: var(--signal); }
 .status-line.state-project-off, .status-line.state-turned-off, .status-line.state-not-published { border-left-color: var(--signal); }
 .share-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-top: 1px solid var(--line); }
 .share-line h4 { margin: 0 0 .4rem; }

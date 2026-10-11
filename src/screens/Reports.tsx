@@ -42,7 +42,7 @@ export function Reports({ challenge }: { challenge?: number } = {}) {
   return (
     <div className="panel">
       <h3>Reports</h3>
-      <p className="hint">Stops people reported as not there or moved. They stay “Needs another look” until you fix the map. Open in iD goes to the stop, or to the reported spot for a moved stop.</p>
+      <p className="hint">Places people reported as not there or moved. They stay “Needs another look” until you fix the map. Open in iD goes to the place, or to the reported spot for a moved one.</p>
       <ErrorMessage error={error} />
       {challenge === undefined && (
         <form onSubmit={(event) => void load(event)}>
