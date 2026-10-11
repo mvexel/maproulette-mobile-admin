@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { createSurveyChallenge, describeError, importChallengeTasks, publishSurveyChallenge, type TaskImportReport } from "../api";
 import { config } from "../config";
+import { PublishSheet } from "./PublishSheet";
+import { ProjectPicker } from "./Projects";
 import { exampleSurvey, generateTasks, parseSurvey, type SurveyDocument, SurveyValidationError } from "../survey";
 
 interface OptionDraft { key: string; id: string; label: string; description: string; setTags: string; unsetTags: string }
@@ -51,18 +53,18 @@ export function SurveyBuilder() {
   const [report, setReport] = useState<TaskImportReport>();
   const [published, setPublished] = useState(false);
   const [publishAttempted, setPublishAttempted] = useState(false);
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState<number>();
+  const [publishing, setPublishing] = useState(false);
   const result = useMemo(() => {
     try { const survey = documentOf(draft); return { survey, generated: generateTasks(survey), errors: [] as string[] }; }
     catch (e) { return { survey: undefined, generated: undefined, errors: errorsOf(e) }; }
   }, [draft]);
   const snapshot = result.survey ? pretty(result.survey) : "";
   const sampleFeatures = result.survey?.features.features.some(f => f.properties["@id"] === SAMPLE_ID) ?? false;
-  const validProjectId = /^[1-9][0-9]*$(?![\s\S])/.test(projectId) && Number.isSafeInteger(Number(projectId));
   const createBlocker = !result.generated?.count ? "Create is off: no tasks are ready yet. Fix the errors above or add features."
     : sampleFeatures ? "Create is off: replace the fictional example features first."
     : snapshot !== exported ? (exported ? "Create is off: the survey changed since your last export. Export it again first." : "Create is off: export the survey file first, so you keep a copy of what you create.")
-    : !validProjectId ? "Create is off: enter a project ID."
+    : projectId === undefined ? "Create is off: pick a project."
     : "";
   const canCreate = !createBlocker && !creationAttempted;
   const updateQuestion = (i: number, q: QuestionDraft) => setDraft(d => ({ ...d, questions: d.questions.map((old, j) => j === i ? q : old) }));
@@ -86,9 +88,9 @@ export function SurveyBuilder() {
     } catch (e) { setActionErrors(errorsOf(e)); }
   }
   async function create() {
-    if (!canCreate || !result.survey) return;
+    if (!canCreate || !result.survey || projectId === undefined) return;
     setCreationAttempted(true); setBusy(true); setActionErrors([]);
-    try { const c = await createSurveyChallenge(result.survey.challenge, Number(projectId)); setChallengeId(c.id); setNotice(`Challenge ${c.id} created as disabled in project ${projectId}. Import the reviewed tasks below.`); }
+    try { const c = await createSurveyChallenge(result.survey.challenge, projectId); setChallengeId(c.id); setNotice(`Challenge ${c.id} created as disabled in project ${projectId}. Import the reviewed tasks below.`); }
     catch (e) { setActionErrors([...errorsOf(e), "Creation was attempted. Check Challenges and the audit log before trying again; a lost response can hide a successful creation."]); }
     finally { setBusy(false); }
   }
@@ -101,8 +103,8 @@ export function SurveyBuilder() {
   }
   async function publish() {
     if (!challengeId || !report || report.rejected.length || report.updated || report.created !== result.generated?.count || publishAttempted) return;
-    setPublishAttempted(true); setBusy(true); setActionErrors([]);
-    try { await publishSurveyChallenge(challengeId); setPublished(true); setNotice(`Challenge ${challengeId} published for mobile discovery. OSM write policy is unchanged.`); }
+    setPublishAttempted(true); setPublishing(false); setBusy(true); setActionErrors([]);
+    try { await publishSurveyChallenge(challengeId); setPublished(true); setNotice(`Challenge ${challengeId} published to the app. Task writes are unchanged.`); }
     catch (e) { setActionErrors([...errorsOf(e), `Publication was attempted. Check challenge ${challengeId} and its audit record before retrying.`]); }
     finally { setBusy(false); }
   }
@@ -177,10 +179,11 @@ export function SurveyBuilder() {
         <button type="button" disabled={!result.generated?.count} onClick={() => download("tasks.geojsonl", result.generated?.text ?? "", "application/x-ndjson")}>Download generated tasks</button>
         <details><summary>Generated task preview</summary><pre>{result.generated?.text.split("\n").filter(Boolean).slice(0, 3).map(line => pretty(JSON.parse(line))).join("\n")}</pre></details>
       </>}
-      {!creationAttempted && <><label>Project ID on this backend<input inputMode="numeric" value={projectId} onChange={e => setProjectId(e.target.value)} /></label><p>Use an enabled project that you can manage. A disabled parent project hides its challenges from the mobile app. Project IDs differ between backends.</p><p>Export the current survey file, then create a new challenge. Existing challenges are never overwritten by this builder.</p><button type="button" disabled={!canCreate || busy} aria-describedby={createBlocker ? "create-blocker" : undefined} onClick={() => void create()}>Create new challenge</button>{createBlocker && <p className="hint" id="create-blocker">{createBlocker}</p>}</>}
+      {!creationAttempted && <><ProjectPicker value={projectId} onChange={setProjectId} /><p>Export the current survey file, then create a new challenge. Existing challenges are never overwritten by this builder.</p><button type="button" disabled={!canCreate || busy} aria-describedby={createBlocker ? "create-blocker" : undefined} onClick={() => void create()}>Create new challenge</button>{createBlocker && <p className="hint" id="create-blocker">{createBlocker}</p>}</>}
       {challengeId && <><p>Challenge <strong>{challengeId}</strong> on <code>{config().backend}</code>. Keep this ID with your survey file.</p><button type="button" disabled={busy || importAttempted} onClick={() => void importTasks()}>Import {result.generated?.count} reviewed tasks</button></>}
       {report && <div role="status"><p>Created {report.created}; updated {report.updated}; rejected {report.rejected.length}.</p>{report.rejected.map(r => <p className="error" key={r.line}>Line {r.line}: {r.errors.join("; ")}</p>)}</div>}
-      {report && !published && <><p>Publish only after every reviewed task was created successfully. This makes the challenge visible in the mobile app; it does not enable OSM writes.</p><button type="button" disabled={busy || publishAttempted || report.rejected.length > 0 || report.updated > 0 || report.created !== result.generated?.count} onClick={() => void publish()}>Publish for mobile</button></>}
+      {report && !published && <><p>Publish only after every reviewed task was created successfully. This makes the challenge visible in the mobile app; it does not enable OSM writes.</p><button type="button" disabled={busy || publishAttempted || report.rejected.length > 0 || report.updated > 0 || report.created !== result.generated?.count} onClick={() => setPublishing(true)}>Publish</button></>}
+      {publishing && challengeId && projectId !== undefined && report && result.survey && <PublishSheet projectId={projectId} input={{ report: { created: report.created, updated: report.updated, rejected: report.rejected.length, expected: result.generated?.count ?? 0 }, checkinComment: result.survey.challenge.checkinComment, checkinSource: result.survey.challenge.checkinSource, description: result.survey.challenge.description ?? "" }} onPublish={publish} onCancel={() => setPublishing(false)} />}
       {published && <p>Refresh the campaign list in the mobile app to find this survey.</p>}
     </div>
   </section>;

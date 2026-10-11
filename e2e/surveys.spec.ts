@@ -40,6 +40,7 @@ test("restaurant editor previews questions, saves a draft, and exports a portabl
 
 test("creates disabled, imports reviewed existing-contract tasks, then publishes for mobile", async ({ page }) => {
   const survey = exampleSurvey("restaurant");
+  survey.challenge.checkinSource = "local knowledge";
   survey.features.features[0].properties["@id"] = "node/123";
   let creates = 0; let imports = 0; let publishes = 0;
   await page.route(`${MOCK}/api/v2/challenge`, async route => {
@@ -64,12 +65,27 @@ test("creates disabled, imports reviewed existing-contract tasks, then publishes
   await expect(page.getByRole("button", { name: "Create new challenge" })).toBeDisabled();
   const exported = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export survey file" }).click(); await exported;
-  await page.getByLabel("Project ID on this backend").fill("1");
+  await page.getByRole("combobox", { name: /^Project/ }).selectOption({ label: "SLC test (off: its campaigns are hidden in the app)" });
+  await expect(page.getByRole("status").filter({ hasText: "Project “SLC test” is off" })).toBeVisible();
   await page.getByRole("button", { name: "Create new challenge" }).click();
   await expect(page.getByLabel("Title", { exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Import 1 reviewed tasks" }).click();
   await expect(page.getByText("Created 1; updated 0; rejected 0.")).toBeVisible();
-  await page.getByRole("button", { name: "Publish for mobile" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Publish to the app?" });
+  await expect(sheet.locator("[data-check=import]")).toContainText("The reviewed task was created.");
+  await expect(sheet.locator("[data-check=project]")).toContainText("Project “SLC test” is off.");
+  await expect(sheet.locator("[data-check=writes]")).toContainText("Task writes are off on DEV");
+  const go = sheet.getByRole("button", { name: "Publish to the app" });
+  await expect(go).toBeDisabled();
+  await sheet.getByRole("button", { name: "Turn on project" }).click();
+  const toggle = page.getByRole("dialog", { name: "Turn on project “SLC test”?" });
+  await expect(toggle).toContainText("Its 1 published campaign will show in the app on DEV. Task writes are unchanged.");
+  await toggle.getByRole("button", { name: "Turn on" }).click();
+  await expect(sheet.locator("[data-check=project]")).toContainText("Project “SLC test” is on.");
+  await expect(go).toBeDisabled();
+  await sheet.getByRole("checkbox", { name: /Source is “local knowledge”/ }).check();
+  await go.click();
   await expect(page.getByText("Refresh the campaign list in the mobile app to find this survey.")).toBeVisible();
   expect([creates, imports, publishes]).toEqual([1, 1, 1]);
 });
@@ -82,12 +98,12 @@ test("unknown import outcome blocks retries and publication", async ({ page }) =
   await openBuilder(page);
   await page.getByLabel("Open survey file").setInputFiles({ name: "survey.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(survey)) });
   const exported = page.waitForEvent("download"); await page.getByRole("button", { name: "Export survey file" }).click(); await exported;
-  await page.getByLabel("Project ID on this backend").fill("1");
+  await page.getByRole("combobox", { name: /^Project/ }).selectOption({ label: "Street Tally pilots" });
   await page.getByRole("button", { name: "Create new challenge" }).click();
   await page.getByRole("button", { name: "Import 1 reviewed tasks" }).click();
   await expect(page.getByRole("alert")).toContainText("Accepted lines may already exist");
   await expect(page.getByRole("button", { name: "Import 1 reviewed tasks" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Publish for mobile" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
   expect(imports).toBe(1);
 });
 
@@ -100,13 +116,13 @@ test("a partially rejected import cannot be published", async ({ page }) => {
   const create = page.getByRole("button", { name: "Create new challenge" });
   await expect(create).toHaveAccessibleDescription("Create is off: export the survey file first, so you keep a copy of what you create.");
   const exported = page.waitForEvent("download"); await page.getByRole("button", { name: "Export survey file" }).click(); await exported;
-  await expect(create).toHaveAccessibleDescription("Create is off: enter a project ID.");
-  await page.getByLabel("Project ID on this backend").fill("1");
+  await expect(create).toHaveAccessibleDescription("Create is off: pick a project.");
+  await page.getByRole("combobox", { name: /^Project/ }).selectOption({ label: "Street Tally pilots" });
   await expect(page.locator("#create-blocker")).toHaveCount(0);
   await create.click();
   await page.getByRole("button", { name: "Import 1 reviewed tasks" }).click();
   await expect(page.getByText("Line 1: Feature rejected")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish for mobile" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeDisabled();
 });
 
 test("mobile preview remains usable and invalid guards cannot be imported", async ({ page }) => {
@@ -117,4 +133,23 @@ test("mobile preview remains usable and invalid guards cannot be imported", asyn
   await expect(page.getByRole("button", { name: "Create new challenge" })).toBeDisabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/survey-builder-mobile.png", fullPage: true });
+});
+
+test("the project picker creates a project and accepts a raw ID", async ({ page }) => {
+  await openBuilder(page);
+  const picker = page.getByRole("combobox", { name: /^Project/ });
+  await expect(picker.locator("option")).toHaveText(["Pick a project", "SLC test (off: its campaigns are hidden in the app)", "Street Tally pilots"]);
+  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByLabel("Name", { exact: true }).fill("slc TEST");
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(page.getByRole("alert")).toHaveText("A project named “slc TEST” already exists.");
+  await page.getByLabel("Name", { exact: true }).fill("Sugar House");
+  await page.getByLabel("Display name").fill("Sugar House walks");
+  await page.getByRole("button", { name: "Create project" }).click();
+  await expect(picker.locator("option:checked")).toHaveText("Sugar House walks");
+  await expect(page.locator(".project-off")).toHaveCount(0);
+  await page.getByText("Advanced: enter a project ID").click();
+  await page.getByLabel("Project ID on this backend").fill("77");
+  await page.getByRole("button", { name: "Use this ID" }).click();
+  await expect(picker.locator("option:checked")).toHaveText("Project 77 (entered by ID)");
 });

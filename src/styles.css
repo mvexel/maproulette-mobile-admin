@@ -209,3 +209,32 @@ main .survey-builder button { min-height: 2.4rem; }
   /* biome-ignore lint/complexity/noImportantStyles: the reduced-motion override must beat every component rule */
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Project picker (design pass §3) */
+.project-picker { display: grid; gap: .6rem; margin: .8rem 0; }
+.project-row { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; }
+.project-row label { flex: 1 1 16rem; }
+.project-row select { width: 100%; }
+.project-off { color: var(--ink); display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0; padding: .6rem .8rem; border-left: 4px solid var(--signal); background: #fdf6e9; }
+.new-project { display: grid; gap: .5rem; max-width: 30rem; border: 1px solid var(--line); border-radius: 6px; }
+.new-project { justify-items: start; }
+.new-project label { justify-self: stretch; }
+
+/* Sheets: the confirm dialogs for publishing and project changes */
+.sheet { width: min(36rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1.2rem 1.4rem; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 40px rgb(18 52 61 / 25%); }
+.sheet::backdrop { background: rgb(18 52 61 / 45%); }
+.sheet h3 { margin: 0 0 .9rem; }
+.sheet-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
+button.primary:not(:disabled) { color: #fff; background: var(--link); border-color: var(--link); }
+button.primary:hover:not(:disabled) { background: #06615f; border-color: #06615f; }
+.checks { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.check { display: grid; grid-template-columns: 1.5rem 1fr; gap: .2rem .5rem; align-items: start; padding: .5rem .6rem; border-radius: 5px; background: var(--surface); }
+.check-fix { grid-column: 2; justify-self: start; }
+.check-tick { display: flex; gap: .45rem; align-items: baseline; font-weight: 400; font-size: inherit; color: inherit; }
+.check-mark { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; font-size: .8rem; font-weight: 700; color: #fff; border-radius: 50%; }
+.check-pass .check-mark { background: var(--success); }
+.check-block { background: #f8eaea; }
+.check-block .check-mark { background: var(--danger); }
+.check-warning { background: #fdf6e9; }
+.check-warning .check-mark { color: var(--nav); background: var(--signal); }
+.check-info .check-mark { background: var(--muted); }

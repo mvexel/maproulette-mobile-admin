@@ -107,6 +107,24 @@ export interface MockBackend {
   stats: { authorizationCodes: number; refreshes: number; revokes: number; replays: number };
 }
 
+interface MockProject {
+  id: number;
+  name: string;
+  displayName: string | null;
+  enabled: boolean;
+}
+interface MockCampaign {
+  id: number;
+  name: string;
+  projectId: number;
+  enabled: boolean;
+  published: boolean;
+  total: number;
+  checked: number;
+  needsLook: number;
+  modified: string;
+}
+
 export function createMockBackend(opts: MockOptions): MockBackend {
   const adminOrigin = opts.adminOrigin.replace(/\/+$/, "");
   const accessSeconds = opts.accessSeconds ?? 900;
@@ -114,6 +132,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let clients = new Map<string, Client>();
   let audit: Audit[] = [];
   let writePolicy = false;
+  let projects = new Map<number, MockProject>();
+  let campaigns: MockCampaign[] = [];
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -148,6 +168,15 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     });
     audit = [];
     writePolicy = false;
+    projects = new Map([
+      [1, { id: 1, name: "SLC test", displayName: null, enabled: false }],
+      [2, { id: 2, name: "Street Tally pilots", displayName: "Street Tally pilots", enabled: true }],
+    ]);
+    campaigns = [
+      { id: 3, name: "Street Tally test: 1300 S 900 E bus stops", projectId: 1, enabled: true, published: true, total: 28, checked: 12, needsLook: 2, modified: "2026-10-11T02:30:00Z" },
+      { id: 7, name: "SLC Bus Stops", projectId: 2, enabled: true, published: true, total: 410, checked: 128, needsLook: 9, modified: "2026-10-10T18:00:00Z" },
+      { id: 9, name: "Restaurant check (draft)", projectId: 2, enabled: false, published: false, total: 5, checked: 0, needsLook: 0, modified: "2026-10-09T12:00:00Z" },
+    ];
     for (let i = 1; i <= (opts.auditSeed ?? 60); i++) {
       audit.push({
         id: i,
@@ -435,6 +464,24 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     updatedAt: c.updatedAt,
   });
 
+  const projectJson = (p: MockProject) => {
+    const own = campaigns.filter((c) => c.projectId === p.id);
+    return { ...p, campaigns: own.length, published: own.filter((c) => c.enabled && c.published).length };
+  };
+  const campaignJson = (c: MockCampaign) => {
+    const p = projects.get(c.projectId)!;
+    return {
+      id: c.id,
+      name: c.name,
+      enabled: c.enabled,
+      published: c.published,
+      listed: c.enabled && c.published && p.enabled,
+      modified: c.modified,
+      project: { id: p.id, name: p.name, displayName: p.displayName, enabled: p.enabled },
+      tasks: { total: c.total, checked: c.checked, needsLook: c.needsLook },
+    };
+  };
+
   async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {
     const results = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/results$/.exec(path);
     if (results && req.method === "GET") {
@@ -464,6 +511,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, { items: newest.slice(page * limit, page * limit + limit), page, limit, total: audit.length });
     }
 
+    if (path === "/api/v2/mobile-admin/projects" && req.method === "GET")
+      return send(res, 200, { projects: [...projects.values()].sort((a, b) => a.name.localeCompare(b.name)).map(projectJson) });
+    if (path === "/api/v2/mobile-admin/campaigns" && req.method === "GET")
+      return send(res, 200, { campaigns: campaigns.map(campaignJson) });
+
     let body: unknown;
     try {
       body = JSON.parse(await readBody(req));
@@ -480,6 +532,33 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         writePolicy = v.enabled;
       }
       return send(res, 200, { enabled: writePolicy, managed: true });
+    }
+
+    if (path === "/api/v2/mobile-admin/projects" && req.method === "POST") {
+      const v = checkFields(body, ["name", "displayName"]);
+      if (Array.isArray(v)) return problem(res, 400, "invalid_request", v);
+      const errors: string[] = [];
+      if (!validName(v.name)) errors.push(nameError);
+      if ("displayName" in v && !validName(v.displayName)) errors.push("displayName: 1 to 200 characters");
+      if (errors.length) return problem(res, 400, "invalid_request", errors);
+      const name = v.name as string;
+      if ([...projects.values()].some((p) => p.name.toLowerCase() === name.toLowerCase())) return problem(res, 409, "project_exists");
+      const p: MockProject = { id: Math.max(0, ...projects.keys()) + 1, name, displayName: (v.displayName as string) ?? null, enabled: true };
+      projects.set(p.id, p);
+      record(user.id, "project.create", `project:${p.id}`, undefined, projectJson(p));
+      return send(res, 201, projectJson(p));
+    }
+    const pm = /^\/api\/v2\/mobile-admin\/projects\/([0-9]+)\/enabled$/.exec(path);
+    if (pm && req.method === "PUT") {
+      const v = checkFields(body, ["enabled"]);
+      if (Array.isArray(v) || typeof v.enabled !== "boolean") return problem(res, 400, "invalid_request", ["expected only enabled"]);
+      const p = projects.get(Number(pm[1]));
+      if (!p) return problem(res, 404, "not_found");
+      if (p.enabled !== v.enabled) {
+        p.enabled = v.enabled;
+        record(user.id, p.enabled ? "project.enable" : "project.disable", `project:${p.id}`, undefined, projectJson(p));
+      }
+      return send(res, 200, projectJson(p));
     }
 
     if (path === "/api/v2/mobile-admin/clients" && req.method === "POST") {
