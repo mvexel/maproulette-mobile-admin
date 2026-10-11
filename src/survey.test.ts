@@ -60,6 +60,9 @@ describe("existing-contract survey generator", () => {
     ["duplicate outcome IDs", [{ id: "a", label: "A", status: 2 }, { id: "a", label: "B", status: 6 }]],
     ["more than 4 outcomes", ["a", "b", "c", "d", "e"].map(id => ({ id, label: id, status: 6 }))],
     ["an outcome that deletes", [{ id: "gone", label: "Gone", delete: true }]],
+    ["a ';' in an outcome label", [{ id: "locked", label: "Locked; staff only", status: 6 }]],
+    ["a space at the start of an outcome label", [{ id: "locked", label: " Locked", status: 6 }]],
+    ["a space at the end of an outcome label", [{ id: "locked", label: "Locked ", status: 6 }]],
   ])("rejects %s", (_, outcomes) => {
     expect(() => parseSurvey({ ...exampleSurvey("bus-stop"), outcomes })).toThrow();
   });
