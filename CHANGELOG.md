@@ -7,7 +7,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Participant site `/privacy` page (draft wording, placeholders for operator and contact), linked
+- Participant site `/privacy` page (wording approved by the operator), linked
   from the claim page footer and the email footers.
 
 - Sign-in through the backend's mobile OAuth (`mobile:admin`, authorization code + PKCE). Access
