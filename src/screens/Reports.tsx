@@ -34,7 +34,7 @@ export function Reports() {
   return (
     <div className="panel">
       <h3>Reports</h3>
-      <p className="hint">Stops people reported as not there or moved. They stay “Needs another look” until you fix the map and put them back in the pool. Open in iD goes to the stop, or to the reported spot for a moved stop.</p>
+      <p className="hint">Stops people reported as not there or moved. They stay “Needs another look” until you fix the map. Open in iD goes to the stop, or to the reported spot for a moved stop.</p>
       <ErrorMessage error={error} />
       <form onSubmit={(event) => void load(event)}>
         <label>Challenge ID <input inputMode="numeric" value={challengeId} onChange={(event) => setChallengeId(event.target.value.trim())} /></label>
