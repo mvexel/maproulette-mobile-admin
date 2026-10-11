@@ -309,3 +309,32 @@ export function idEditorUrl(element: string, at?: [number, number]): string {
   const map = at ? `#map=20/${at[1].toFixed(6)}/${at[0].toFixed(6)}` : "";
   return `https://www.openstreetmap.org/edit?editor=id&${type}=${id}${map}`;
 }
+
+/** A campaign's live progress page (BACKLOG #12; backend docs/mobile-admin-api.md, "Live progress page"). */
+export interface LivePage {
+  challengeId: number;
+  /** The link's secret; the page is at liveLink(token). */
+  token: string;
+  enabled: boolean;
+  showAnswers: boolean;
+  /** Counts people who saved a stop since then; null for no count. */
+  eventStart: string | null;
+  /** When live mode ended; null while live. */
+  endedAt: string | null;
+  updatedAt: string;
+}
+
+export type LivePageChange = Partial<Pick<LivePage, "enabled" | "showAnswers" | "eventStart">> & { ended?: boolean };
+
+/** The campaign's live page, or undefined when it has none yet (`404 no_live_page`). */
+export const getLivePage = (challengeId: number) =>
+  api<LivePage>(`/api/v2/mobile-admin/challenges/${challengeId}/live`).catch((e: unknown) => {
+    if (e instanceof ApiError && e.code === "no_live_page") return undefined;
+    throw e;
+  });
+/** Changes the given settings; the first call creates the page (on, answers hidden, live). */
+export const updateLivePage = (challengeId: number, change: LivePageChange) =>
+  api<LivePage>(`/api/v2/mobile-admin/challenges/${challengeId}/live`, { method: "PUT", body: JSON.stringify(change) });
+/** A new token: the old link stops working. */
+export const rotateLivePage = (challengeId: number) =>
+  api<LivePage>(`/api/v2/mobile-admin/challenges/${challengeId}/live/rotate`, { method: "POST" });

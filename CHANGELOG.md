@@ -14,6 +14,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Live page panel on a campaign's page: create the live progress page, turn it on or off, show each
+  place's answers, count people from an event start, end live mode, copy the link (with a QR code),
+  and replace the link. The mock serves the three admin live routes.
+
 - Participant site `/privacy` page (wording approved by the operator), linked
   from the claim page footer and the email footers.
 

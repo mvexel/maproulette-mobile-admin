@@ -76,6 +76,54 @@ test("a draft is published from its page after the checks", async ({ page }) => 
   await expect(page.getByText("/api/v2/challenge/9").first()).toBeVisible();
 });
 
+test("a campaign's live page is created, set up, ended and given a new link", async ({ page, request }) => {
+  await signIn(page);
+  await page.goto("/campaigns/7");
+  const live = page.locator(".panel", { has: page.getByRole("heading", { name: "Live page" }) });
+  await expect(live).toContainText("No live page yet.");
+  await live.getByRole("button", { name: "Create live page" }).click();
+  await expect(live.locator(".live-status")).toHaveText("On. The page updates every 30 seconds.");
+  const link = live.locator(".share-line code");
+  await expect(link).toHaveText(/^https:\/\/streettally\.osm\.lol\/live\/[A-Za-z0-9_-]{43}$/);
+  const first = (await link.textContent())!.split("/live/")[1];
+  const pub = (token: string) => request.get(`${MOCK}/api/v2/live/${token}`);
+  expect((await (await pub(first)).json()).answersShown).toBe(false);
+
+  await live.getByLabel("Show each place's answers").click();
+  await expect(live.getByLabel("Show each place's answers")).toBeChecked();
+  expect((await (await pub(first)).json()).answersShown).toBe(true);
+
+  await live.getByLabel("Count people from").fill("2026-10-18T19:00");
+  await live.getByRole("button", { name: "Save" }).click();
+  await expect(live).toContainText("Counting people who saved a place since Oct 18, 7:00 pm.");
+  await live.getByRole("button", { name: "Stop counting" }).click();
+  await expect(live.getByRole("button", { name: "Stop counting" })).toHaveCount(0);
+
+  await live.getByLabel("Page on").click();
+  await expect(live.locator(".live-status")).toHaveText("Turned off. The link says the page is turned off.");
+  await expect(live.locator(".qr-warning")).toBeVisible();
+  expect((await (await pub(first)).json()).error).toBe("turned_off");
+  await live.getByLabel("Page on").click();
+  await expect(live.getByLabel("Page on")).toBeChecked();
+
+  await live.getByRole("button", { name: "End live mode" }).click();
+  await expect(live.locator(".live-status")).toHaveText(/^Ended .+\. The page shows the final tally and no longer updates\.$/);
+  expect((await (await pub(first)).json()).mode).toBe("ended");
+  await live.getByRole("button", { name: "Make live again" }).click();
+  await expect(live.locator(".live-status")).toHaveText("On. The page updates every 30 seconds.");
+
+  await live.getByRole("button", { name: "New link…" }).click();
+  await expect(live.getByRole("alert")).toContainText("The current link stops working right away");
+  await live.getByRole("button", { name: "Make a new link" }).click();
+  await expect(link).not.toHaveText(new RegExp(first));
+  expect((await (await pub(first)).json()).error).toBe("not_found");
+
+  await page.reload();
+  await expect(live.locator(".live-status")).toHaveText("On. The page updates every 30 seconds.");
+  await page.getByRole("link", { name: "Audit log" }).click();
+  await expect(page.getByText("live.rotate")).toBeVisible();
+});
+
 test("old addresses and unknown campaigns", async ({ page }) => {
   await signIn(page);
   await page.goto("/surveys");
