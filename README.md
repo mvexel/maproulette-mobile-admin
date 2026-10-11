@@ -16,21 +16,24 @@ in the fork.
 
 - **Sign in.** Shows the connected backend. An account that is not a super-user gets a
   "Not a super-user" screen and no session.
+- **Campaigns** (home). Every choice campaign on the backend with its project, whether it is in
+  the app (Listed, Hidden: project off, Hidden: not published, Draft), progress and last change.
+  Filters: All, In the app, Drafts. A campaign's page says what a participant sees, turns its
+  project on or publishes it (after the publish checks), shares the app link with a QR code,
+  shows progress, exports results as CSV or GeoJSON, and shows its texts.
+- **New campaign.** Author questions/help/options and OSM tag mappings, load
+  features, export a portable survey, preview generated tasks, pick or create the project, and
+  publish a successfully imported new challenge after the publish checks. See the
+  [authoring guide](docs/survey-authoring.md). Restaurant and bus-stop examples
+  use the existing choice-task contract. Under Advanced, the old challenge form imports a
+  line-by-line GeoJSON file into an existing challenge, for recovery.
+- **Task writes.** On a field deployment, a super-user can turn mobile task and
+  OSM edit submissions on or off for that backend. The switch starts off and
+  every change is audited. The dev deployment keeps its fixed server policy.
 - **Clients.** List, create, edit, disable (optionally revoking every sign-in of the client) and
   enable. Validation errors from the backend are listed. The backend refuses (`409 self_lockout`)
   to disable this app's own client or to remove `mobile:admin` from it; the screen explains why.
 - **Audit log.** Every admin write, newest first, 25 per page. Read-only.
-- **Task writes.** On a field deployment, a super-user can turn mobile task and
-  OSM edit submissions on or off for that backend. The switch starts off and
-  every change is audited. The dev deployment keeps its fixed server policy.
-- **Challenges.** Create a challenge and import line-by-line GeoJSON choice
-  tasks with a per-line report. Setup works while the field task write switch
-  is off. The backend audits creation and import.
-- **Survey builder.** Author questions/help/options and OSM tag mappings, load
-  features, export a portable survey, preview generated tasks, and publish a
-  successfully imported new challenge for Android discovery. See the
-  [authoring guide](docs/survey-authoring.md). Restaurant and bus-stop examples
-  use the existing choice-task contract; no SDK/backend schema change is needed.
 
 The header always shows the backend origin and the signed-in user.
 

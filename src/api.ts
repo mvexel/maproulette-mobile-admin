@@ -20,6 +20,26 @@ export class ApiError extends Error {
  * ends the session.
  */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await request(path, init);
+  const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);
+  if (!res.ok) {
+    const b = (body ?? {}) as { error?: string; detail?: string[] };
+    throw new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
+  }
+  return body as T;
+}
+
+/** As [[api]], for a file download: the response body as a Blob. */
+export async function apiBlob(path: string): Promise<Blob> {
+  const res = await request(path, { headers: { Accept: "*/*" } });
+  if (!res.ok) {
+    const b = ((await res.json().catch(() => undefined)) ?? {}) as { error?: string; detail?: string[] };
+    throw new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
+  }
+  return res.blob();
+}
+
+async function request(path: string, init: RequestInit): Promise<Response> {
   const send = async (token: string) =>
     fetch(`${config().backend}${path}`, {
       ...init,
@@ -36,12 +56,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     clearSession();
     throw new AuthError("Session expired. Please sign in again.");
   }
-  const body = res.status === 204 ? undefined : await res.json().catch(() => undefined);
-  if (!res.ok) {
-    const b = (body ?? {}) as { error?: string; detail?: string[] };
-    throw new ApiError(res.status, b.error ?? `http_${res.status}`, b.detail);
-  }
-  return body as T;
+  return res;
 }
 
 export interface Client {
@@ -219,3 +234,15 @@ export const setProjectEnabled = (id: number, enabled: boolean) =>
   api<Project>(`/api/v2/mobile-admin/projects/${id}/enabled`, { method: "PUT", body: JSON.stringify({ enabled }) });
 export const listCampaigns = () =>
   api<{ campaigns: Campaign[] }>("/api/v2/mobile-admin/campaigns").then((r) => r.campaigns);
+
+/** A challenge as the stock read returns it; only the fields the campaign page shows. */
+export interface ChallengeDetail extends ChallengeDraft {
+  id: number;
+  enabled: boolean;
+  parent: number;
+}
+
+export const getChallenge = (id: number) => api<ChallengeDetail>(`/api/v2/challenge/${id}`);
+
+export const downloadResults = (id: number, format: "csv" | "geojson") =>
+  apiBlob(`/api/v2/mobile-admin/challenges/${id}/results?format=${format}`);

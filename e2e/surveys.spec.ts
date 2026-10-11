@@ -7,7 +7,7 @@ async function openBuilder(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await page.getByRole("link", { name: /Sign in as mock-superuser/ }).click();
-  await page.getByRole("link", { name: "Survey builder" }).click();
+  await page.getByRole("link", { name: "New campaign" }).click();
 }
 
 test.beforeEach(async ({ request }) => {
@@ -140,11 +140,12 @@ test("the project picker creates a project and accepts a raw ID", async ({ page 
   const picker = page.getByRole("combobox", { name: /^Project/ });
   await expect(picker.locator("option")).toHaveText(["Pick a project", "SLC test (off: its campaigns are hidden in the app)", "Street Tally pilots"]);
   await page.getByRole("button", { name: "New project" }).click();
-  await page.getByLabel("Name", { exact: true }).fill("slc TEST");
+  const form = page.getByRole("group", { name: "New project" });
+  await form.getByLabel("Name", { exact: true }).fill("slc TEST");
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(page.getByRole("alert")).toHaveText("A project named “slc TEST” already exists.");
-  await page.getByLabel("Name", { exact: true }).fill("Sugar House");
-  await page.getByLabel("Display name").fill("Sugar House walks");
+  await form.getByLabel("Name", { exact: true }).fill("Sugar House");
+  await form.getByLabel("Display name").fill("Sugar House walks");
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(picker.locator("option:checked")).toHaveText("Sugar House walks");
   await expect(page.locator(".project-off")).toHaveCount(0);

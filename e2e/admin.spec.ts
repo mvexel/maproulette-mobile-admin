@@ -19,13 +19,14 @@ async function signIn(page: Page, as: "mock-superuser" | "mock-mapper" = "mock-s
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:9300\/oauth\/mobile\/authorize\?/);
   await page.getByRole("link", { name: new RegExp(`Sign in as ${as}`) }).click();
+  if (as === "mock-superuser") await page.getByRole("link", { name: "Clients" }).click();
 }
 
 const row = (page: Page, id: string) => page.getByTestId(`client-${id}`);
 
 test("signs in and shows the clients and the connected backend", async ({ page, request }) => {
   await signIn(page);
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/clients");
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
   await expect(page.getByTestId("environment")).toHaveText(`DEV backend: ${MOCK}`);
   await expect(page.getByTestId("environment")).toHaveAttribute("data-backend", MOCK);
