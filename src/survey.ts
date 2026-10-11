@@ -128,6 +128,9 @@ export function parseSurvey(value: unknown): SurveyDocument {
       const o = obj(ov, path, ["id", "label", "description", "status"]);
       id(o.id, `${path}.id`); text(o.label, `${path}.label`, 60); text(o.description, `${path}.description`, 300, true);
       if (typeof o.id === "string" && builtInOutcomes.has(o.id)) fail(`${path}.id: ${o.id} is built into the app`);
+      // The results download tallies outcome labels as "label count;label count"; the backend refuses these too.
+      if (typeof o.label === "string" && o.label.includes(";")) fail(`${path}.label: can't contain ";"`);
+      if (typeof o.label === "string" && o.label.trim() !== o.label) fail(`${path}.label: can't start or end with a space`);
       if (o.status !== 2 && o.status !== 6) fail(`${path}.status: use 2 (not an issue) or 6 (can't complete)`);
       return o;
     });
