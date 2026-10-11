@@ -33,6 +33,8 @@ export default defineConfig({
       env: {
         CLAIM_BACKEND: MOCK,
         SITE_INSTALL_URL: "https://testflight.apple.com/join/TEST1234",
+        SITE_ANDROID_INSTALL_URL: "https://downloads.example.test/street-tally.apk",
+        SITE_ANDROID_VERSION: "test-1.0",
         APPLE_TEAM_ID: "ABCDE12345",
         APPLE_BUNDLE_ID: "lol.osm.streettally",
       },

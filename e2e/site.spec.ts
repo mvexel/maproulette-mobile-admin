@@ -1,42 +1,125 @@
 import { devices, expect, test } from "@playwright/test";
 import { CLAIM as SITE } from "./env.ts";
 
-/** The participant site's static pages: the campaign landing page, the root page and the AASA file. */
-
-test.describe("on an iPhone", () => {
-  test.use({ userAgent: devices["iPhone 15"].userAgent });
-
-  test("shows the campaign and links to install and open it", async ({ page }) => {
+for (const [platform, userAgent, first, collapsed] of [
+  ["iPhone", devices["iPhone 15"].userAgent, "ios", "android"],
+  ["Android", devices["Pixel 7"].userAgent, "android", "ios"],
+  ["desktop", devices["Desktop Chrome"].userAgent, "ios", undefined],
+] as const) {
+  test(`installation and same campaign return on ${platform}`, async ({ browser }) => {
+    const context = await browser.newContext({ userAgent });
+    const page = await context.newPage();
     await page.goto(`${SITE}/challenge/7`);
     await expect(page.getByRole("heading", { name: "SLC Bus Stops" })).toBeVisible();
-    await expect(page.getByText(/Help check every bus stop in Salt Lake City/)).toBeVisible();
     await expect(page).toHaveTitle("SLC Bus Stops · Street Tally");
-    await expect(page.getByRole("link", { name: "Install the beta" })).toHaveAttribute(
-      "href",
-      "https://testflight.apple.com/join/TEST1234",
-    );
-    await expect(page.getByRole("link", { name: "Open the campaign" })).toHaveAttribute("href", "mrchoice://challenge/7");
-    await expect(page.getByText("You don't need an account to take part.")).toBeVisible();
-    await expect(page.getByText("on Street Tally")).toBeVisible();
+    await expect(page.getByText(/Help check every bus stop in Salt Lake City/)).toBeVisible();
+    await expect(page.locator("#install-ios")).toHaveAttribute("href", "https://testflight.apple.com/join/TEST1234");
+    await expect(page.locator("#install-android")).toHaveAttribute("href", "https://downloads.example.test/street-tally.apk");
+    await expect(page.locator("#android-version")).toHaveText("Street Tally pilot, version test-1.0");
+    await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+    await expect(page.getByText(/No account needed to start/)).toBeVisible();
+    // The loaded page shows no status text; the status region stays for errors.
+    await expect(page.locator("#status-text")).toHaveText("");
+    expect(await page.locator("#open").evaluate((open, first) => {
+      const platforms = [...document.querySelectorAll("details.platform")].map((d) => d.id);
+      return platforms[0] === first && platforms.every((p) => !!(open.compareDocumentPosition(document.getElementById(p) as Node) & Node.DOCUMENT_POSITION_FOLLOWING));
+    }, first)).toBe(true);
+    await expect(page.locator(`#${first}`)).toHaveAttribute("open", "");
+    if (collapsed) {
+      await expect(page.locator(`#${collapsed}`)).not.toHaveAttribute("open", "");
+      await page.locator(`#${collapsed} summary`).click();
+      await expect(page.locator(`#${collapsed}`)).toHaveAttribute("open", "");
+    } else {
+      await expect(page.locator("#android")).toHaveAttribute("open", "");
+    }
+    await context.close();
   });
+}
 
-  test("falls back to generic text when the campaign can't be read", async ({ page }) => {
-    await page.goto(`${SITE}/challenge/99`);
-    await expect(page.getByRole("link", { name: "Open the campaign" })).toHaveAttribute("href", "mrchoice://challenge/99");
-    await expect(page.getByRole("heading", { name: "Join this campaign" })).toBeVisible();
-  });
-
-  test("says so for a malformed campaign link", async ({ page }) => {
-    await page.goto(`${SITE}/challenge/not-a-number`);
-    await expect(page.getByRole("heading", { name: "We can't find this campaign" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open the campaign" })).toBeHidden();
-  });
+test("unavailable links remain truthful; installed app can still open campaign", async ({ page }) => {
+  await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300" } }));
+  await page.goto(`${SITE}/challenge/7`);
+  await expect(page.getByText(/iPhone invitation isn't ready/)).toBeVisible();
+  await expect(page.getByText(/Android download isn't ready/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Download for Android" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Install the download" })).toBeHidden();
+  await expect(page.locator("#ios-steps")).toBeHidden();
+  await expect(page.locator("#android-steps")).toBeHidden();
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "/tmp/c001-entry-unavailable.png", fullPage: true });
 });
 
-test("asks for an iPhone on other devices", async ({ page }) => {
+test("one unavailable platform doesn't hide the other platform's available steps", async ({ page }) => {
+  await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300", androidInstallUrl: "https://downloads.example.test/app.apk", androidVersion: "test-2.0" } }));
   await page.goto(`${SITE}/challenge/7`);
-  await expect(page.getByRole("heading", { name: "Open this on an iPhone" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Install the beta" })).toBeHidden();
+  await expect(page.getByText(/iPhone invitation isn't ready/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Download for Android" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Install the download" })).toBeVisible();
+  await expect(page.getByText(/Android download isn't ready/)).toBeHidden();
+});
+
+test("unsafe download URLs and an APK with no version are not offered", async ({ page }) => {
+  await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300", installUrl: "javascript:alert(1)", androidInstallUrl: "https://downloads.example.test/app.apk" } }));
+  await page.goto(`${SITE}/challenge/7`);
+  await expect(page.getByText(/Android download isn't ready/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Download for Android" })).toBeHidden();
+});
+
+test("config outage has retry and no placeholder installation or campaign action", async ({ page }) => {
+  let fail = true;
+  await page.route("**/config.json", (route) => fail ? route.fulfill({ status: 503 }) : route.continue());
+  await page.goto(`${SITE}/challenge/7`);
+  await expect(page.getByRole("status")).toContainText("couldn't load the campaign settings");
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
+  fail = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { name: "SLC Bus Stops" })).toBeVisible();
+});
+
+test("campaign outage is retryable without claiming the campaign is missing", async ({ page }) => {
+  let fail = true;
+  await page.route("**/api/v2/challenge/7", (route) => fail ? route.fulfill({ status: 503 }) : route.continue());
+  await page.goto(`${SITE}/challenge/7`);
+  await expect(page.getByRole("status")).toContainText("couldn't load this campaign");
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+  fail = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+});
+
+test("unknown campaign gets an explicit missing state", async ({ page }) => {
+  await page.goto(`${SITE}/challenge/99`);
+  await expect(page.getByRole("status")).toContainText("can't find this campaign");
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+});
+
+for (const id of ["not-a-number", "0"]) {
+  test(`malformed campaign ${id} offers no install or return action`, async ({ page }) => {
+    await page.goto(`${SITE}/challenge/${id}`);
+    await expect(page.getByRole("status")).toContainText("isn't valid");
+    await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Try again" })).toBeHidden();
+  });
+}
+
+test("narrow light/dark page and large text remain readable without horizontal overflow", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const colorScheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto(`${SITE}/challenge/7`);
+    await expect(page.getByRole("heading", { name: "SLC Bus Stops" })).toBeVisible();
+    await page.screenshot({ path: `/tmp/c001-entry-${colorScheme}.png`, fullPage: true });
+  }
+  await page.addStyleTag({ content: "body { font-size: 34px; } h1 { font-size: 68px; } h2 { font-size: 40px; } .btn { font-size: 34px; } .note, .step p { font-size: 30px; }" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeVisible();
+  await page.screenshot({ path: "/tmp/c001-entry-large-text.png", fullPage: true });
 });
 
 test("has a root page", async ({ page }) => {

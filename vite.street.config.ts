@@ -43,7 +43,7 @@ function participantSite(): Plugin {
         osmWeb: process.env.CLAIM_OSM_WEB ?? "https://master.apis.dev.openstreetmap.org",
       });
     if (backend && path === "/config.json")
-      return json(res, { backend, installUrl: process.env.SITE_INSTALL_URL ?? "", appScheme: "mrchoice" });
+      return json(res, { backend, installUrl: process.env.SITE_INSTALL_URL ?? "", appScheme: "mrchoice", androidInstallUrl: process.env.SITE_ANDROID_INSTALL_URL ?? "", androidVersion: process.env.SITE_ANDROID_VERSION ?? "" });
     if (path === "/.well-known/apple-app-site-association") {
       const team = process.env.APPLE_TEAM_ID;
       const bundle = process.env.APPLE_BUNDLE_ID;

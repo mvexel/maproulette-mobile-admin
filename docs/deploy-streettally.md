@@ -41,7 +41,9 @@ APPLE_BUNDLE_ID = <bundle ID>
 ```
 
 - `INSTALL_URL`: the public TestFlight link. Empty hides the install button and asks
-  participants to get the link from their organizer.
+  participants that the invitation is not available yet.
+- `ANDROID_INSTALL_URL`: the actual HTTPS download URL for the intended signed APK.
+- `ANDROID_VERSION`: the exact version label for that APK (up to 80 characters: letters, numbers, spaces, `.`, `_`, `+`, `-`). Both Android fields are required to show the download action. Empty fields show truthful unavailability, not a placeholder download.
 - `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`: from the iOS app (Swift has them). With either one
   empty, no apple-app-site-association file is served, and campaign links open the landing page
   instead of the app. With a free personal team, universal links may not work at all; the
@@ -54,7 +56,7 @@ The container refuses to start if any of these is malformed; `docker logs` says 
 
 The claim page only works once the backend knows its origin:
 
-- `MR_MOBILE_CLAIM_ORIGIN=https://streettally.osm.lol` (deferred-signup-api.md §5).
+- `MR_CLAIM_ORIGIN=https://streettally.osm.lol` (deferred-signup-api.md §5).
 - The `maproulette-claim` client's redirect URI is `https://streettally.osm.lol/claim/callback`.
 - The CORS list in §5 should also cover `/api/v2/mobile-claim/delete` and
   `/api/v2/mobile-claim/stop-reminders`; the page calls both from the browser.
@@ -80,3 +82,9 @@ and with it (the app opens). Apple caches the association file through its CDN, 
 take a while to reach phones.
 
 To roll back, remove the site block from the shared Caddy. The admin app on port 80 is unchanged.
+
+## Participant-page local checks
+
+`SITE_INSTALL_URL`, `SITE_ANDROID_INSTALL_URL` and `SITE_ANDROID_VERSION` supply the same fields to `npm run dev:street` / preview when `CLAIM_BACKEND` is set. Leave links empty until real artifacts are verified; test fixtures are never deployment links. Both platform instructions remain visible, with one explicit `mrchoice://challenge/<id>` return action. The apps already register this scheme; Android HTTPS App Links are not configured by this change.
+
+Verify fresh install and already-installed return on both real phones with the selected campaign and exact build. Browser tests do not demonstrate native installation, TestFlight enrollment, signing or deployment. Campaign/config failures show a retry instead of an unverified generic invitation. Real backend CORS must permit the campaign read for the participant origin.

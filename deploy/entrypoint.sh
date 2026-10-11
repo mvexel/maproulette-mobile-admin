@@ -30,7 +30,18 @@ printf '{"backend":"%s","clientId":"%s","mapStyle":"https://tiles.openfreemap.or
 INSTALL_URL="${INSTALL_URL:-}"
 [ -z "$INSTALL_URL" ] || echo "$INSTALL_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$' ||
 	{ echo "INSTALL_URL must be an https URL like https://testflight.apple.com/join/AbCd1234" >&2; exit 1; }
-printf '{"backend":"%s","installUrl":"%s","appScheme":"mrchoice"}\n' "$BACKEND_ORIGIN" "$INSTALL_URL" > /srv/street/config.json
+# Android: direct signed APK URL plus the exact participant-facing version label.
+ANDROID_INSTALL_URL="${ANDROID_INSTALL_URL:-}"
+ANDROID_VERSION="${ANDROID_VERSION:-}"
+# grep checks one line at a time: reject line breaks before interpolating either field into JSON.
+[ "$ANDROID_INSTALL_URL" = "$(printf '%s' "$ANDROID_INSTALL_URL" | tr -d '\r\n')" ] &&
+[ "$ANDROID_VERSION" = "$(printf '%s' "$ANDROID_VERSION" | tr -d '\r\n')" ] ||
+	{ echo "Android download fields must not contain line breaks" >&2; exit 1; }
+[ -z "$ANDROID_INSTALL_URL" ] || echo "$ANDROID_INSTALL_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$' ||
+	{ echo "ANDROID_INSTALL_URL must be an https URL" >&2; exit 1; }
+[ -z "$ANDROID_VERSION" ] || echo "$ANDROID_VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+ -]{0,79}$' ||
+	{ echo "ANDROID_VERSION must be a version label of at most 80 safe characters" >&2; exit 1; }
+printf '{"backend":"%s","installUrl":"%s","appScheme":"mrchoice","androidInstallUrl":"%s","androidVersion":"%s"}\n' "$BACKEND_ORIGIN" "$INSTALL_URL" "$ANDROID_INSTALL_URL" "$ANDROID_VERSION" > /srv/street/config.json
 # Universal links: only with both IDs (a team ID like ABCDE12345, a bundle ID like lol.osm.streettally).
 if [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_BUNDLE_ID:-}" ]; then
 	echo "$APPLE_TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$' ||
