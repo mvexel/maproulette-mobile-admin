@@ -63,6 +63,46 @@ export const MOCK_CLAIM_TOKENS = {
   deleted: "mock-claim-deleted".padEnd(43, "x"),
 } as const;
 
+/** Fixed live progress page tokens (BACKLOG #12): a live page, an ended one, one turned off. */
+export const MOCK_LIVE_TOKENS = {
+  live: "mock-live-page".padEnd(43, "x"),
+  ended: "mock-live-ended".padEnd(43, "x"),
+  off: "mock-live-off".padEnd(43, "x"),
+} as const;
+
+/** `GET /api/v2/live/:token` for a few Woodbine entrances; times are relative to now. */
+function livePage(mode: "live" | "ended") {
+  const now = Date.now();
+  const at = (minutesAgo: number) => new Date(Math.floor((now - minutesAgo * 60000) / 60000) * 60000).toISOString();
+  const ended = mode === "ended";
+  return {
+    campaign: { name: "Woodbine entrances", hashtags: ["#StreetTallyWoodbine"], match: { entrance: "main" } },
+    mode,
+    answersShown: true,
+    generatedAt: new Date(now).toISOString(),
+    ...(ended ? { endedAt: at(30) } : {}),
+    tally: { checked: 3, total: 5, needsLook: 1, ...(ended ? {} : { people: 1 }) },
+    stops: [
+      {
+        id: 101,
+        lon: -111.9068,
+        lat: 40.7538,
+        state: "checked",
+        name: "Granary Live",
+        at: at(4),
+        answers: [
+          { question: "How does this door open?", answer: "Slides sideways" },
+          { question: "Does it open by itself?", answer: "Yes, when you walk up" },
+        ],
+      },
+      { id: 102, lon: -111.9071, lat: 40.7536, state: "checked", at: at(42) },
+      { id: 103, lon: -111.9064, lat: 40.7533, state: "checked", ref: "B", at: at(130), reported: "Not an entrance" },
+      { id: 104, lon: -111.9075, lat: 40.7541, state: "look", at: at(20), reported: "There's no door" },
+      { id: 105, lon: -111.906, lat: 40.7529, state: "todo" },
+    ],
+  };
+}
+
 interface PendingTask {
   taskId: number;
   lat: number;
@@ -426,6 +466,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   const claimPaths = (path: string) =>
     oauthPaths.includes(path) ||
     /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+|\/[0-9]+\/retry)?$/.test(path) ||
+    // The live progress page's public read (BACKLOG #12).
+    /^\/api\/v2\/live\/[A-Za-z0-9_-]{43}$/.test(path) ||
     // The campaign landing page reads the public challenge (name, blurb); §3.11 CORS.
     /^\/api\/v2\/challenge\/[0-9]+$/.test(path);
 
@@ -476,6 +518,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 204);
     }
     if (path === "/__mock/stats" && req.method === "GET") return send(res, 200, stats);
+    // A MapLibre style with no tiles, so map pages can be checked without the network.
+    if (path === "/__mock/style.json" && req.method === "GET")
+      return send(res, 200, { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#ECEBE5" } }] }, { "Access-Control-Allow-Origin": "*" });
     if (path === "/__mock/claim-writes" && req.method === "POST") {
       claimWrites = q.get("enabled") === "true";
       return send(res, 204);
@@ -583,6 +628,15 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
 
     if (path.startsWith("/api/v2/mobile-claim")) return claim(req, res, path);
+
+    // The live progress page: public, by token; 404 not_found or turned_off otherwise.
+    const live = /^\/api\/v2\/live\/([A-Za-z0-9_-]{43})$/.exec(path);
+    if (live && req.method === "GET") {
+      const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
+      if (live[1] === MOCK_LIVE_TOKENS.live) return send(res, 200, livePage("live"), headers);
+      if (live[1] === MOCK_LIVE_TOKENS.ended) return send(res, 200, livePage("ended"), headers);
+      return send(res, 404, { error: live[1] === MOCK_LIVE_TOKENS.off ? "turned_off" : "not_found" }, headers);
+    }
 
     // The campaign landing page reads the public challenge (name, description) without a token.
     const landing = /^\/api\/v2\/challenge\/([0-9]+)$/.exec(path);
