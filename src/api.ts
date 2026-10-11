@@ -201,3 +201,66 @@ export async function fetchChallengeResults(challengeId: number, format: Results
   if (!res.ok) throw errorFrom(res, await res.json().catch(() => undefined));
   return { blob: await res.blob(), filename: `challenge-${challengeId}-results.${format}` };
 }
+
+/** A stop someone reported as not there or moved (the built-in outcomes). */
+export interface StopReport {
+  taskId: number;
+  /** The stop's name tag, else "Stop <ref>", else "Unnamed stop" (as the app labels it). */
+  label: string;
+  element: string;
+  outcome: "not-here" | "moved";
+  outcomeLabel: string;
+  reportedAt?: string;
+  count: number;
+  /** The stop's map position, [longitude, latitude]. */
+  at?: [number, number];
+  /** For a moved stop, the spot the mapper reported. */
+  moved?: { at: [number, number]; source: string; distanceM?: number };
+}
+
+const reportOutcomes = new Set(["not-here", "moved"]);
+
+type ResultFeature = {
+  geometry: { coordinates: [number, number] } | null;
+  properties: Record<string, unknown>;
+};
+
+/** The challenge's not-here and moved reports, read from its GeoJSON results export. */
+export async function listReports(challengeId: number): Promise<StopReport[]> {
+  const { blob } = await fetchChallengeResults(challengeId, "geojson");
+  const features = (JSON.parse(await blob.text()) as { features: ResultFeature[] }).features;
+  const moved = new Map<number, ResultFeature>();
+  for (const f of features) if (f.properties.kind === "reported_position") moved.set(f.properties.taskId as number, f);
+  return features
+    .filter((f) => f.properties.kind === undefined && reportOutcomes.has(f.properties.outcome as string))
+    .map((f) => {
+      const p = f.properties;
+      const spot = moved.get(p.taskId as number);
+      return {
+        taskId: p.taskId as number,
+        label: stopLabel(p.featureName as string | null, p.featureRef as string | null),
+        element: p.element as string,
+        outcome: p.outcome as StopReport["outcome"],
+        outcomeLabel: (p.outcomeLabel as string) ?? (p.outcome as string),
+        reportedAt: (p.completedAt as string | null) ?? undefined,
+        count: (p.reportCount as number) || 1,
+        at: f.geometry?.coordinates,
+        moved: spot?.geometry
+          ? { at: spot.geometry.coordinates, source: spot.properties.source as string, distanceM: (spot.properties.distanceM as number | null) ?? undefined }
+          : undefined,
+      };
+    })
+    .sort((a, b) => (b.reportedAt ?? "").localeCompare(a.reportedAt ?? ""));
+}
+
+export function stopLabel(name?: string | null, ref?: string | null): string {
+  if (name) return name;
+  return ref ? `Stop ${ref}` : "Unnamed stop";
+}
+
+/** iD on openstreetmap.org with the element selected, centered on `at` when given. */
+export function idEditorUrl(element: string, at?: [number, number]): string {
+  const [type, id] = element.split("/");
+  const map = at ? `#map=20/${at[1].toFixed(6)}/${at[0].toFixed(6)}` : "";
+  return `https://www.openstreetmap.org/edit?editor=id&${type}=${id}${map}`;
+}

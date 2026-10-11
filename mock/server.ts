@@ -21,6 +21,15 @@ const RESULTS_GEOJSON = {
   features: [{
     type: "Feature", id: 1, geometry: { type: "Point", coordinates: [-111.891, 40.7608] },
     properties: { taskId: 1, taskName: "node/101", element: "node/101", status: 1, statusName: "Fixed", answers: { shelter: "yes" } },
+  }, {
+    type: "Feature", id: 2, geometry: { type: "Point", coordinates: [-111.892, 40.7612] },
+    properties: { taskId: 2, taskName: "node/102", featureName: null, featureRef: "1234", element: "node/102", status: 6, statusName: "Too hard", completedAt: "2026-10-10T17:05:00", outcome: "not-here", outcomeLabel: "It's not here", reportCount: 2 },
+  }, {
+    type: "Feature", id: 3, geometry: { type: "Point", coordinates: [-111.8912, 40.7609] },
+    properties: { taskId: 3, taskName: "node/103", featureName: "900 E / 1300 S", featureRef: "1235", element: "node/103", status: 6, statusName: "Too hard", completedAt: "2026-10-10T17:10:00", outcome: "moved", outcomeLabel: "It's moved", reportCount: 1 },
+  }, {
+    type: "Feature", id: "3-reported", geometry: { type: "Point", coordinates: [-111.8912, 40.76091] },
+    properties: { kind: "reported_position", taskId: 3, element: "node/103", source: "tap", distanceM: 21 },
   }],
 };
 

@@ -193,3 +193,31 @@ test("shows whether task writes are on, and follows a change", async ({ page }) 
   await page.getByRole("button", { name: "Enable writes" }).click();
   await expect(pill).toHaveText("Writes on");
 });
+
+test("lists a challenge's not-here and moved reports with iD links", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await signIn(page);
+  await expect(page.getByTestId("user")).toHaveText("mock-superuser");
+  await page.getByRole("link", { name: "Challenges" }).click();
+  const panel = page.locator(".panel", { has: page.getByRole("heading", { name: "Reports" }) });
+  await panel.getByLabel("Challenge ID").fill("7");
+  await panel.getByRole("button", { name: "Show reports" }).click();
+  await expect(panel).toContainText("No challenge with ID 7.");
+  await panel.getByLabel("Challenge ID").fill("42");
+  await panel.getByRole("button", { name: "Show reports" }).click();
+  const rows = panel.getByRole("table", { name: "Reports" }).locator("tbody tr");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText("900 E / 1300 S");
+  await expect(rows.nth(0)).toContainText("It's moved, about 21 m (tapped on the map)");
+  await expect(rows.nth(0)).toContainText("Oct 10, 5:10 pm");
+  await expect(rows.nth(0).getByRole("link", { name: "Open in iD" })).toHaveAttribute("href", /node=103#map=20\/40\.760910\/-111\.891200$/);
+  await expect(rows.nth(1)).toContainText("Stop 1234");
+  await expect(rows.nth(1)).toContainText("It's not here");
+  await expect(rows.nth(1).getByRole("link", { name: "Open in iD" })).toHaveAttribute("href", /node=102#map=20\/40\.761200\/-111\.892000$/);
+  await panel.screenshot({ path: "test-results/reports-desktop.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const cards = panel.getByRole("list", { name: "Reports" }).getByRole("listitem");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1)).toContainText("Oct 10, 5:05 pm · 2 reports");
+  await panel.screenshot({ path: "test-results/reports-mobile.png" });
+});
