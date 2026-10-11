@@ -105,6 +105,27 @@ test("creates, edits, disables and enables a client", async ({ page }) => {
   await expect(row(page, "org.example.app")).not.toHaveClass(/disabled/);
 });
 
+test("gives an app client the guest scope for deferred sign-up", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("button", { name: "Add client" }).click();
+  const form = page.getByRole("form", { name: "New client" });
+  await form.getByLabel("ID", { exact: true }).fill("org.example.guests");
+  await form.getByLabel("Name").fill("Guest app");
+  await form.getByLabel("Redirect URIs").fill("org.example.guests:/oauth");
+  await form.getByLabel("Scopes").selectOption("tasks:read tasks:write osm:tagfix guest");
+  await form.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("status")).toHaveText("Created org.example.guests.");
+  await expect(row(page, "org.example.guests")).toContainText("tasks:read tasks:write osm:tagfix guest");
+
+  // An existing client moves onto it too, and the editor shows it selected afterwards.
+  await row(page, "org.example.guests").getByRole("button", { name: "Edit" }).click();
+  const edit = page.getByRole("form", { name: "Edit org.example.guests" });
+  await expect(edit.getByLabel("Scopes")).toHaveValue("tasks:read tasks:write osm:tagfix guest");
+  await edit.getByLabel("Scopes").selectOption("tasks:read tasks:write osm:tagfix");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(row(page, "org.example.guests")).not.toContainText("osm:tagfix guest");
+});
+
 test("shows validation errors and duplicates", async ({ page }) => {
   await signIn(page);
   await page.getByRole("button", { name: "Add client" }).click();

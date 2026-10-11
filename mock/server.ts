@@ -156,6 +156,7 @@ const SCOPE_SETS = [
   "tasks:read",
   "tasks:read tasks:write",
   "tasks:read tasks:write osm:tagfix",
+  "tasks:read tasks:write osm:tagfix guest",
   ADMIN_SCOPE,
 ];
 const token = () => randomBytes(32).toString("base64url"); // 43 characters, like the backend
@@ -371,7 +372,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   const redirectError =
     "redirectUris: 1 to 10 distinct URIs, each https://host/... or a reverse-domain custom scheme (com.example.app:/path), without query or fragment";
   const scopesError =
-    'scopes: ["tasks:read"], ["tasks:read","tasks:write"], ["tasks:read","tasks:write","osm:tagfix"] or ["mobile:admin"]';
+    'scopes: ["tasks:read"], ["tasks:read","tasks:write"], ["tasks:read","tasks:write","osm:tagfix"] or ["mobile:admin"]; app scopes may add "guest"';
 
   const validName = (v: unknown) =>
     typeof v === "string" && v.trim() !== "" && v.trim() === v && v.length <= 200 && !/\p{Cc}/u.test(v);
@@ -388,7 +389,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     new Set(v).size === v.length;
   const parseScopes = (v: unknown): string[] | undefined => {
     if (!Array.isArray(v) || !v.every((s) => typeof s === "string")) return undefined;
-    const order = ["tasks:read", "tasks:write", "osm:tagfix", ADMIN_SCOPE];
+    const order = ["tasks:read", "tasks:write", "osm:tagfix", ADMIN_SCOPE, "guest"];
     if (new Set(v).size !== v.length) return undefined;
     const sorted = [...v].sort((a, b) => order.indexOf(a) - order.indexOf(b));
     return SCOPE_SETS.includes(sorted.join(" ")) ? sorted : undefined;
@@ -492,7 +493,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         !q.get("state")
       )
         return problem(res, 400, "invalid_request");
-      if (q.get("scope") !== client.scopes.join(" ")) return problem(res, 400, "invalid_scope");
+      // `guest` is a client capability, never part of a grant.
+      if (q.get("scope") !== client.scopes.filter((s) => s !== "guest").join(" ")) return problem(res, 400, "invalid_scope");
       const tx = token();
       interactions.set(tx, { clientId: client.id, redirectUri, state: q.get("state")!, challenge: q.get("code_challenge")! });
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
