@@ -15,36 +15,36 @@
   <section class="hero">
     <p class="eyebrow">You're invited</p>
     <h1 id="name">Join this campaign</h1>
-    <p id="blurb">Visit one place, answer what you can see, and save your answers.</p>
+    <p id="blurb">Check the places around you and answer a few quick questions. About a minute per place.</p>
     <div class="brand under"><img src="/icon.svg" alt="" width="24" height="24">on Street Tally</div>
   </section>
   <div id="status" role="status" aria-live="polite"><p id="status-text" class="note">Loading this campaign…</p></div>
   <button id="retry" class="btn secondary" type="button" hidden>Try again</button>
   <noscript><p class="note">Turn on JavaScript to load this campaign and its installation links.</p></noscript>
   <div id="found" hidden>
-    <p class="note">No account needed to start. Your answers are saved first; you can put them on OpenStreetMap later. An OpenStreetMap account is optional at this step.</p>
+    <p class="note">No account needed to start. Your answers are saved, and you can put them on OpenStreetMap later.</p>
     <section aria-labelledby="open-title">
       <h2 id="open-title">Open this campaign</h2>
-      <p class="note">Already have Street Tally? Open this campaign. After installing, return here and use this button.</p>
+      <p class="note">Already have Street Tally? Tap below. New here? Install it first, then come back to this page and tap it.</p>
       <a class="btn secondary" id="open" href="/">Open this campaign</a>
     </section>
-    <section aria-labelledby="iphone-title">
-      <h2 id="iphone-title">Install on iPhone</h2>
-      <p id="ios-unavailable" class="note">The iPhone pilot invitation isn't available here yet. You can return when the organizer adds it.</p>
+    <details class="platform" id="ios" open>
+      <summary><h2 id="iphone-title">Install on iPhone</h2></summary>
+      <p id="ios-unavailable" class="note">The iPhone invitation isn't ready yet. Check back here later.</p>
       <ol id="ios-steps" hidden>
         <li><div class="step"><span class="num" aria-hidden="true">1</span><div><h3>Install TestFlight</h3><p>Install TestFlight from the App Store.</p></div></div><a class="btn secondary" href="https://apps.apple.com/app/testflight/id899247664">Get TestFlight</a></li>
-        <li><div class="step"><span class="num" aria-hidden="true">2</span><div><h3>Join the iPhone pilot</h3><p>Return here and tap Join the iPhone pilot. In TestFlight, accept the invitation and install Street Tally.</p></div></div><a class="btn primary" id="install-ios" href="/" hidden>Join the iPhone pilot</a></li>
+        <li><div class="step"><span class="num" aria-hidden="true">2</span><div><h3>Join the iPhone pilot</h3><p>Tap below, accept the invitation in TestFlight, then tap Install.</p></div></div><a class="btn primary" id="install-ios" href="/" hidden>Join the iPhone pilot</a></li>
       </ol>
-    </section>
-    <section aria-labelledby="android-title">
-      <h2 id="android-title">Install on Android</h2>
-      <p id="android-unavailable" class="note">The Android download isn't available here yet. You can return when the organizer adds it.</p>
+    </details>
+    <details class="platform" id="android" open>
+      <summary><h2 id="android-title">Install on Android</h2></summary>
+      <p id="android-unavailable" class="note">The Android download isn't ready yet. Check back here later.</p>
       <ol id="android-steps" hidden>
         <li><div class="step"><span class="num" aria-hidden="true">1</span><div><h3>Download Street Tally</h3><p id="android-version">Street Tally pilot</p></div></div><a class="btn primary" id="install-android" href="/" hidden>Download for Android</a></li>
-        <li><div class="step"><span class="num" aria-hidden="true">2</span><div><h3>Install the download</h3><p>Open the downloaded Street Tally APK. If Android asks, allow this browser to install it, then tap Install.</p></div></div></li>
+        <li><div class="step"><span class="num" aria-hidden="true">2</span><div><h3>Install the download</h3><p>Open the downloaded file. If Android asks, allow your browser to install apps, then tap Install.</p></div></div></li>
       </ol>
-    </section>
-    <div class="reassure"><p><strong>“I'm not sure” is a fine answer.</strong> Answer what you can see. Your answers are saved on our server before you put them on the map.</p></div>
+    </details>
+    <div class="reassure"><p><strong>“Not sure” is a fine answer.</strong> Answer what you can see. You can't break anything.</p></div>
     <p class="note"><a href="/privacy">How Street Tally uses your data</a></p>
   </div>
   <footer>Street Tally is open source and built on <a href="https://www.openstreetmap.org/">OpenStreetMap</a>.</footer>

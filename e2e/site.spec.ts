@@ -1,31 +1,46 @@
 import { devices, expect, test } from "@playwright/test";
 import { CLAIM as SITE } from "./env.ts";
 
-for (const [platform, userAgent] of [["iPhone", devices["iPhone 15"].userAgent], ["Android", devices["Pixel 7"].userAgent], ["desktop", devices["Desktop Chrome"].userAgent]]) {
-  test(`installation and same campaign return on ${platform}`, async ({ page }) => {
-    await page.setExtraHTTPHeaders({ "User-Agent": userAgent });
+for (const [platform, userAgent, first, collapsed] of [
+  ["iPhone", devices["iPhone 15"].userAgent, "ios", "android"],
+  ["Android", devices["Pixel 7"].userAgent, "android", "ios"],
+  ["desktop", devices["Desktop Chrome"].userAgent, "ios", undefined],
+] as const) {
+  test(`installation and same campaign return on ${platform}`, async ({ browser }) => {
+    const context = await browser.newContext({ userAgent });
+    const page = await context.newPage();
     await page.goto(`${SITE}/challenge/7`);
     await expect(page.getByRole("heading", { name: "SLC Bus Stops" })).toBeVisible();
     await expect(page).toHaveTitle("SLC Bus Stops · Street Tally");
     await expect(page.getByText(/Help check every bus stop in Salt Lake City/)).toBeVisible();
-    await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toHaveAttribute("href", "https://testflight.apple.com/join/TEST1234");
-    await expect(page.getByRole("link", { name: "Download for Android" })).toHaveAttribute("href", "https://downloads.example.test/street-tally.apk");
-    await expect(page.getByText("Street Tally pilot — test-1.0")).toBeVisible();
+    await expect(page.locator("#install-ios")).toHaveAttribute("href", "https://testflight.apple.com/join/TEST1234");
+    await expect(page.locator("#install-android")).toHaveAttribute("href", "https://downloads.example.test/street-tally.apk");
+    await expect(page.locator("#android-version")).toHaveText("Street Tally pilot, version test-1.0");
     await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
-    await expect(page.getByText(/Your answers are saved first/)).toBeVisible();
-    expect(await page.locator("#open").evaluate((open) => {
-      const iphone = document.getElementById("iphone-title");
-      const android = document.getElementById("android-title");
-      return !!iphone && !!android && !!(open.compareDocumentPosition(iphone) & Node.DOCUMENT_POSITION_FOLLOWING) && !!(open.compareDocumentPosition(android) & Node.DOCUMENT_POSITION_FOLLOWING);
-    })).toBe(true);
+    await expect(page.getByText(/No account needed to start/)).toBeVisible();
+    // The loaded page shows no status text; the status region stays for errors.
+    await expect(page.locator("#status-text")).toHaveText("");
+    expect(await page.locator("#open").evaluate((open, first) => {
+      const platforms = [...document.querySelectorAll("details.platform")].map((d) => d.id);
+      return platforms[0] === first && platforms.every((p) => !!(open.compareDocumentPosition(document.getElementById(p) as Node) & Node.DOCUMENT_POSITION_FOLLOWING));
+    }, first)).toBe(true);
+    await expect(page.locator(`#${first}`)).toHaveAttribute("open", "");
+    if (collapsed) {
+      await expect(page.locator(`#${collapsed}`)).not.toHaveAttribute("open", "");
+      await page.locator(`#${collapsed} summary`).click();
+      await expect(page.locator(`#${collapsed}`)).toHaveAttribute("open", "");
+    } else {
+      await expect(page.locator("#android")).toHaveAttribute("open", "");
+    }
+    await context.close();
   });
 }
 
 test("unavailable links remain truthful; installed app can still open campaign", async ({ page }) => {
   await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300" } }));
   await page.goto(`${SITE}/challenge/7`);
-  await expect(page.getByText(/iPhone pilot invitation isn't available/)).toBeVisible();
-  await expect(page.getByText(/Android download isn't available/)).toBeVisible();
+  await expect(page.getByText(/iPhone invitation isn't ready/)).toBeVisible();
+  await expect(page.getByText(/Android download isn't ready/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Download for Android" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
@@ -40,17 +55,17 @@ test("unavailable links remain truthful; installed app can still open campaign",
 test("one unavailable platform doesn't hide the other platform's available steps", async ({ page }) => {
   await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300", androidInstallUrl: "https://downloads.example.test/app.apk", androidVersion: "test-2.0" } }));
   await page.goto(`${SITE}/challenge/7`);
-  await expect(page.getByText(/iPhone pilot invitation isn't available/)).toBeVisible();
+  await expect(page.getByText(/iPhone invitation isn't ready/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Download for Android" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Install the download" })).toBeVisible();
-  await expect(page.getByText(/Android download isn't available/)).toBeHidden();
+  await expect(page.getByText(/Android download isn't ready/)).toBeHidden();
 });
 
 test("unsafe download URLs and an APK with no version are not offered", async ({ page }) => {
   await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300", installUrl: "javascript:alert(1)", androidInstallUrl: "https://downloads.example.test/app.apk" } }));
   await page.goto(`${SITE}/challenge/7`);
-  await expect(page.getByText(/Android download isn't available/)).toBeVisible();
+  await expect(page.getByText(/Android download isn't ready/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Download for Android" })).toBeHidden();
 });

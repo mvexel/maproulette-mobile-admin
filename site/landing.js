@@ -30,6 +30,14 @@
     find(`${platform}-unavailable`).hidden = !!url;
     find(`${platform}-steps`).hidden = !url;
   };
+  // On a phone, the visitor's own platform comes first and the other one starts collapsed.
+  const ua = navigator.userAgent;
+  const phone = /Android/i.test(ua) ? "android" : /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios" : undefined;
+  if (phone) {
+    const other = find(phone === "ios" ? "android" : "ios");
+    other.open = false;
+    find(phone).after(other);
+  }
   let loading = false;
   const load = async () => {
     if (loading) return;
@@ -61,16 +69,16 @@
       find("name").textContent = campaign.name.trim();
       document.title = `${campaign.name.trim()} · Street Tally`;
       const blurb = typeof campaign.blurb === "string" ? campaign.blurb.trim() : "";
-      find("blurb").textContent = blurb ? (blurb.length > 280 ? `${blurb.slice(0, 279)}…` : blurb) : "Visit one place, answer what you can see, and save your answers.";
+      find("blurb").textContent = blurb ? (blurb.length > 280 ? `${blurb.slice(0, 279)}…` : blurb) : "Check the places around you and answer a few quick questions. About a minute per place.";
       // Both app manifests already support mrchoice. Keep the same campaign through installation.
       find("open").href = `mrchoice://challenge/${id}`;
       setInstall("ios", httpsUrl(config.installUrl));
       const version = typeof config.androidVersion === "string" ? config.androidVersion.trim() : "";
       // A version is required to identify the intended pilot artifact, not just an arbitrary APK.
       setInstall("android", version ? httpsUrl(config.androidInstallUrl) : undefined);
-      find("android-version").textContent = version ? `Street Tally pilot — ${version}` : "Street Tally pilot";
+      find("android-version").textContent = version ? `Street Tally pilot, version ${version}` : "Street Tally pilot";
       find("found").hidden = false;
-      showStatus("Campaign loaded. Choose the installation steps for your phone, or open the campaign if Street Tally is installed.");
+      showStatus("");
     } finally {
       loading = false;
       find("retry").disabled = false;
