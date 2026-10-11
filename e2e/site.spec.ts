@@ -13,6 +13,11 @@ for (const [platform, userAgent] of [["iPhone", devices["iPhone 15"].userAgent],
     await expect(page.getByText("Street Tally pilot — test-1.0")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
     await expect(page.getByText(/Your answers are saved first/)).toBeVisible();
+    expect(await page.locator("#open").evaluate((open) => {
+      const iphone = document.getElementById("iphone-title");
+      const android = document.getElementById("android-title");
+      return !!iphone && !!android && !!(open.compareDocumentPosition(iphone) & Node.DOCUMENT_POSITION_FOLLOWING) && !!(open.compareDocumentPosition(android) & Node.DOCUMENT_POSITION_FOLLOWING);
+    })).toBe(true);
   });
 }
 
@@ -23,7 +28,23 @@ test("unavailable links remain truthful; installed app can still open campaign",
   await expect(page.getByText(/Android download isn't available/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Download for Android" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Install the download" })).toBeHidden();
+  await expect(page.locator("#ios-steps")).toBeHidden();
+  await expect(page.locator("#android-steps")).toBeHidden();
   await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: "/tmp/c001-entry-unavailable.png", fullPage: true });
+});
+
+test("one unavailable platform doesn't hide the other platform's available steps", async ({ page }) => {
+  await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300", androidInstallUrl: "https://downloads.example.test/app.apk", androidVersion: "test-2.0" } }));
+  await page.goto(`${SITE}/challenge/7`);
+  await expect(page.getByText(/iPhone pilot invitation isn't available/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Download for Android" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Install the download" })).toBeVisible();
+  await expect(page.getByText(/Android download isn't available/)).toBeHidden();
 });
 
 test("unsafe download URLs and an APK with no version are not offered", async ({ page }) => {

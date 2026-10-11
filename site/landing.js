@@ -28,6 +28,7 @@
     if (url) link.href = url;
     else link.removeAttribute("href");
     find(`${platform}-unavailable`).hidden = !!url;
+    find(`${platform}-steps`).hidden = !url;
   };
   let loading = false;
   const load = async () => {
