@@ -9,7 +9,18 @@ services:
     environment:
       BACKEND_ORIGIN: https://${MR_API_HOST:?Set the matching API host}
       CLIENT_ID: maproulette-mobile-admin
-      ADMIN_ENVIRONMENT: ${MR_DEPLOYMENT}
+      # Header badge follows the selected backend; stage/prod are valid explicit values.
+      ADMIN_ENVIRONMENT: ${MR_DEPLOYMENT:?Set stage or prod}
+      # Separate claim client; real OSM site, with publication still gated by backend policy.
+      CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      OSM_WEB: https://www.openstreetmap.org
+      # Verified artifacts only. Empty values leave installation unavailable.
+      INSTALL_URL: ${INSTALL_URL:-}
+      ANDROID_INSTALL_URL: ${ANDROID_INSTALL_URL:-}
+      ANDROID_VERSION: ${ANDROID_VERSION:-}
+      # Both actual Apple IDs are needed to serve AASA; otherwise leave empty.
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s

@@ -1,6 +1,7 @@
 # Komodo stack `maproulette-mobile-admin`. Builds the image from this repo and joins the shared
 # ingress network as `maproulette-mobile-admin`; the shared Caddy proxies
-# https://admin.<deployment host> to maproulette-mobile-admin:80 (see README, "Deploy").
+# https://admin.<deployment host> to maproulette-mobile-admin:80 and https://streettally.osm.lol
+# to maproulette-mobile-admin:8080 (see README, "Deploy", and docs/deploy-streettally.md).
 services:
   maproulette-mobile-admin:
     build: ..
@@ -15,6 +16,16 @@ services:
       CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
       # Optional dev, stage or prod; the app infers it from the backend host otherwise.
       ADMIN_ENVIRONMENT: ${ADMIN_ENVIRONMENT:-}
+      # The participant site on :8080 (streettally.osm.lol): the claim page's OAuth client, the
+      # OpenStreetMap site the backend edits, the beta install link, and the app IDs for
+      # universal links (leave both empty to serve no apple-app-site-association file).
+      CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      OSM_WEB: ${OSM_WEB:-https://master.apis.dev.openstreetmap.org}
+      INSTALL_URL: ${INSTALL_URL:-}
+      ANDROID_INSTALL_URL: ${ANDROID_INSTALL_URL:-}
+      ANDROID_VERSION: ${ANDROID_VERSION:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
