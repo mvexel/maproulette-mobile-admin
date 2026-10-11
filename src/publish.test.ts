@@ -18,6 +18,9 @@ describe("publish checks", () => {
     expect(kinds(good)).toEqual({ import: "pass", project: "pass", hashtag: "pass", source: "pass", description: "pass", writes: "info" });
     expect(checks.find((c) => c.id === "writes")?.text).toContain("off on STAGE");
     expect(canPublish(checks, new Set())).toBe(true);
+    expect(checks[0].text).toBe("All 3 reviewed tasks were created.");
+    const one = { ...good, report: { created: 1, updated: 0, rejected: 0, expected: 1 } };
+    expect(publishChecks(one)[0].text).toBe("The reviewed task was created.");
   });
 
   it("block rejected lines and an off project, with a fix for the project", () => {

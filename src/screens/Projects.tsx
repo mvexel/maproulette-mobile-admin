@@ -86,8 +86,8 @@ export function ProjectToggle({
       ) : enable ? (
         <p>
           {n === 0
-            ? "None of its campaigns are published yet, so nothing new shows in the app."
-            : `Its ${n === 1 ? "campaign that is" : `${n} campaigns that are`} published will show in the app on ${envName()}.`}{" "}
+            ? "It has no published campaigns yet."
+            : `Its ${n} published ${n === 1 ? "campaign" : "campaigns"} will show in the app on ${envName()}.`}{" "}
           Task writes are unchanged.
         </p>
       ) : (
@@ -104,7 +104,7 @@ export function ProjectToggle({
       )}
       <div className="sheet-actions">
         <button type="button" className="primary" disabled={busy || campaigns === undefined} onClick={() => void confirm()}>
-          Turn {enable ? "on" : "off"}
+          {campaigns === undefined && !error ? "Loading…" : `Turn ${enable ? "on" : "off"}`}
         </button>
         <button type="button" disabled={busy} onClick={onCancel}>
           Cancel
