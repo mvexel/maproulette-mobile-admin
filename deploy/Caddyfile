@@ -52,6 +52,7 @@
 	handle /live/* {
 		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		header X-Robots-Tag "noindex, nofollow"
+		header Referrer-Policy "no-referrer"
 		rewrite * /claim/live.html
 		file_server
 	}

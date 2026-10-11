@@ -286,7 +286,7 @@ body.live {
 }
 
 .card {
-  width: min(320px, calc(100% - 32px));
+  width: min(360px, calc(100% - 32px));
   left: 16px;
   top: 16px;
   padding: 14px 16px;
@@ -322,7 +322,7 @@ body.live {
 .card dl {
   margin: 10px 0 0;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 2px 10px;
   font-size: 15px;
 }
@@ -369,6 +369,14 @@ body.live {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* List mode has no stop to sit beside: the card docks at the bottom, over the list's spare padding. */
+.list-mode .card {
+  top: auto;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .live footer {
@@ -423,12 +431,18 @@ body.live {
     font-size: 13px;
   }
   /* Docked at the bottom: main.ts clears the inline left and top on phones. */
-  .card {
+  .card,
+  .list-mode .card {
     right: 8px;
     left: 8px;
     top: auto;
     bottom: 8px;
     width: auto;
+    transform: none;
+  }
+  /* The freshness pill sits at the top on phones: keep the first row clear of it. */
+  .list-mode .stop-list {
+    padding-top: 52px;
   }
   .stage:has(.card:not([hidden])) .legend {
     display: none;

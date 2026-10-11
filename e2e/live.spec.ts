@@ -12,7 +12,7 @@ test("shows the tally, the stops and a stop's answers on a live page", async ({ 
   await expect(page.locator("#fresh")).toContainText("Live · updated");
   await expect(page.locator("#legendJust")).toBeVisible();
   await expect(page.locator("#footer")).toContainText(
-    "This map shows which entrances volunteers checked for Woodbine entrances. It doesn't show who checked them.",
+    "This page shows which entrances volunteers checked for Woodbine entrances. It doesn't show who checked them.",
   );
   await expect(page.locator("#footer")).toContainText("#StreetTallyWoodbine");
   await expect(page.locator("#list li")).toHaveCount(5);
@@ -57,5 +57,9 @@ test("fits a phone without sideways scrolling", async ({ page }) => {
   await page.goto(`${CLAIM}/live/${L.live}`);
   await expect(page.locator("#tally .big")).toHaveText("The tally: 3 of 5 entrances checked");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // The freshness pill must not cover the first stop (Juno's review).
+  const pill = await page.locator("#fresh").boundingBox();
+  const row = await page.locator("#list li").first().boundingBox();
+  expect(row && pill && row.y >= pill.y + pill.height).toBe(true);
   await page.screenshot({ path: "test-results/live-page-phone.png", fullPage: true });
 });

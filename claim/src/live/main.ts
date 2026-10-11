@@ -53,7 +53,7 @@ function renderFooter(p: LivePage) {
   osm.href = "https://www.openstreetmap.org/about";
   osm.textContent = "OpenStreetMap";
   footer.replaceChildren(
-    `This map shows which ${n.many} volunteers checked for ${p.campaign.name}. It doesn't show who checked them. Each volunteer adds their answers to `,
+    `This ${map ? "map" : "page"} shows which ${n.many} volunteers checked for ${p.campaign.name}. It doesn't show who checked them. Each volunteer adds their answers to `,
     osm,
     ", the free, open map, under their own account.",
     ...(p.campaign.hashtags.length ? [` · ${p.campaign.hashtags.join(" ")}`] : []),
@@ -312,7 +312,10 @@ async function boot() {
     return;
   }
   if (config().mapStyle) startMap(config().mapStyle);
-  else $("map").hidden = true;
+  else {
+    $("map").hidden = true;
+    document.body.classList.add("list-mode");
+  }
   const first = await refresh(token);
   if ("problem" in first && first.problem !== "error") return;
   // Poll while visible; pause when hidden, and refresh at once when the tab comes back.
