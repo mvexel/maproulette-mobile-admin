@@ -132,6 +132,19 @@ interface Family {
   used: Set<string>;
 }
 
+// Public campaign texts for the landing page. 8 is the Woodbine pilot (design/woodbine-campaign.md).
+const LANDING_CAMPAIGNS: Record<number, { name: string; blurb: string }> = {
+  7: {
+    name: "SLC Bus Stops",
+    blurb: "Help check every bus stop in Salt Lake City for a shelter, a bench, light and wheelchair access.",
+  },
+  8: {
+    name: "Woodbine entrance doors",
+    blurb:
+      "Help map the doors around Woodbine Food Hall. At each entrance, check how the door opens and whether it opens by itself, so people with wheelchairs, strollers or walkers know what to expect.",
+  },
+};
+
 const USERS: Record<string, User> = {
   super: { id: 7, osmId: 70007, displayName: "mock-superuser", superUser: true },
   plain: { id: 8, osmId: 80008, displayName: "mock-mapper", superUser: false },
@@ -536,12 +549,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
     const challenge = /^\/api\/v2\/challenge\/([0-9]+)$/.exec(path);
     if (challenge && req.method === "GET") {
-      if (Number(challenge[1]) !== 7) return problem(res, 404, "not_found");
-      return send(res, 200, {
-        id: 7,
-        name: "SLC Bus Stops",
-        blurb: "Help check every bus stop in Salt Lake City for a shelter, a bench, light and wheelchair access.",
-      });
+      const campaign = LANDING_CAMPAIGNS[Number(challenge[1])];
+      if (!campaign) return problem(res, 404, "not_found");
+      return send(res, 200, { id: Number(challenge[1]), ...campaign });
     }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
