@@ -20,6 +20,7 @@ test("restaurant editor previews questions, saves a draft, and exports a portabl
   await expect(preview).toContainText("Is outdoor seating available?");
   await expect(preview).toContainText("Can you order food to take away?");
   await expect(page.getByRole("button", { name: "Create new challenge" })).toBeDisabled();
+  await expect(page.getByText("Create is off: replace the fictional example features first.")).toBeVisible();
   await page.getByLabel("Title", { exact: true }).fill("Neighborhood restaurants");
   await page.getByRole("button", { name: "Save browser draft" }).click();
   await page.reload();
@@ -37,7 +38,7 @@ test("restaurant editor previews questions, saves a draft, and exports a portabl
   await page.screenshot({ path: "test-results/survey-builder-desktop.png", fullPage: true });
 });
 
-test("creates disabled, imports reviewed existing-contract tasks, then publishes for Android", async ({ page }) => {
+test("creates disabled, imports reviewed existing-contract tasks, then publishes for mobile", async ({ page }) => {
   const survey = exampleSurvey("restaurant");
   survey.features.features[0].properties["@id"] = "node/123";
   let creates = 0; let imports = 0; let publishes = 0;
@@ -68,8 +69,8 @@ test("creates disabled, imports reviewed existing-contract tasks, then publishes
   await expect(page.getByLabel("Title", { exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Import 1 reviewed tasks" }).click();
   await expect(page.getByText("Created 1; updated 0; rejected 0.")).toBeVisible();
-  await page.getByRole("button", { name: "Publish for Android" }).click();
-  await expect(page.getByText("Refresh Challenges in the Android app to find this survey.")).toBeVisible();
+  await page.getByRole("button", { name: "Publish for mobile" }).click();
+  await expect(page.getByText("Refresh the campaign list in the mobile app to find this survey.")).toBeVisible();
   expect([creates, imports, publishes]).toEqual([1, 1, 1]);
 });
 
@@ -86,7 +87,7 @@ test("unknown import outcome blocks retries and publication", async ({ page }) =
   await page.getByRole("button", { name: "Import 1 reviewed tasks" }).click();
   await expect(page.getByRole("alert")).toContainText("Accepted lines may already exist");
   await expect(page.getByRole("button", { name: "Import 1 reviewed tasks" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Publish for Android" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Publish for mobile" })).toHaveCount(0);
   expect(imports).toBe(1);
 });
 
@@ -96,12 +97,16 @@ test("a partially rejected import cannot be published", async ({ page }) => {
   await page.route(`${MOCK}/api/v2/challenge/42/addFileTasks?lineByLine=true&report=true`, route => route.fulfill({ json: { created: 0, updated: 0, rejected: [{ line: 1, errors: ["Feature rejected"] }] } }));
   await openBuilder(page);
   await page.getByLabel("Open survey file").setInputFiles({ name: "survey.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(survey)) });
+  const create = page.getByRole("button", { name: "Create new challenge" });
+  await expect(create).toHaveAccessibleDescription("Create is off: export the survey file first, so you keep a copy of what you create.");
   const exported = page.waitForEvent("download"); await page.getByRole("button", { name: "Export survey file" }).click(); await exported;
+  await expect(create).toHaveAccessibleDescription("Create is off: enter a project ID.");
   await page.getByLabel("Project ID on this backend").fill("1");
-  await page.getByRole("button", { name: "Create new challenge" }).click();
+  await expect(page.locator("#create-blocker")).toHaveCount(0);
+  await create.click();
   await page.getByRole("button", { name: "Import 1 reviewed tasks" }).click();
   await expect(page.getByText("Line 1: Feature rejected")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish for Android" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Publish for mobile" })).toBeDisabled();
 });
 
 test("mobile preview remains usable and invalid guards cannot be imported", async ({ page }) => {
