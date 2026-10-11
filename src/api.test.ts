@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MockBackend } from "../mock/server.ts";
-import { ApiError, createClient, describeError, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
+import { RESULTS_CHALLENGE_ID, RESULTS_CSV } from "../mock/server.ts";
+import { ApiError, createClient, describeError, fetchChallengeResults, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
 import { reset, setUp, signIn } from "./testing";
 
 let mock: MockBackend;
@@ -111,5 +112,22 @@ describe("write policy", () => {
     expect(await setWritePolicy(false)).toEqual({ enabled: false, managed: true });
     const page = await listAudit(0, 2);
     expect(page.items.map((entry) => entry.action)).toEqual(["write_policy.update", "write_policy.update"]);
+  });
+});
+
+describe("results export", () => {
+  it("downloads a challenge's results as CSV and GeoJSON", async () => {
+    const csv = await fetchChallengeResults(RESULTS_CHALLENGE_ID, "csv");
+    expect(csv.filename).toBe(`challenge-${RESULTS_CHALLENGE_ID}-results.csv`);
+    expect(await csv.blob.text()).toBe(RESULTS_CSV);
+    const geojson = await fetchChallengeResults(RESULTS_CHALLENGE_ID, "geojson");
+    expect(geojson.filename).toBe(`challenge-${RESULTS_CHALLENGE_ID}-results.geojson`);
+    expect(JSON.parse(await geojson.blob.text()).features[0].properties.answers).toEqual({ shelter: "yes" });
+  });
+
+  it("returns 404 not_found for an unknown challenge", async () => {
+    const e = await failure(fetchChallengeResults(7, "csv"));
+    expect(e.status).toBe(404);
+    expect(e.code).toBe("not_found");
   });
 });

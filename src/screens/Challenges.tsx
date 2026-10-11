@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createChallenge, importChallengeTasks, type TaskImportReport } from "../api";
 import { config } from "../config";
 import { ErrorMessage } from "./ErrorMessage";
+import { ResultsExport } from "./ResultsExport";
 
 /** Super-user challenge setup. Task and OSM write policy remains independent. */
 export function Challenges() {
@@ -80,6 +81,7 @@ export function Challenges() {
           {report && <button type="button" onClick={() => { setChallengeId(undefined); setReport(undefined); setFile(undefined); }}>Create another challenge</button>}
         </div>
       )}
+      <ResultsExport />
     </section>
   );
 }
