@@ -7,6 +7,8 @@ const SCOPE_SETS = [
   ["tasks:read"],
   ["tasks:read", "tasks:write"],
   ["tasks:read", "tasks:write", "osm:tagfix"],
+  // `guest` lets the app register guests (deferred sign-up); the backend allows it on app clients.
+  ["tasks:read", "tasks:write", "osm:tagfix", "guest"],
   ["mobile:admin"],
 ];
 
