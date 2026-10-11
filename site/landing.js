@@ -1,42 +1,84 @@
-// Campaign landing page (/challenge/<id>). Plain script, no build step: it fills in the install and
-// open links from /config.json and, when the backend allows it, the campaign's name and blurb.
+// Campaign-first entry: preserve the invitation ID through installation and explicit app return.
 (() => {
-  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (!ios) document.body.classList.add("not-ios");
-
+  const find = (id) => document.getElementById(id);
   const match = /^\/challenge\/([0-9]{1,12})\/?$/.exec(location.pathname);
-  if (!match) {
-    document.getElementById("found").hidden = true;
-    document.getElementById("missing").hidden = false;
+  const id = match?.[1];
+  const validId = id && Number(id) > 0;
+  const httpsUrl = (value) => {
+    if (typeof value !== "string") return undefined;
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password ? url.href : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const read = async (url) => {
+    const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10000), headers: { Accept: "application/json" } });
+    if (!response.ok) throw Object.assign(new Error("Could not load"), { status: response.status });
+    return response.json();
+  };
+  const showStatus = (message, retry = false) => {
+    find("status-text").textContent = message;
+    find("retry").hidden = !retry;
+  };
+  const setInstall = (platform, url) => {
+    const link = find(`install-${platform}`);
+    link.hidden = !url;
+    if (url) link.href = url;
+    else link.removeAttribute("href");
+    find(`${platform}-unavailable`).hidden = !!url;
+  };
+  let loading = false;
+  const load = async () => {
+    if (loading) return;
+    loading = true;
+    find("found").hidden = true;
+    setInstall("ios");
+    setInstall("android");
+    find("retry").disabled = true;
+    showStatus("Loading this campaign…");
+    try {
+      let config;
+      try {
+        config = await read("/config.json");
+        const backend = new URL(config.backend);
+        if (!["https:", "http:"].includes(backend.protocol) || backend.username || backend.password || backend.pathname !== "/" || backend.search || backend.hash) throw new Error("Invalid backend");
+        config.backend = backend.origin;
+      } catch {
+        showStatus("We couldn't load the campaign settings. Check your connection and try again.", true);
+        return;
+      }
+      let campaign;
+      try {
+        campaign = await read(`${config.backend}/api/v2/challenge/${id}`);
+        if (!campaign || typeof campaign.name !== "string" || !campaign.name.trim()) throw new Error("Invalid campaign");
+      } catch (error) {
+        showStatus(error.status === 404 ? "We can't find this campaign. Check the invitation link or scan the code again." : "We couldn't load this campaign. Check your connection and try again.", true);
+        return;
+      }
+      find("name").textContent = campaign.name.trim();
+      document.title = `${campaign.name.trim()} · Street Tally`;
+      const blurb = typeof campaign.blurb === "string" ? campaign.blurb.trim() : "";
+      find("blurb").textContent = blurb ? (blurb.length > 280 ? `${blurb.slice(0, 279)}…` : blurb) : "Visit one place, answer what you can see, and save your answers.";
+      // Both app manifests already support mrchoice. Keep the same campaign through installation.
+      find("open").href = `mrchoice://challenge/${id}`;
+      setInstall("ios", httpsUrl(config.installUrl));
+      const version = typeof config.androidVersion === "string" ? config.androidVersion.trim() : "";
+      // A version is required to identify the intended pilot artifact, not just an arbitrary APK.
+      setInstall("android", version ? httpsUrl(config.androidInstallUrl) : undefined);
+      find("android-version").textContent = version ? `Street Tally pilot — ${version}` : "Street Tally pilot";
+      find("found").hidden = false;
+      showStatus("Campaign loaded. Choose the installation steps for your phone, or open the campaign if Street Tally is installed.");
+    } finally {
+      loading = false;
+      find("retry").disabled = false;
+    }
+  };
+  if (!validId) {
+    showStatus("This campaign link isn't valid. Check the invitation link or scan the code again.");
     return;
   }
-  const id = match[1];
-  const open = document.getElementById("open");
-  // iOS won't follow a universal link tapped on its own domain, so the button uses the app's scheme.
-  open.href = `mrchoice://challenge/${id}`;
-
-  fetch("/config.json", { cache: "no-store" })
-    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`config.json: HTTP ${r.status}`))))
-    .then((config) => {
-      if (config.appScheme) open.href = `${config.appScheme}://challenge/${id}`;
-      const install = document.getElementById("install");
-      if (config.installUrl) install.href = config.installUrl;
-      else {
-        install.hidden = true;
-        document.getElementById("install-text").textContent = "Ask your organizer for the link to install the beta.";
-      }
-      if (!config.backend) return;
-      return fetch(`${config.backend}/api/v2/challenge/${id}`, { headers: { Accept: "application/json" } })
-        .then((r) => (r.ok ? r.json() : undefined))
-        .then((c) => {
-          if (!c || typeof c.name !== "string") return;
-          // Text only: the name and blurb come from the server.
-          document.getElementById("name").textContent = c.name;
-          document.title = `${c.name} · Street Tally`;
-          const blurb = typeof c.blurb === "string" && c.blurb.trim() ? c.blurb.trim() : "";
-          if (blurb) document.getElementById("blurb").textContent = blurb.length > 280 ? `${blurb.slice(0, 279)}…` : blurb;
-        });
-    })
-    // Without config or campaign details the page still works, with the generic text.
-    .catch(() => undefined);
+  find("retry").addEventListener("click", load);
+  load();
 })();

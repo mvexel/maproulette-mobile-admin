@@ -65,19 +65,20 @@ li { background: var(--surface); border: 1px solid var(--line); border-radius: 1
   font-weight: 700;
   font-size: 17px;
   min-height: 50px;
-  line-height: 50px;
+  line-height: 1.4;
   border-radius: 12px;
-  padding: 0 16px;
+  padding: 13px 16px;
 }
 .primary { background: var(--accent); color: var(--on-accent); }
-.secondary { border: 2px solid var(--text); color: var(--text); line-height: 46px; }
+.secondary { border: 2px solid var(--text); color: var(--text); padding: 11px 16px; }
 .note { margin-top: 24px; font-size: 15px; color: var(--text2); }
 .reassure { margin-top: 24px; padding: 16px; border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 12px 12px 0; }
 .reassure p { margin: 0; font-size: 15px; color: var(--text2); }
 .reassure strong { color: var(--text); }
 footer { margin-top: 32px; font-size: 13px; color: var(--text2); }
 footer a { color: var(--text2); }
-.other { display: none; }
-.not-ios .ios-only { display: none; }
-.not-ios .other { display: block; }
 [hidden] { display: none; }
+
+button.btn { width: 100%; font: inherit; cursor: pointer; background: var(--bg); }
+.btn { overflow-wrap: anywhere; }
+li .note { margin: 12px 0 0; }

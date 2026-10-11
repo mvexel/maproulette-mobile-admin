@@ -20,6 +20,8 @@ services:
       CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
       OSM_WEB: ${OSM_WEB:-https://master.apis.dev.openstreetmap.org}
       INSTALL_URL: ${INSTALL_URL:-}
+      ANDROID_INSTALL_URL: ${ANDROID_INSTALL_URL:-}
+      ANDROID_VERSION: ${ANDROID_VERSION:-}
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
       APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
     healthcheck:
