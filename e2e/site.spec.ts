@@ -1,7 +1,7 @@
 import { devices, expect, test } from "@playwright/test";
 import { CLAIM as SITE } from "./env.ts";
 
-for (const [platform, userAgent, first, collapsed] of [
+for (const [platform, userAgent, own, collapsed] of [
   ["iPhone", devices["iPhone 15"].userAgent, "ios", "android"],
   ["Android", devices["Pixel 7"].userAgent, "android", "ios"],
   ["desktop", devices["Desktop Chrome"].userAgent, "ios", undefined],
@@ -17,14 +17,14 @@ for (const [platform, userAgent, first, collapsed] of [
     await expect(page.locator("#install-android")).toHaveAttribute("href", "https://downloads.example.test/street-tally.apk");
     await expect(page.locator("#android-version")).toHaveText("Street Tally pilot, version test-1.0");
     await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
-    await expect(page.getByText(/No account needed to start/)).toBeVisible();
+    await expect(page.getByText(/No OpenStreetMap account needed to start/)).toBeVisible();
     // The loaded page shows no status text; the status region stays for errors.
     await expect(page.locator("#status-text")).toHaveText("");
-    expect(await page.locator("#open").evaluate((open, first) => {
+    expect(await page.locator("#open").evaluate((open) => {
       const platforms = [...document.querySelectorAll("details.platform")].map((d) => d.id);
-      return platforms[0] === first && platforms.every((p) => !!(open.compareDocumentPosition(document.getElementById(p) as Node) & Node.DOCUMENT_POSITION_FOLLOWING));
-    }, first)).toBe(true);
-    await expect(page.locator(`#${first}`)).toHaveAttribute("open", "");
+      return platforms.join() === "ios,android" && platforms.every((p) => !!(open.compareDocumentPosition(document.getElementById(p) as Node) & Node.DOCUMENT_POSITION_FOLLOWING));
+    })).toBe(true);
+    await expect(page.locator(`#${own}`)).toHaveAttribute("open", "");
     if (collapsed) {
       await expect(page.locator(`#${collapsed}`)).not.toHaveAttribute("open", "");
       await page.locator(`#${collapsed} summary`).click();
@@ -39,12 +39,12 @@ for (const [platform, userAgent, first, collapsed] of [
 test("unavailable links remain truthful; installed app can still open campaign", async ({ page }) => {
   await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300" } }));
   await page.goto(`${SITE}/challenge/7`);
-  await expect(page.getByText(/iPhone invitation isn't ready/)).toBeVisible();
+  await expect(page.getByText(/iPhone pilot isn't open yet/)).toBeVisible();
   await expect(page.getByText(/Android download isn't ready/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Download for Android" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
-  await expect(page.getByRole("heading", { name: "Install the download" })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Install it" })).toBeHidden();
   await expect(page.locator("#ios-steps")).toBeHidden();
   await expect(page.locator("#android-steps")).toBeHidden();
   await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
@@ -55,10 +55,10 @@ test("unavailable links remain truthful; installed app can still open campaign",
 test("one unavailable platform doesn't hide the other platform's available steps", async ({ page }) => {
   await page.route("**/config.json", (route) => route.fulfill({ json: { backend: "http://127.0.0.1:9300", androidInstallUrl: "https://downloads.example.test/app.apk", androidVersion: "test-2.0" } }));
   await page.goto(`${SITE}/challenge/7`);
-  await expect(page.getByText(/iPhone invitation isn't ready/)).toBeVisible();
+  await expect(page.getByText(/iPhone pilot isn't open yet/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Get TestFlight" })).toBeHidden();
   await expect(page.getByRole("link", { name: "Download for Android" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Install the download" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Install it" })).toBeVisible();
   await expect(page.getByText(/Android download isn't ready/)).toBeHidden();
 });
 
@@ -133,6 +133,21 @@ test("serves the apple-app-site-association file as JSON", async ({ request }) =
   expect(await res.json()).toEqual({
     applinks: { details: [{ appIDs: ["ABCDE12345.lol.osm.streettally"], components: [{ "/": "/challenge/*" }] }] },
   });
+});
+
+test("shows the Woodbine campaign", async ({ page }) => {
+  await page.goto(`${SITE}/challenge/8`);
+  await expect(page.getByRole("heading", { name: "Woodbine entrance doors" })).toBeVisible();
+  await expect(page).toHaveTitle("Woodbine entrance doors · Street Tally");
+  await expect(page.getByText(/Help map the doors around Woodbine Food Hall/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/8");
+});
+
+test("has a questions and answers page", async ({ page }) => {
+  await page.goto(`${SITE}/faq`);
+  await expect(page.getByRole("heading", { name: "Questions and answers" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Is Street Tally tracking me?" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "privacy page" })).toHaveAttribute("href", "/privacy");
 });
 
 test("has a privacy page", async ({ page }) => {

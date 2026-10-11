@@ -109,12 +109,15 @@ serves them on port 8080, and the shared Caddy puts them on https://streettally.
 
 - `/` (`site/index.html`): a short root page.
 - `/challenge/<id>` (`site/challenge.html`, `site/landing.js`): the campaign landing page, shown
-  when a campaign link opens without the app. It links to the beta (`installUrl`) and opens the
+  when a campaign link opens without the app. It links to the iPhone beta (`installUrl`) and the Android APK (`androidInstallUrl` with
+  `androidVersion`) and opens the
   app with `mrchoice://challenge/<id>`, because iOS doesn't follow a universal link tapped on its
   own domain. It reads the campaign's name and blurb from `GET /api/v2/challenge/<id>` when the
   backend allows it, and otherwise shows generic text.
 - `/privacy` (`site/privacy.html`): the privacy page every email footer and the claim page link to.
   Draft wording; `[operator]`, `[contact email]` and the server-log line must be filled in before deploying.
+- `/faq` (`site/faq.html`): questions and answers for the Woodbine pilot, from
+  `community/participant-faq-woodbine.md`. Keep it in step with `/privacy`.
 - `/.well-known/apple-app-site-association`: the universal-link file for `/challenge/*`, written
   at start from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`.
 - `/claim` (`claim/`): the page participants open from the deferred sign-up email to put their

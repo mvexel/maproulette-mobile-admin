@@ -30,13 +30,12 @@
     find(`${platform}-unavailable`).hidden = !!url;
     find(`${platform}-steps`).hidden = !url;
   };
-  // On a phone, the visitor's own platform comes first and the other one starts collapsed.
+  // The order stays fixed (design/install-journey-and-gate.md §1); on a phone, the other platform starts collapsed.
   const ua = navigator.userAgent;
   const phone = /Android/i.test(ua) ? "android" : /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios" : undefined;
   if (phone) {
     const other = find(phone === "ios" ? "android" : "ios");
     other.open = false;
-    find(phone).after(other);
   }
   let loading = false;
   const load = async () => {
