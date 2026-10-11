@@ -16,7 +16,7 @@ for (const [platform, userAgent, own, collapsed] of [
     await expect(page.locator("#install-ios")).toHaveAttribute("href", "https://testflight.apple.com/join/TEST1234");
     await expect(page.locator("#install-android")).toHaveAttribute("href", "https://downloads.example.test/street-tally.apk");
     await expect(page.locator("#android-version")).toHaveText("Street Tally pilot, version test-1.0");
-    await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+    await expect(page.locator("#open")).toHaveAttribute("href", "mrchoice://challenge/7");
     await expect(page.getByText(/No OpenStreetMap account needed to start/)).toBeVisible();
     // The loaded page shows no status text; the status region stays for errors.
     await expect(page.locator("#status-text")).toHaveText("");
@@ -47,7 +47,7 @@ test("unavailable links remain truthful; installed app can still open campaign",
   await expect(page.getByRole("heading", { name: "Install it" })).toBeHidden();
   await expect(page.locator("#ios-steps")).toBeHidden();
   await expect(page.locator("#android-steps")).toBeHidden();
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+  await expect(page.locator("#open")).toHaveAttribute("href", "mrchoice://challenge/7");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "/tmp/c001-entry-unavailable.png", fullPage: true });
 });
@@ -75,7 +75,7 @@ test("config outage has retry and no placeholder installation or campaign action
   await page.route("**/config.json", (route) => fail ? route.fulfill({ status: 503 }) : route.continue());
   await page.goto(`${SITE}/challenge/7`);
   await expect(page.getByRole("status")).toContainText("couldn't load the campaign settings");
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+  await expect(page.locator("#open")).toBeHidden();
   await expect(page.getByRole("link", { name: "Join the iPhone pilot" })).toBeHidden();
   fail = false;
   await page.getByRole("button", { name: "Try again" }).click();
@@ -87,23 +87,23 @@ test("campaign outage is retryable without claiming the campaign is missing", as
   await page.route("**/api/v2/challenge/7", (route) => fail ? route.fulfill({ status: 503 }) : route.continue());
   await page.goto(`${SITE}/challenge/7`);
   await expect(page.getByRole("status")).toContainText("couldn't load this campaign");
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+  await expect(page.locator("#open")).toBeHidden();
   fail = false;
   await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/7");
+  await expect(page.locator("#open")).toHaveAttribute("href", "mrchoice://challenge/7");
 });
 
 test("unknown campaign gets an explicit missing state", async ({ page }) => {
   await page.goto(`${SITE}/challenge/99`);
   await expect(page.getByRole("status")).toContainText("can't find this campaign");
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+  await expect(page.locator("#open")).toBeHidden();
 });
 
 for (const id of ["not-a-number", "0"]) {
   test(`malformed campaign ${id} offers no install or return action`, async ({ page }) => {
     await page.goto(`${SITE}/challenge/${id}`);
     await expect(page.getByRole("status")).toContainText("isn't valid");
-    await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeHidden();
+    await expect(page.locator("#open")).toBeHidden();
     await expect(page.getByRole("button", { name: "Try again" })).toBeHidden();
   });
 }
@@ -118,7 +118,7 @@ test("narrow light/dark page and large text remain readable without horizontal o
   }
   await page.addStyleTag({ content: "body { font-size: 34px; } h1 { font-size: 68px; } h2 { font-size: 40px; } .btn { font-size: 34px; } .note, .step p { font-size: 30px; }" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toBeVisible();
+  await expect(page.locator("#open")).toBeVisible();
   await page.screenshot({ path: "/tmp/c001-entry-large-text.png", fullPage: true });
 });
 
@@ -140,7 +140,8 @@ test("shows the Woodbine campaign", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Woodbine entrance doors" })).toBeVisible();
   await expect(page).toHaveTitle("Woodbine entrance doors · Street Tally");
   await expect(page.getByText(/Help map the doors around Woodbine Food Hall/)).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open this campaign", exact: true })).toHaveAttribute("href", "mrchoice://challenge/8");
+  await expect(page.locator("#ios-steps a[href='#open-title']")).toHaveText("Open this campaign");
+  await expect(page.locator("#open")).toHaveAttribute("href", "mrchoice://challenge/8");
 });
 
 test("has a questions and answers page", async ({ page }) => {

@@ -110,14 +110,15 @@ interface Family {
 }
 
 // Public campaign texts for the landing page. 8 is the Woodbine pilot (design/woodbine-campaign.md).
-const LANDING_CAMPAIGNS: Record<number, { name: string; blurb: string }> = {
+const LANDING_CAMPAIGNS: Record<number, { name: string; blurb?: string; description?: string }> = {
   7: {
     name: "SLC Bus Stops",
     blurb: "Help check every bus stop in Salt Lake City for a shelter, a bench, light and wheelchair access.",
   },
   8: {
     name: "Woodbine entrance doors",
-    blurb:
+    blurb: "Doors around Woodbine Food Hall.",
+    description:
       "Help map the doors around Woodbine Food Hall. At each entrance, check how the door opens and whether it opens by itself, so people with wheelchairs, strollers or walkers know what to expect.",
   },
 };
