@@ -227,6 +227,15 @@ export const setProjectEnabled = (id: number, enabled: boolean) =>
 export const listCampaigns = () =>
   api<{ campaigns: Campaign[] }>("/api/v2/mobile-admin/campaigns").then((r) => r.campaigns);
 
+/** A challenge as the stock read returns it; only the fields the campaign page shows. */
+export interface ChallengeDetail extends ChallengeDraft {
+  id: number;
+  enabled: boolean;
+  parent: number;
+}
+
+export const getChallenge = (id: number) => api<ChallengeDetail>(`/api/v2/challenge/${id}`);
+
 export type ResultsFormat = "csv" | "geojson";
 
 /** A challenge's campaign results as a file: tasks, statuses, answers, changesets. */

@@ -1,10 +1,10 @@
 # Authoring Android survey challenges
 
-The Survey builder creates native multiple-choice campaigns using the existing choice-task contract. It adds no backend endpoint or SDK schema. Admins author once; generated tasks contain a snapshot of that definition.
+New campaign (formerly the Survey builder) creates native multiple-choice campaigns using the existing choice-task contract. It adds no backend endpoint or SDK schema. Admins author once; generated tasks contain a snapshot of that definition.
 
 ## Create a campaign
 
-1. Open **Survey builder** and choose **Restaurant example**, **Bus stop example**, or **Open survey file**.
+1. Open **New campaign** and choose **Restaurant example**, **Bus stop example**, or **Open survey file**.
 2. Set a unique challenge title, description, instructions, and OSM changeset comment/source. Instructions and help are plain text.
 3. Edit questions and answers. Keep question/answer IDs stable and give every answer an explicit OSM tag effect. The preview shows both volunteer text and tag effects.
 4. Open a feature file or edit the FeatureCollection. Supply representative Point locations, typed OSM IDs, and the features' current OSM tags. Replace the fictional example feature IDs before creating a challenge. Get the file from [our Layercake explorer](https://layercake.osm.lol/explore/?layer=pois&maproulette) (Utah, refreshed daily; the `maproulette` parameter in this link unlocks the export): choose a layer, zoom in, filter (for example `amenity = restaurant`), fetch, and export as **MapRoulette features**; that export is already in the format below.
@@ -63,7 +63,7 @@ Check signs/menus or ask staff for service questions. Absence of a sign is not e
 
 Editing an authoring file changes future generated tasks. The builder never selects an existing challenge as its import target. Publish a new uniquely named challenge for a changed survey. Keep the definition file, generated task file, backend origin, and created challenge ID together for recovery.
 
-Create/import/publish are not retried automatically after uncertain responses. A failed request can hide an accepted operation. Check the challenge, its tasks, and admin audit before using the existing Challenges screen for any reviewed manual recovery. Browser navigation/reload discards the active setup session, so keep the challenge ID and exported files.
+Create/import/publish are not retried automatically after uncertain responses. A failed request can hide an accepted operation. Check the challenge, its tasks, and admin audit before using **Advanced: import a task file into an existing challenge** (under New campaign) for any reviewed manual recovery. Browser navigation/reload discards the active setup session, so keep the challenge ID and exported files.
 
 ## Command-line generation
 

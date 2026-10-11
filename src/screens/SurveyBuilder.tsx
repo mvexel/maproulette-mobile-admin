@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { createSurveyChallenge, describeError, importChallengeTasks, publishSurveyChallenge, type TaskImportReport } from "../api";
 import { config } from "../config";
+import { navigate } from "../router";
+import { Challenges } from "./Challenges";
 import { PublishSheet } from "./PublishSheet";
 import { ProjectPicker } from "./Projects";
 import { exampleSurvey, generateTasks, parseSurvey, type SurveyDocument, SurveyValidationError } from "../survey";
@@ -91,7 +93,7 @@ export function SurveyBuilder() {
     if (!canCreate || !result.survey || projectId === undefined) return;
     setCreationAttempted(true); setBusy(true); setActionErrors([]);
     try { const c = await createSurveyChallenge(result.survey.challenge, projectId); setChallengeId(c.id); setNotice(`Challenge ${c.id} created as disabled in project ${projectId}. Import the reviewed tasks below.`); }
-    catch (e) { setActionErrors([...errorsOf(e), "Creation was attempted. Check Challenges and the audit log before trying again; a lost response can hide a successful creation."]); }
+    catch (e) { setActionErrors([...errorsOf(e), "Creation was attempted. Check Campaigns and the audit log before trying again; a lost response can hide a successful creation."]); }
     finally { setBusy(false); }
   }
   async function importTasks() {
@@ -109,7 +111,7 @@ export function SurveyBuilder() {
     finally { setBusy(false); }
   }
   return <section className="survey-builder">
-    <h2>Survey builder</h2>
+    <h2>New campaign</h2>
     <p>Write the questions once. Supply the places to survey, then review what volunteers will see and what their answers add to the map.</p>
     <p className="hint">Connected to <code>{config().backend}</code>. Creating and importing tasks does not switch on OpenStreetMap edits.</p>
     {notice && <p role="status" className="notice">{notice}</p>}
@@ -165,7 +167,7 @@ export function SurveyBuilder() {
         </div>)}
         <div className="preview-question">
           <span className="hint">Something's wrong here</span>
-          <p>Built in: It's not here, It's moved, I can't check this. Every survey offers these; they can't be changed. Reports appear under Challenges, Reports.</p>
+          <p>Built in: It's not here, It's moved, I can't check this. Every survey offers these; they can't be changed. Reports appear on the campaign's page.</p>
         </div>
         <p className="hint">Volunteers review answers before saving a public OpenStreetMap edit. Partial answers still close the task.</p>
       </aside>
@@ -184,7 +186,12 @@ export function SurveyBuilder() {
       {report && <div role="status"><p>Created {report.created}; updated {report.updated}; rejected {report.rejected.length}.</p>{report.rejected.map(r => <p className="error" key={r.line}>Line {r.line}: {r.errors.join("; ")}</p>)}</div>}
       {report && !published && <><p>Publish only after every reviewed task was created successfully. This makes the challenge visible in the mobile app; it does not enable OSM writes.</p><button type="button" disabled={busy || publishAttempted || report.rejected.length > 0 || report.updated > 0 || report.created !== result.generated?.count} onClick={() => setPublishing(true)}>Publish</button></>}
       {publishing && challengeId && projectId !== undefined && report && result.survey && <PublishSheet projectId={projectId} input={{ report: { created: report.created, updated: report.updated, rejected: report.rejected.length, expected: result.generated?.count ?? 0 }, checkinComment: result.survey.challenge.checkinComment, checkinSource: result.survey.challenge.checkinSource, description: result.survey.challenge.description ?? "" }} onPublish={publish} onCancel={() => setPublishing(false)} />}
-      {published && <p>Refresh the campaign list in the mobile app to find this survey.</p>}
+      {published && challengeId && <p>Refresh the campaign list in the mobile app to find this survey. <a href={`/campaigns/${challengeId}`} onClick={e => { e.preventDefault(); navigate(`/campaigns/${challengeId}`); }}>Open the campaign page</a> to share it.</p>}
     </div>
+    <details className="panel advanced-import">
+      <summary>Advanced: import a task file into an existing challenge</summary>
+      <p className="hint">For recovery only. New campaigns are made above.</p>
+      <Challenges />
+    </details>
   </section>;
 }

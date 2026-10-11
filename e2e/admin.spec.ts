@@ -19,13 +19,14 @@ async function signIn(page: Page, as: "mock-superuser" | "mock-mapper" = "mock-s
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:9300\/oauth\/mobile\/authorize\?/);
   await page.getByRole("link", { name: new RegExp(`Sign in as ${as}`) }).click();
+  if (as === "mock-superuser") await page.getByRole("link", { name: "Clients" }).click();
 }
 
 const row = (page: Page, id: string) => page.getByTestId(`client-${id}`);
 
 test("signs in and shows the clients and the connected backend", async ({ page, request }) => {
   await signIn(page);
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/clients");
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
   await expect(page.getByTestId("environment")).toHaveText(`DEV backend: ${MOCK}`);
   await expect(page.getByTestId("environment")).toHaveAttribute("data-backend", MOCK);
@@ -198,11 +199,12 @@ test("lists a challenge's not-here and moved reports with iD links", async ({ pa
   await page.setViewportSize({ width: 1366, height: 900 });
   await signIn(page);
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
-  await page.getByRole("link", { name: "Challenges" }).click();
-  const panel = page.locator(".panel", { has: page.getByRole("heading", { name: "Reports" }) });
-  await panel.getByLabel("Challenge ID").fill("7");
+  await page.getByRole("link", { name: "New campaign" }).click();
+  await page.getByText("Advanced: import a task file into an existing challenge").click();
+  const panel = page.locator(".panel:has(> h3:text-is('Reports'))");
+  await panel.getByLabel("Challenge ID").fill("12345");
   await panel.getByRole("button", { name: "Show reports" }).click();
-  await expect(panel).toContainText("No challenge with ID 7.");
+  await expect(panel).toContainText("No challenge with ID 12345.");
   await panel.getByLabel("Challenge ID").fill("42");
   await panel.getByRole("button", { name: "Show reports" }).click();
   const rows = panel.getByRole("table", { name: "Reports" }).locator("tbody tr");

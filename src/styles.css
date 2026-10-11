@@ -238,3 +238,55 @@ button.primary:hover:not(:disabled) { background: #06615f; border-color: #06615f
 .check-warning { background: #fdf6e9; }
 .check-warning .check-mark { color: var(--nav); background: var(--signal); }
 .check-info .check-mark { background: var(--muted); }
+
+/* Campaigns (design pass §2) */
+.filters { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0 0; padding: 0; border: 0; }
+.filters label { position: relative; display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .8rem; color: var(--ink); background: var(--paper); border: 1px solid #b9c8c5; border-radius: 999px; font-weight: 600; cursor: pointer; }
+.filters label.on { color: #fff; background: var(--nav); border-color: var(--nav); }
+.filter-input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.filters label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.count { min-width: 1.4rem; padding: 0 .35rem; font-size: .78rem; text-align: center; background: rgb(0 0 0 / 8%); border-radius: 999px; }
+.filters label.on .count { background: rgb(255 255 255 / 20%); }
+.tag { display: inline-block; margin-left: .4rem; padding: .05rem .45rem; font-size: .75rem; font-weight: 700; border-radius: 4px; }
+.tag-off { color: #fff; background: var(--danger); }
+.state { justify-self: start; display: inline-block; padding: .1rem .5rem; font-size: .82rem; font-weight: 650; border-radius: 4px; white-space: nowrap; }
+.state-listed { color: var(--success); background: #e3f2e9; }
+.state-project-off, .state-turned-off, .state-not-published { color: #7a4f00; background: #fdf0d5; }
+.state-draft { color: var(--muted); background: #eef1f0; }
+.campaign .crumbs { margin: 0; }
+.status-line { margin: .5rem 0 1rem; padding: .8rem 1rem; border-left: 4px solid var(--muted); border-radius: 4px; background: var(--paper); }
+.status-line p { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: 0; font-size: 1.05rem; }
+.status-line.state-listed { border-left-color: var(--success); }
+.status-line.writes-off { color: #7a4f00; border-left-color: var(--signal); }
+.status-line.state-project-off, .status-line.state-turned-off, .status-line.state-not-published { border-left-color: var(--signal); }
+.share-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-top: 1px solid var(--line); }
+.share-line h4 { margin: 0 0 .4rem; }
+.share-line code { overflow-wrap: anywhere; }
+.share-note { margin: .4rem 0 0; color: #7a4f00; }
+.qr-block { display: grid; justify-items: center; gap: .4rem; max-width: 16rem; }
+.qr-warning { margin: 0; text-align: center; }
+.qr { display: grid; justify-items: center; gap: .4rem; }
+.qr svg { width: 9rem; height: 9rem; border: 1px solid var(--line); }
+.progress-line { font-size: 1.05rem; }
+progress { width: 100%; max-width: 30rem; height: .8rem; accent-color: var(--success); }
+.texts { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
+.welcome-card { margin: 0; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.welcome-card h4 { margin: .4rem 0; font-size: 1.15rem; }
+.texts dl { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; margin: 0; }
+.texts dt { color: var(--muted); font-weight: 650; }
+.texts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .texts { grid-template-columns: 1fr; }
+  .texts dl { grid-template-columns: 1fr; }
+  .texts dd { margin-bottom: .5rem; }
+}
+@media (max-width: 600px) {
+  table.campaigns { display: block; overflow: visible; background: none; border: 0; }
+  table.campaigns thead { display: none; }
+  table.campaigns tbody, table.campaigns tr { display: block; }
+  table.campaigns tr { margin-bottom: .6rem; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+  table.campaigns td { display: grid; grid-template-columns: 6.5rem 1fr; gap: .5rem; padding: .45rem .75rem; border-bottom: 0; }
+  table.campaigns td::before { content: attr(data-label); color: var(--muted); font-size: .78rem; font-weight: 650; }
+  table.campaigns td[data-label="Campaign"] { display: block; padding-top: .7rem; font-weight: 650; }
+  table.campaigns td[data-label="Campaign"]::before { content: none; }
+}
