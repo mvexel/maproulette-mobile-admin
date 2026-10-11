@@ -6,7 +6,8 @@ COPY . .
 RUN npm run build
 
 FROM caddy:2-alpine
-COPY --from=build /app/dist /srv
+COPY --from=build /app/dist /srv/admin
+COPY --from=build /app/dist-street /srv/street
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY --chmod=755 deploy/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

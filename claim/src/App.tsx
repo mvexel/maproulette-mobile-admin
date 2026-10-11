@@ -249,6 +249,7 @@ function Page({ token, view, children }: { token?: string; view: View; children:
       <main aria-live="polite">{children}</main>
       <footer>
         {canDelete && <a href={`/claim/delete#t=${token}`}>Delete my data</a>}
+        <a href="/privacy">Privacy</a>
         {c.hashtag &&
           (c.wikiUrl ? (
             <a href={c.wikiUrl} rel="noreferrer">

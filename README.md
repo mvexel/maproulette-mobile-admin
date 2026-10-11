@@ -108,37 +108,53 @@ A sign-in only completes on an origin registered for the client. On staging that
 `http://localhost:5173/callback` on the client and add the origin to `MR_MOBILE_ADMIN_ORIGIN`,
 or use the mock.
 
-## Claim page
+## Participant site (streettally.osm.lol)
 
-`claim/` is a second, separate app: the page participants open from the deferred sign-up email
-to put their saved answers on OpenStreetMap (design docs `deferred-signup-ux.md` §3 and
-`deferred-signup-api.md` §3.6, §3.7, §3.10 and §3.11). It uses the Street Tally brand, not the admin
-styles, and shares only `src/pkce.ts` with the admin app.
+`vite.street.config.ts` builds the pages participants see into `dist-street/`. The container
+serves them on port 8080, and the shared Caddy puts them on https://streettally.osm.lol
+([docs/deploy-streettally.md](docs/deploy-streettally.md)).
 
-- Links: `/claim#t=<token>`, `/claim/delete#t=<token>`, `/claim/stop-reminders#t=<token>`. The
-  token stays in the fragment and `sessionStorage`; the page POSTs it to the claim routes.
-- Sign-in: the public `maproulette-claim` client with `tasks:read tasks:write osm:tagfix`, PKCE,
-  redirect `https://<claim host>/claim/callback`. The page revokes its grant when the claim
-  finishes.
-- Config: `/claim/config.json` with `backend`, `clientId`, `mapStyle` (a MapLibre style URL, the
-  OpenFreeMap Positron style by default; empty hides the map) and `osmWeb` (for "See your
-  edits").
-- `npm run dev:claim` serves it on http://localhost:5174/claim. With `CLAIM_BACKEND` set (e.g.
-  `http://127.0.0.1:9300` and `npm run mock`), `vite` and `vite preview` answer
-  `/claim/config.json` with that backend and no map (`CLAIM_MAP_STYLE` adds one).
-- The mock's fixed claim tokens are in `MOCK_CLAIM_TOKENS` (`mock/server.ts`), e.g.
-  http://localhost:5174/claim#t=mock-claim-partialxxxxxxxxxxxxxxxxxxxxxxxxx.
+- `/` (`site/index.html`): a short root page.
+- `/challenge/<id>` (`site/challenge.html`, `site/landing.js`): the campaign landing page, shown
+  when a campaign link opens without the app. It links to the iPhone beta (`installUrl`) and the Android APK (`androidInstallUrl` with
+  `androidVersion`) and opens the
+  app with `mrchoice://challenge/<id>`, because iOS doesn't follow a universal link tapped on its
+  own domain. It reads the campaign's name and blurb from `GET /api/v2/challenge/<id>` when the
+  backend allows it, and otherwise shows generic text.
+- `/privacy` (`site/privacy.html`): the privacy page every email footer and the claim page link to.
+- `/faq` (`site/faq.html`): questions and answers for the Woodbine pilot, from
+  `community/participant-faq-woodbine.md`. Keep it in step with `/privacy`.
+- `/.well-known/apple-app-site-association`: the universal-link file for `/challenge/*`, written
+  at start from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`.
+- `/claim` (`claim/`): the page participants open from the deferred sign-up email to put their
+  saved answers on OpenStreetMap (design docs `deferred-signup-ux.md` §3 and
+  `deferred-signup-api.md` §3.6, §3.7, §3.10 and §3.11). It is a React app with the Street Tally brand
+  and shares only `src/pkce.ts` with the admin app.
+  - Links: `/claim#t=<token>`, `/claim/delete#t=<token>`, `/claim/stop-reminders#t=<token>`. The
+    token stays in the fragment and `sessionStorage`; the page POSTs it to the claim routes.
+  - Sign-in: the public `maproulette-claim` client with `tasks:read tasks:write osm:tagfix`,
+    PKCE, redirect `https://streettally.osm.lol/claim/callback`. The page revokes its grant when
+    the claim finishes.
+  - Config: `/claim/config.json` with `backend`, `clientId`, `mapStyle` (a MapLibre style URL, the
+    OpenFreeMap Positron style by default; empty hides the map) and `osmWeb` (for "See your
+    edits").
 
-The production build puts it in `dist/claim`, so the admin container serves it at `/claim` with
-its own CSP (the backend plus `https://tiles.openfreemap.org`, and `blob:` workers for MapLibre).
-Where it is finally hosted is still open; the backend needs that origin as its claim origin
-(CORS) and as the client's redirect.
+`npm run dev:street` serves the whole site on http://localhost:5174. With `CLAIM_BACKEND` set
+(e.g. `http://127.0.0.1:9300` and `npm run mock`), the dev and preview servers answer both
+config files with that backend and no map (`CLAIM_MAP_STYLE` adds one, `SITE_INSTALL_URL` sets
+the beta link, and `APPLE_TEAM_ID` plus `APPLE_BUNDLE_ID` serve the AASA file). The mock's fixed
+claim tokens are in `MOCK_CLAIM_TOKENS` (`mock/server.ts`), e.g.
+http://localhost:5174/claim#t=mock-claim-partialxxxxxxxxxxxxxxxxxxxxxxxxx, and its campaign is
+http://localhost:5174/challenge/7.
 
 ## Deploy
 
-The image (`Dockerfile`) builds the app and serves it with its own small Caddy on port 80. At
-start, `deploy/entrypoint.sh` writes `config.json` from `BACKEND_ORIGIN`, `CLIENT_ID` and the optional
-`ADMIN_ENVIRONMENT`, and `claim/config.json` from `BACKEND_ORIGIN`, `CLAIM_CLIENT_ID` and `OSM_WEB`. The
+The image (`Dockerfile`) builds both sites and serves them with its own small Caddy: the admin app
+on port 80 and the participant site on port 8080. At start, `deploy/entrypoint.sh` writes the
+admin `config.json` from `BACKEND_ORIGIN`, `CLIENT_ID` and the optional `ADMIN_ENVIRONMENT`; the
+participant site's `config.json` from `BACKEND_ORIGIN`, `INSTALL_URL`, `ANDROID_INSTALL_URL` and
+`ANDROID_VERSION`; `claim/config.json` from `BACKEND_ORIGIN`, `CLAIM_CLIENT_ID` and `OSM_WEB`; and
+the apple-app-site-association file when `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID` are set. The
 container's Caddyfile (`deploy/Caddyfile`) sets the CSP (with `BACKEND_ORIGIN` in
 `connect-src`), `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on `config.json` and the
 app's HTML, and the single-page-app fallback. It does no TLS.

@@ -29,8 +29,15 @@ export default defineConfig({
     {
       // Its own output folder, so it doesn't race the admin build, which empties dist/.
       command:
-        "npx vite build -c vite.claim.config.ts --outDir ../dist-e2e-claim && npx vite preview -c vite.claim.config.ts --outDir ../dist-e2e-claim --port 4174 --strictPort",
-      env: { CLAIM_BACKEND: MOCK },
+        "npx vite build -c vite.street.config.ts --outDir ../dist-e2e-claim && npx vite preview -c vite.street.config.ts --outDir ../dist-e2e-claim --port 4174 --strictPort",
+      env: {
+        CLAIM_BACKEND: MOCK,
+        SITE_INSTALL_URL: "https://testflight.apple.com/join/TEST1234",
+        SITE_ANDROID_INSTALL_URL: "https://downloads.example.test/street-tally.apk",
+        SITE_ANDROID_VERSION: "test-1.0",
+        APPLE_TEAM_ID: "ABCDE12345",
+        APPLE_BUNDLE_ID: "lol.osm.streettally",
+      },
       url: `${CLAIM}/claim/`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

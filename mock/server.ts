@@ -132,6 +132,20 @@ interface Family {
   used: Set<string>;
 }
 
+// Public campaign texts for the landing page. 8 is the Woodbine pilot (design/woodbine-campaign.md).
+const LANDING_CAMPAIGNS: Record<number, { name: string; blurb?: string; description?: string }> = {
+  7: {
+    name: "SLC Bus Stops",
+    blurb: "Help check every bus stop in Salt Lake City for a shelter, a bench, light and wheelchair access.",
+  },
+  8: {
+    name: "Woodbine entrance doors",
+    blurb: "Doors around Woodbine Food Hall.",
+    description:
+      "Help map the doors around Woodbine Food Hall. At each entrance, check how the door opens and whether it opens by itself, so people with wheelchairs, strollers or walkers know what to expect.",
+  },
+};
+
 const USERS: Record<string, User> = {
   super: { id: 7, osmId: 70007, displayName: "mock-superuser", superUser: true },
   plain: { id: 8, osmId: 80008, displayName: "mock-mapper", superUser: false },
@@ -409,7 +423,10 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     path.startsWith("/api/v2/mobile-admin/") || /^\/api\/v2\/challenge\/[0-9]+$/.test(path) || oauthPaths.includes(path);
   // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
   const claimPaths = (path: string) =>
-    oauthPaths.includes(path) || /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+|\/[0-9]+\/retry)?$/.test(path);
+    oauthPaths.includes(path) ||
+    /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+|\/[0-9]+\/retry)?$/.test(path) ||
+    // The campaign landing page reads the public challenge (name, blurb); §3.11 CORS.
+    /^\/api\/v2\/challenge\/[0-9]+$/.test(path);
 
   /** MobileCorsFilter: the admin and claim origins only, no credentials; other preflights get 403. */
   function cors(req: IncomingMessage, res: ServerResponse, path: string): boolean {
@@ -564,6 +581,14 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
 
     if (path.startsWith("/api/v2/mobile-claim")) return claim(req, res, path);
+
+    // The campaign landing page reads the public challenge (name, description) without a token.
+    const landing = /^\/api\/v2\/challenge\/([0-9]+)$/.exec(path);
+    if (landing && req.method === "GET" && !req.headers.authorization) {
+      const campaign = LANDING_CAMPAIGNS[Number(landing[1])];
+      if (!campaign) return problem(res, 404, "not_found");
+      return send(res, 200, { id: Number(landing[1]), ...campaign });
+    }
 
     // The stock challenge read and publish, as an admin grant reaches them (docs/mobile-admin-api.md).
     const cm = /^\/api\/v2\/challenge\/([0-9]+)$/.exec(path);

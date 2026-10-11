@@ -1,5 +1,6 @@
 #!/bin/sh
-# Writes /srv/config.json from the environment, then runs Caddy.
+# Writes the apps' config.json files (and the apple-app-site-association file) from the
+# environment, then runs Caddy.
 set -eu
 : "${BACKEND_ORIGIN:?set BACKEND_ORIGIN, e.g. https://mr-api.osm.lol}"
 CLIENT_ID="${CLIENT_ID:-maproulette-mobile-admin}"
@@ -15,7 +16,7 @@ case "$ADMIN_ENVIRONMENT" in
 	dev|stage|prod) ENV_JSON=",\"environment\":\"$ADMIN_ENVIRONMENT\"" ;;
 	*) echo "ADMIN_ENVIRONMENT must be dev, stage or prod" >&2; exit 1 ;;
 esac
-printf '{"backend":"%s","clientId":"%s"%s}\n' "$BACKEND_ORIGIN" "$CLIENT_ID" "$ENV_JSON" > /srv/config.json
+printf '{"backend":"%s","clientId":"%s"%s}\n' "$BACKEND_ORIGIN" "$CLIENT_ID" "$ENV_JSON" > /srv/admin/config.json
 # The claim page's config. OSM_WEB is the OpenStreetMap site the backend edits ("See your edits").
 CLAIM_CLIENT_ID="${CLAIM_CLIENT_ID:-maproulette-claim}"
 OSM_WEB="${OSM_WEB:-https://www.openstreetmap.org}"
@@ -24,6 +25,32 @@ echo "$CLAIM_CLIENT_ID" | grep -Eq '^[A-Za-z0-9._-]{1,100}$' ||
 echo "$OSM_WEB" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?$' ||
 	{ echo "OSM_WEB must be an origin like https://www.openstreetmap.org" >&2; exit 1; }
 printf '{"backend":"%s","clientId":"%s","mapStyle":"https://tiles.openfreemap.org/styles/positron","osmWeb":"%s"}\n' \
-	"$BACKEND_ORIGIN" "$CLAIM_CLIENT_ID" "$OSM_WEB" > /srv/claim/config.json
+	"$BACKEND_ORIGIN" "$CLAIM_CLIENT_ID" "$OSM_WEB" > /srv/street/claim/config.json
+# The participant site. INSTALL_URL is where "Install the beta" goes (the public TestFlight link).
+INSTALL_URL="${INSTALL_URL:-}"
+[ -z "$INSTALL_URL" ] || echo "$INSTALL_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$' ||
+	{ echo "INSTALL_URL must be an https URL like https://testflight.apple.com/join/AbCd1234" >&2; exit 1; }
+# Android: direct signed APK URL plus the exact participant-facing version label.
+ANDROID_INSTALL_URL="${ANDROID_INSTALL_URL:-}"
+ANDROID_VERSION="${ANDROID_VERSION:-}"
+# grep checks one line at a time: reject line breaks before interpolating either field into JSON.
+[ "$ANDROID_INSTALL_URL" = "$(printf '%s' "$ANDROID_INSTALL_URL" | tr -d '\r\n')" ] &&
+[ "$ANDROID_VERSION" = "$(printf '%s' "$ANDROID_VERSION" | tr -d '\r\n')" ] ||
+	{ echo "Android download fields must not contain line breaks" >&2; exit 1; }
+[ -z "$ANDROID_INSTALL_URL" ] || echo "$ANDROID_INSTALL_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$' ||
+	{ echo "ANDROID_INSTALL_URL must be an https URL" >&2; exit 1; }
+[ -z "$ANDROID_VERSION" ] || echo "$ANDROID_VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+ -]{0,79}$' ||
+	{ echo "ANDROID_VERSION must be a version label of at most 80 safe characters" >&2; exit 1; }
+printf '{"backend":"%s","installUrl":"%s","appScheme":"mrchoice","androidInstallUrl":"%s","androidVersion":"%s"}\n' "$BACKEND_ORIGIN" "$INSTALL_URL" "$ANDROID_INSTALL_URL" "$ANDROID_VERSION" > /srv/street/config.json
+# Universal links: only with both IDs (a team ID like ABCDE12345, a bundle ID like lol.osm.streettally).
+if [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_BUNDLE_ID:-}" ]; then
+	echo "$APPLE_TEAM_ID" | grep -Eq '^[A-Z0-9]{10}$' ||
+		{ echo "APPLE_TEAM_ID must be the 10-character team ID" >&2; exit 1; }
+	echo "$APPLE_BUNDLE_ID" | grep -Eq '^[A-Za-z0-9.-]{1,155}$' ||
+		{ echo "APPLE_BUNDLE_ID must be a bundle ID like lol.osm.streettally" >&2; exit 1; }
+	mkdir -p /srv/street/.well-known
+	printf '{"applinks":{"details":[{"appIDs":["%s.%s"],"components":[{"/":"/challenge/*"}]}]}}\n' \
+		"$APPLE_TEAM_ID" "$APPLE_BUNDLE_ID" > /srv/street/.well-known/apple-app-site-association
+fi
 export BACKEND_ORIGIN
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
