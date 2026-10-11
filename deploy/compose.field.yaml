@@ -10,6 +10,16 @@ services:
       BACKEND_ORIGIN: https://${MR_API_HOST:?Set the matching API host}
       CLIENT_ID: maproulette-mobile-admin
       ADMIN_ENVIRONMENT: ${MR_DEPLOYMENT}
+      # The participant site on :8080 (docs/deploy-streettally.md): the claim page's OAuth client,
+      # the OpenStreetMap site this deployment edits (stage and prod use openstreetmap.org), the
+      # install links and the app IDs for universal links. Empty values keep the image defaults.
+      CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      OSM_WEB: ${OSM_WEB:-https://www.openstreetmap.org}
+      INSTALL_URL: ${INSTALL_URL:-}
+      ANDROID_INSTALL_URL: ${ANDROID_INSTALL_URL:-}
+      ANDROID_VERSION: ${ANDROID_VERSION:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
