@@ -3,12 +3,13 @@ import { getWritePolicy, onWritePolicyChange } from "../api";
 import { config } from "../config";
 import { navigate } from "../router";
 
-/** DEV, STAGE or PROD from the config; the backend URL is in the tooltip. */
+/** DEV, STAGE or PROD from the config; the backend URL shows on hover. */
 export function EnvironmentBadge() {
   const { backend, environment } = config();
   return (
-    <span className={`env-badge env-${environment ?? "unknown"}`} data-testid="environment" title={backend}>
+    <span className={`env-badge env-${environment ?? "unknown"}`} data-testid="environment" data-backend={backend}>
       {environment ? environment.toUpperCase() : "UNKNOWN BACKEND"}
+      <span className="visually-hidden"> backend: {backend}</span>
     </span>
   );
 }

@@ -27,8 +27,8 @@ test("signs in and shows the clients and the connected backend", async ({ page, 
   await signIn(page);
   await expect(page).toHaveURL("/");
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
-  await expect(page.getByTestId("environment")).toHaveText("DEV");
-  await expect(page.getByTestId("environment")).toHaveAttribute("title", MOCK);
+  await expect(page.getByTestId("environment")).toHaveText(`DEV backend: ${MOCK}`);
+  await expect(page.getByTestId("environment")).toHaveAttribute("data-backend", MOCK);
   await expect(row(page, "maproulette-mobile-admin")).toContainText("this app");
   await expect(row(page, "maproulette-android-example")).toBeVisible();
   expect((await stats(request)).authorizationCodes).toBe(1);
