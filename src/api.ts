@@ -103,11 +103,22 @@ export interface WritePolicy {
   managed: boolean;
 }
 
+const writePolicyListeners = new Set<(policy: WritePolicy) => void>();
+
+/** Calls `listener` with the policy after every successful change; returns the unsubscribe. */
+export function onWritePolicyChange(listener: (policy: WritePolicy) => void): () => void {
+  writePolicyListeners.add(listener);
+  return () => void writePolicyListeners.delete(listener);
+}
+
 export const getWritePolicy = () => api<WritePolicy>("/api/v2/mobile-admin/write-policy");
 export const setWritePolicy = (enabled: boolean) =>
   api<WritePolicy>("/api/v2/mobile-admin/write-policy", {
     method: "PUT",
     body: JSON.stringify({ enabled }),
+  }).then((policy) => {
+    for (const listener of writePolicyListeners) listener(policy);
+    return policy;
   });
 
 export interface Me {

@@ -13,6 +13,8 @@ services:
       # mr-api -> mr-dev rename (decision A15).
       BACKEND_ORIGIN: ${BACKEND_ORIGIN:-https://mr-api.osm.lol}
       CLIENT_ID: ${CLIENT_ID:-maproulette-mobile-admin}
+      # Optional dev, stage or prod; the app infers it from the backend host otherwise.
+      ADMIN_ENVIRONMENT: ${ADMIN_ENVIRONMENT:-}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
