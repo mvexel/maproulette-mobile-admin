@@ -9,6 +9,7 @@ services:
     environment:
       BACKEND_ORIGIN: https://${MR_API_HOST:?Set the matching API host}
       CLIENT_ID: maproulette-mobile-admin
+      ADMIN_ENVIRONMENT: ${MR_DEPLOYMENT}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s
