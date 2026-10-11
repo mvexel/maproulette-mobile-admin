@@ -67,8 +67,9 @@
       }
       find("name").textContent = campaign.name.trim();
       document.title = `${campaign.name.trim()} · Street Tally`;
-      const blurb = typeof campaign.blurb === "string" ? campaign.blurb.trim() : "";
-      find("blurb").textContent = blurb ? (blurb.length > 280 ? `${blurb.slice(0, 279)}…` : blurb) : "Check the places around you and answer a few quick questions. About a minute per place.";
+      // The app's welcome card shows the description, so it leads here too.
+      const text = [campaign.description, campaign.blurb].find((t) => typeof t === "string" && t.trim())?.trim() ?? "";
+      find("blurb").textContent = text ? (text.length > 280 ? `${text.slice(0, 279)}…` : text) : "Check the places around you and answer a few quick questions.";
       // Both app manifests already support mrchoice. Keep the same campaign through installation.
       find("open").href = `mrchoice://challenge/${id}`;
       setInstall("ios", httpsUrl(config.installUrl));

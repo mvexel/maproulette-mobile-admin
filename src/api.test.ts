@@ -127,7 +127,7 @@ describe("results export", () => {
   });
 
   it("returns 404 not_found for an unknown challenge", async () => {
-    const e = await failure(fetchChallengeResults(7, "csv"));
+    const e = await failure(fetchChallengeResults(12345, "csv"));
     expect(e.status).toBe(404);
     expect(e.code).toBe("not_found");
   });

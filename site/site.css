@@ -82,6 +82,9 @@ footer a { color: var(--text2); }
 button.btn { width: 100%; font: inherit; cursor: pointer; background: var(--bg); }
 .btn { overflow-wrap: anywhere; }
 li .note { margin: 12px 0 0; }
+.qa h2 { margin-top: 36px; }
+.qa h3 { margin: 20px 0 6px; font-size: 17px; }
+.qa h3 + p { margin-top: 0; }
 .platform { margin-top: 32px; }
 .platform summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
 .platform summary::-webkit-details-marker { display: none; }
@@ -89,6 +92,3 @@ li .note { margin: 12px 0 0; }
 .platform summary::after { content: ""; flex: none; width: 10px; height: 10px; border-right: 2px solid var(--text2); border-bottom: 2px solid var(--text2); transform: rotate(45deg); margin-top: -4px; }
 .platform[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
 #status-text:empty { display: none; }
-.qa h2 { margin-top: 36px; }
-.qa h3 { margin: 20px 0 6px; font-size: 17px; }
-.qa h3 + p { margin-top: 0; }

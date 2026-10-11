@@ -191,6 +191,51 @@ export function describeError(e: unknown): { message: string; detail: string[] }
   }
 }
 
+export interface Project {
+  id: number;
+  name: string;
+  displayName: string | null;
+  enabled: boolean;
+  /** Choice challenges in the project. */
+  campaigns: number;
+  /** Of those, enabled and published. */
+  published: number;
+}
+
+export interface Campaign {
+  id: number;
+  name: string;
+  enabled: boolean;
+  /** Tagged mobile-survey-v1 by Publish. */
+  published: boolean;
+  /** Shown in the app: enabled, published and the project on. */
+  listed: boolean;
+  modified: string;
+  project: { id: number; name: string; displayName: string | null; enabled: boolean };
+  tasks: { total: number; checked: number; needsLook: number };
+}
+
+export const listProjects = () =>
+  api<{ projects: Project[] }>("/api/v2/mobile-admin/projects").then((r) => r.projects);
+export const createProject = (name: string, displayName?: string) =>
+  api<Project>("/api/v2/mobile-admin/projects", {
+    method: "POST",
+    body: JSON.stringify(displayName ? { name, displayName } : { name }),
+  });
+export const setProjectEnabled = (id: number, enabled: boolean) =>
+  api<Project>(`/api/v2/mobile-admin/projects/${id}/enabled`, { method: "PUT", body: JSON.stringify({ enabled }) });
+export const listCampaigns = () =>
+  api<{ campaigns: Campaign[] }>("/api/v2/mobile-admin/campaigns").then((r) => r.campaigns);
+
+/** A challenge as the stock read returns it; only the fields the campaign page shows. */
+export interface ChallengeDetail extends ChallengeDraft {
+  id: number;
+  enabled: boolean;
+  parent: number;
+}
+
+export const getChallenge = (id: number) => api<ChallengeDetail>(`/api/v2/challenge/${id}`);
+
 export type ResultsFormat = "csv" | "geojson";
 
 /** A challenge's campaign results as a file: tasks, statuses, answers, changesets. */
