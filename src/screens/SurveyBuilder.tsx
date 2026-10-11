@@ -136,7 +136,7 @@ export function SurveyBuilder() {
           <label>Identity keys per feature<textarea aria-label="Identity keys per feature" className="tag-input" value={draft.matchKeys} onChange={e => setDraft(d => ({ ...d, matchKeys: e.target.value }))} /></label>
           <p className="hint">Keys whose value each task keeps from its own feature, for example {`["entrance"]`}: a task for an entrance=main node then only applies while that node is still entrance=main. Features without the key are left out.</p>
           <label>Campaign outcomes<textarea aria-label="Campaign outcomes" className="tag-input" value={draft.outcomes} onChange={e => setDraft(d => ({ ...d, outcomes: e.target.value }))} /></label>
-          <p className="hint">Extra "Something's wrong here" choices, up to 4. Each closes the task without changing tags, for example {`[{"id":"no-door","label":"There's no door","status":6}]`}. Status 6 is "can't complete", 2 is "not an issue".</p>
+          <p className="hint">Extra “Something's wrong here” choices, up to 4. None of them change tags. Status 6 marks the place “Needs another look”; status 2 counts it as checked (not an issue). Example: {`[{"id":"no-door","label":"There's no door","description":"It's an open doorway or a gate.","status":6}]`}</p>
         </div>
         {draft.questions.map((q, i) => <div className="panel question-editor" key={q.key}>
           <h3>Question {i + 1}</h3>
