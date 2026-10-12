@@ -21,6 +21,17 @@ export interface PublishInput {
   description: string;
   writesEnabled?: boolean;
   environment?: Environment;
+  /** Whether guests can answer the tasks; left out when unknown. */
+  guests?: GuestReadiness;
+}
+
+/**
+ * `flagged`: every task carries liveMissingQuestions, which guest answers need. `fillMissing`: every
+ * question only fills absent tags, so the flag is possible.
+ */
+export interface GuestReadiness {
+  flagged: boolean;
+  fillMissing: boolean;
 }
 
 const ENV_NAME: Record<Environment, string> = { dev: "DEV", stage: "STAGE", prod: "PROD" };
@@ -87,6 +98,8 @@ export function publishChecks(input: PublishInput): Check[] {
         }
       : { id: "description", kind: "pass", text: "The description has no link and no time per stop." },
   );
+  const guests = guestCheck(input.guests);
+  if (guests) checks.push(guests);
   const env = input.environment ? ENV_NAME[input.environment] : "this backend";
   if (input.writesEnabled === false)
     checks.push({
@@ -108,6 +121,39 @@ export function publishChecks(input: PublishInput): Check[] {
       text: "This is PRODUCTION. Edits go to openstreetmap.org under each person's account.",
     });
   return checks;
+}
+
+/** Reads readiness from the tasks' choice payloads; undefined when there are none to read. */
+export function guestReadiness(works: unknown[]): GuestReadiness | undefined {
+  const obj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+  const choice = works.filter(obj);
+  if (!choice.length) return undefined;
+  const fills = (q: unknown) => obj(q) && obj(q.expect) && Object.values(q.expect).every((v) => v === null);
+  return {
+    flagged: choice.every((w) => w.liveMissingQuestions === true),
+    fillMissing: choice.every((w) => Array.isArray(w.questions) && w.questions.every(fills)),
+  };
+}
+
+/**
+ * Temporary until G1 (guests everywhere, design/guests-everywhere-backend.md): then guests can answer
+ * any campaign and this check goes. It refuses a campaign that could take guests but was made without
+ * the flag, and only notes a signed-in-only campaign, never blocking it.
+ */
+function guestCheck(g: GuestReadiness | undefined): Check | undefined {
+  if (!g) return undefined;
+  if (g.flagged) return { id: "guests", kind: "pass", text: "Guests can answer: each task asks only for tags that are missing." };
+  if (g.fillMissing)
+    return {
+      id: "guests",
+      kind: "block",
+      text: "Guests can't answer these tasks: they were made without the guest setting. Import them again from the survey builder, which turns it on.",
+    };
+  return {
+    id: "guests",
+    kind: "warning",
+    text: "Signed-in only for now: these questions check values already on the map, so guests can't answer them yet. Participants need an OpenStreetMap account.",
+  };
 }
 
 /** Publish is allowed when nothing blocks and every warning is ticked. */
