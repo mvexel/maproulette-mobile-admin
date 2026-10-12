@@ -18,10 +18,16 @@ case "$ADMIN_ENVIRONMENT" in
 esac
 # OSM_WEB is the OpenStreetMap site the backend signs in with and edits ("See your edits", and
 # the admin's "Sign out of OpenStreetMap" link).
+# Unset, the admin infers it from the environment (dev: the OSM dev server) and the claim page
+# uses openstreetmap.org.
+OSM_JSON=""
+if [ -n "${OSM_WEB:-}" ]; then
+	echo "$OSM_WEB" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?$' ||
+		{ echo "OSM_WEB must be an origin like https://www.openstreetmap.org" >&2; exit 1; }
+	OSM_JSON=",\"osmWeb\":\"$OSM_WEB\""
+fi
 OSM_WEB="${OSM_WEB:-https://www.openstreetmap.org}"
-echo "$OSM_WEB" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?$' ||
-	{ echo "OSM_WEB must be an origin like https://www.openstreetmap.org" >&2; exit 1; }
-printf '{"backend":"%s","clientId":"%s","osmWeb":"%s"%s}\n' "$BACKEND_ORIGIN" "$CLIENT_ID" "$OSM_WEB" "$ENV_JSON" > /srv/admin/config.json
+printf '{"backend":"%s","clientId":"%s"%s%s}\n' "$BACKEND_ORIGIN" "$CLIENT_ID" "$OSM_JSON" "$ENV_JSON" > /srv/admin/config.json
 # The claim page's config.
 CLAIM_CLIENT_ID="${CLAIM_CLIENT_ID:-maproulette-claim}"
 echo "$CLAIM_CLIENT_ID" | grep -Eq '^[A-Za-z0-9._-]{1,100}$' ||
