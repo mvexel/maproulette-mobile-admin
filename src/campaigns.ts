@@ -50,3 +50,21 @@ export function relativeTime(iso: string, now = Date.now()): string {
 export const appLink = (id: number) => `mrchoice://challenge/${id}`;
 /** The universal link; opens the app only once the App Store build exists. */
 export const webLink = (id: number) => `https://streettally.osm.lol/challenge/${id}`;
+/** The campaign's live progress page on the participant site. */
+export const liveLink = (token: string) => `https://streettally.osm.lol/live/${token}`;
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** An instant as a `datetime-local` input value, in local time to the minute. */
+export function toLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** A `datetime-local` value (local time) as an ISO 8601 instant; undefined when it isn't one. */
+export function fromLocalInput(value: string): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}

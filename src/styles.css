@@ -271,6 +271,12 @@ button.primary:hover:not(:disabled) { background: var(--accent-hover); border-co
 .share-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-top: 1px solid var(--line); }
 .share-line h4 { margin: 0 0 .4rem; }
 .share-line code { overflow-wrap: anywhere; }
+.live-settings { display: grid; gap: .7rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.live-settings > *, .live-start p { margin: 0; }
+.live-settings label .hint { display: block; margin-left: 1.6rem; }
+.live-start { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.live-start p { flex-basis: 100%; }
+.live-rotate { padding: .6rem .8rem; border-left: 3px solid var(--signal); background: var(--paper); }
 .share-note { margin: .4rem 0 0; color: var(--accent-text); }
 .qr-block { display: grid; justify-items: center; gap: .4rem; max-width: 16rem; }
 .qr-warning { margin: 0; text-align: center; }

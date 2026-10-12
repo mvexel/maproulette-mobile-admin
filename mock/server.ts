@@ -71,6 +71,9 @@ export const MOCK_LIVE_TOKENS = {
 } as const;
 
 /** `GET /api/v2/live/:token` for a few Woodbine entrances; times are relative to now. */
+/** A live page's settings for the audit log: everything but the token, which is the link. */
+const liveAudit = ({ token: _, ...rest }: { token: string }) => rest;
+
 function livePage(mode: "live" | "ended") {
   const now = Date.now();
   const at = (minutesAgo: number) => new Date(Math.floor((now - minutesAgo * 60000) / 60000) * 60000).toISOString();
@@ -219,6 +222,15 @@ interface MockProject {
   displayName: string | null;
   enabled: boolean;
 }
+interface MockLivePage {
+  challengeId: number;
+  token: string;
+  enabled: boolean;
+  showAnswers: boolean;
+  eventStart: string | null;
+  endedAt: string | null;
+  updatedAt: string;
+}
 interface MockCampaign {
   id: number;
   name: string;
@@ -249,6 +261,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let claimWrites = true;
   let projects = new Map<number, MockProject>();
   let campaigns: MockCampaign[] = [];
+  /** Live progress pages by challenge id (backend docs/mobile-admin-api.md, "Live progress page"). */
+  let livePages = new Map<number, MockLivePage>();
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -337,6 +351,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     seedGuests();
     audit = [];
     writePolicy = false;
+    livePages = new Map();
     projects = new Map([
       [1, { id: 1, name: "SLC test", displayName: null, enabled: false }],
       [2, { id: 2, name: "Street Tally pilots", displayName: "Street Tally pilots", enabled: true }],
@@ -635,6 +650,13 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
       if (live[1] === MOCK_LIVE_TOKENS.live) return send(res, 200, livePage("live"), headers);
       if (live[1] === MOCK_LIVE_TOKENS.ended) return send(res, 200, livePage("ended"), headers);
+      // A page made in the admin shows the same fixture stops, as its settings say.
+      const made = [...livePages.values()].find((p) => p.token === live[1]);
+      if (made && !made.enabled) return send(res, 404, { error: "turned_off" }, headers);
+      if (made) {
+        const page = livePage(made.endedAt ? "ended" : "live");
+        return send(res, 200, { ...page, answersShown: made.showAnswers, ...(made.endedAt ? { endedAt: made.endedAt } : {}) }, headers);
+      }
       return send(res, 404, { error: live[1] === MOCK_LIVE_TOKENS.off ? "turned_off" : "not_found" }, headers);
     }
 
@@ -907,6 +929,22 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
     if (path === "/api/v2/mobile-admin/write-policy" && req.method === "GET")
       return send(res, 200, { enabled: writePolicy, managed: true });
+    const lp = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/live(\/rotate)?$/.exec(path);
+    const liveId = Number(lp?.[1]);
+    const liveExists = () => campaigns.some((c) => c.id === liveId);
+    if (lp && !lp[2] && req.method === "GET") {
+      const p = livePages.get(liveId);
+      if (p) return send(res, 200, p);
+      return problem(res, 404, liveExists() ? "no_live_page" : "not_found");
+    }
+    if (lp?.[2] && req.method === "POST") {
+      const p = livePages.get(liveId);
+      if (!p) return problem(res, 404, "no_live_page");
+      p.token = token();
+      p.updatedAt = new Date().toISOString();
+      record(user.id, "live.rotate", `challenge:${liveId}`, undefined, liveAudit(p));
+      return send(res, 200, p);
+    }
     if (path === "/api/v2/mobile-admin/clients" && req.method === "GET")
       return send(res, 200, { clients: [...clients.values()].sort((a, b) => a.id.localeCompare(b.id)).map(listJson) });
 
@@ -940,6 +978,28 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         writePolicy = v.enabled;
       }
       return send(res, 200, { enabled: writePolicy, managed: true });
+    }
+
+    if (lp && !lp[2] && req.method === "PUT") {
+      const v = checkFields(body, ["enabled", "showAnswers", "eventStart", "ended"]);
+      if (Array.isArray(v)) return problem(res, 400, "invalid_request", v);
+      const errors = (["enabled", "showAnswers", "ended"] as const).filter((f) => f in v && typeof v[f] !== "boolean").map((f) => `${f} must be a boolean`);
+      if ("eventStart" in v && v.eventStart !== null && (typeof v.eventStart !== "string" || Number.isNaN(Date.parse(v.eventStart))))
+        errors.push("eventStart must be an ISO 8601 instant or null");
+      if (errors.length) return problem(res, 400, "invalid_request", errors);
+      if (!liveExists()) return problem(res, 404, "not_found");
+      const now = new Date().toISOString();
+      const before = livePages.get(liveId);
+      const p: MockLivePage = before ?? { challengeId: liveId, token: token(), enabled: true, showAnswers: false, eventStart: null, endedAt: null, updatedAt: now };
+      if ("enabled" in v) p.enabled = v.enabled as boolean;
+      if ("showAnswers" in v) p.showAnswers = v.showAnswers as boolean;
+      if ("eventStart" in v) p.eventStart = v.eventStart === null ? null : new Date(v.eventStart as string).toISOString();
+      if (v.ended === true) p.endedAt ??= now;
+      if (v.ended === false) p.endedAt = null;
+      p.updatedAt = now;
+      livePages.set(liveId, p);
+      record(user.id, before ? "live.update" : "live.create", `challenge:${liveId}`, undefined, liveAudit(p));
+      return send(res, 200, p);
     }
 
     if (path === "/api/v2/mobile-admin/projects" && req.method === "POST") {

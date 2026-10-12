@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Campaign } from "./api";
-import { appState, progressText, relativeTime } from "./campaigns";
+import { appState, fromLocalInput, liveLink, progressText, relativeTime, toLocalInput } from "./campaigns";
 
 const project = { id: 1, name: "P", displayName: null, enabled: true };
 const c = (enabled: boolean, published: boolean, projectOn = true): Campaign => ({
@@ -35,5 +35,18 @@ describe("campaigns", () => {
     expect(relativeTime("2026-10-11T09:00:00Z", now)).toBe("3 hours ago");
     expect(relativeTime("2026-10-10T12:00:00Z", now)).toBe("yesterday");
     expect(relativeTime("not a date", now)).toBe("");
+  });
+
+  it("links the live page by its token", () => {
+    expect(liveLink("abc")).toBe("https://streettally.osm.lol/live/abc");
+  });
+
+  it("round-trips an event start through the local-time input", () => {
+    const local = toLocalInput("2026-10-18T23:00:00Z");
+    expect(local).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+    expect(fromLocalInput(local)).toBe("2026-10-18T23:00:00.000Z");
+    expect(toLocalInput("not a date")).toBe("");
+    expect(fromLocalInput("")).toBeUndefined();
+    expect(fromLocalInput("2026-10-18")).toBeUndefined();
   });
 });
