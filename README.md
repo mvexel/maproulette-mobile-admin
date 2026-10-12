@@ -151,7 +151,7 @@ http://localhost:5174/challenge/7.
 
 The image (`Dockerfile`) builds both sites and serves them with its own small Caddy: the admin app
 on port 80 and the participant site on port 8080. At start, `deploy/entrypoint.sh` writes the
-admin `config.json` from `BACKEND_ORIGIN`, `CLIENT_ID` and the optional `ADMIN_ENVIRONMENT`; the
+admin `config.json` from `BACKEND_ORIGIN`, `CLIENT_ID`, `OSM_WEB` (for "sign out of OpenStreetMap") and the optional `ADMIN_ENVIRONMENT`; the
 participant site's `config.json` from `BACKEND_ORIGIN`, `INSTALL_URL`, `ANDROID_INSTALL_URL` and
 `ANDROID_VERSION`; `claim/config.json` from `BACKEND_ORIGIN`, `CLAIM_CLIENT_ID` and `OSM_WEB`; and
 the apple-app-site-association file when `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID` are set. The

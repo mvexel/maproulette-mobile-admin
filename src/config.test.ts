@@ -24,4 +24,13 @@ describe("environment", () => {
       configure({ backend: "https://mr-api.osm.lol", clientId: "c", environment: "production" as never }),
     ).toThrow("dev, stage or prod");
   });
+
+  it("takes the OpenStreetMap site from config, or from the environment", () => {
+    expect(configure({ backend: "https://mr-stage.osm.lol", clientId: "c" }).osmWeb).toBe("https://www.openstreetmap.org");
+    expect(configure({ backend: "https://mr-api.osm.lol", clientId: "c" }).osmWeb).toBe("https://master.apis.dev.openstreetmap.org");
+    expect(configure({ backend: "https://mr-api.osm.lol", clientId: "c", osmWeb: "https://www.openstreetmap.org" }).osmWeb).toBe(
+      "https://www.openstreetmap.org",
+    );
+    expect(() => configure({ backend: "https://mr-api.osm.lol", clientId: "c", osmWeb: "https://evil.example/x" })).toThrow("osmWeb");
+  });
 });
