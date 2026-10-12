@@ -6,7 +6,8 @@ import { defineConfig, type Plugin } from "vite";
 
 /**
  * The participant site for streettally.osm.lol: the claim page (claim/, a React app under /claim/,
- * deferred-signup-api.md §3.7) plus the static pages in site/ (the root page, the campaign landing
+ * deferred-signup-api.md §3.7), the live progress page (claim/live.html, served at /live/<token>)
+ * plus the static pages in site/ (the root page, the campaign landing
  * page at /challenge/<id> and the apple-app-site-association file). The build writes both to
  * dist-street/; production serves that folder with Caddy (deploy/Caddyfile, port 8080).
  *
@@ -52,6 +53,11 @@ function participantSite(): Plugin {
         applinks: { details: [{ appIDs: [`${team}.${bundle}`], components: [{ "/": "/challenge/*" }] }] },
       });
     }
+    // The live progress page (BACKLOG #12): /live/<token> is the claim build's live.html.
+    if (/^\/live\/[A-Za-z0-9_-]+\/?$/.test(path)) {
+      req.url = "/claim/live.html";
+      return next();
+    }
     if (path.startsWith("/claim/")) return next();
     const file = /^\/challenge\/[^/]+\/?$/.test(path) ? "challenge.html" : path === "/" ? "index.html" : path === "/privacy" ? "privacy.html" : path === "/faq" ? "faq.html" : path.slice(1);
     const full = join(SITE, file);
@@ -80,5 +86,10 @@ export default defineConfig({
   plugins: [react(), participantSite()],
   server: { port: 5174 },
   preview: { port: 4174 },
-  build: { outDir: "../dist-street/claim", emptyOutDir: true },
+  build: {
+    outDir: "../dist-street/claim",
+    emptyOutDir: true,
+    // The claim page, and the live progress page served at /live/<token> (deploy/Caddyfile).
+    rollupOptions: { input: { claim: resolve(import.meta.dirname, "claim/index.html"), live: resolve(import.meta.dirname, "claim/live.html") } },
+  },
 });

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Live map · Street Tally</title>
+    <link rel="icon" href="/claim/icon.svg" type="image/svg+xml" />
+  </head>
+  <body class="live">
+    <header id="header" hidden>
+      <div class="who">
+        <img src="/claim/icon.svg" alt="" />
+        <div>
+          <div class="c" id="campaign"></div>
+          <div class="s">on Street Tally</div>
+        </div>
+      </div>
+      <div class="tally" id="tally" aria-live="polite">
+        <div class="big"><span>The tally: </span><b id="checked"></b><span id="of"></span></div>
+        <div class="sub" id="sub"></div>
+        <div class="bar" aria-hidden="true"><div id="barfill"></div></div>
+      </div>
+    </header>
+
+    <main class="stage" id="stage" hidden>
+      <section id="map" aria-label="Map of the campaign"></section>
+      <ul id="list" class="stop-list" hidden></ul>
+      <div class="panel legend" id="legend">
+        <div><span class="mk todo" aria-hidden="true"></span>To check</div>
+        <div><span class="mk checked" aria-hidden="true"></span>Checked</div>
+        <div><span class="mk look" aria-hidden="true"></span>Needs another look</div>
+        <div id="legendJust"><span class="mk checked just-static" aria-hidden="true"></span>Just checked</div>
+      </div>
+      <div class="panel fresh" id="fresh" role="status"></div>
+      <div class="panel card" id="card" role="dialog" aria-labelledby="cardTitle" hidden></div>
+    </main>
+
+    <div class="message" id="message">
+      <div>
+        <h1 id="msgTitle">Loading the live map…</h1>
+        <p id="msgBody"></p>
+      </div>
+    </div>
+
+    <footer id="footer" hidden></footer>
+
+    <script type="module" src="/src/live/main.ts"></script>
+  </body>
+</html>

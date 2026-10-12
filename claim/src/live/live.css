@@ -1,0 +1,453 @@
+/* The live progress page, from Juno's mock (brand/progress/index.html) and its README spec. */
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #14213d;
+  --text2: #4a5468;
+  --line: #dde1e7;
+  --navy: #14213d;
+  --on-navy: #f3f4f6;
+  --on-navy2: #c9ced8;
+  --accent: #f5a524;
+  --accent-text: #a84f00;
+  --todo: #f5a524;
+  --done: #1f7a4d;
+  --look: #f5a524;
+  --pin-edge: #ffffff;
+  --danger: #b42318;
+  --navy-ring: #14213d;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --card: #16213a;
+    --text: #f3f4f6;
+    --text2: #a7b0c0;
+    --line: #26324d;
+    --accent-text: #fbbf24;
+    --done: #34d399;
+    --look: #fbbf24;
+    --pin-edge: #0b1220;
+    --danger: #f97066;
+    --navy-ring: #f3f4f6;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body.live {
+  height: 100%;
+}
+body.live {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: hidden panels must stay hidden whatever their display. */
+  display: none !important;
+}
+
+/* Header: the campaign leads, "on Street Tally" underneath. */
+.live header {
+  background: var(--navy);
+  color: var(--on-navy);
+  padding: 14px 24px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.who img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex: none;
+}
+.who .c {
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
+}
+.who .s {
+  font-size: 14px;
+  color: var(--on-navy2);
+}
+.tally {
+  margin-left: auto;
+  text-align: right;
+}
+.tally .big {
+  font-size: clamp(22px, 3.2vw, 40px);
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tally .big b {
+  color: var(--accent);
+}
+.tally .sub {
+  font-size: clamp(14px, 1.5vw, 19px);
+  color: var(--on-navy2);
+  font-variant-numeric: tabular-nums;
+}
+.bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.bar > div {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.6s;
+}
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 360px;
+  overflow: hidden;
+}
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+/* Markers keep their pixel size at any zoom. Clicks go to the map, which picks the nearest stop. */
+.pin {
+  --s: 1;
+  pointer-events: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+}
+.pin::before {
+  content: "";
+  display: block;
+}
+.pin:focus-visible {
+  outline: 3px solid var(--accent-text);
+  outline-offset: -6px;
+  border-radius: 50%;
+}
+.pin.todo::before,
+.mk.todo {
+  width: calc(18px * var(--s));
+  height: calc(18px * var(--s));
+  border-radius: 50%;
+  background: var(--todo);
+  border: 3px solid var(--navy);
+}
+.pin.checked::before,
+.mk.checked {
+  width: calc(20px * var(--s));
+  height: calc(20px * var(--s));
+  border-radius: 50%;
+  border: 2px solid var(--pin-edge);
+  /* The tick, drawn in the edge color. */
+  background: var(--done)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20'%3E%3Cpath d='M-4.5 0.2 L-1.2 3.5 L4.8 -3' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 100% no-repeat;
+}
+.pin.look::before,
+.mk.look {
+  width: calc(16px * var(--s));
+  height: calc(16px * var(--s));
+  transform: rotate(45deg);
+  border-radius: 2.5px;
+  background: var(--look);
+  border: 2px solid var(--navy);
+}
+.pin.look::after {
+  content: "?";
+  position: absolute;
+  font-weight: 800;
+  font-size: calc(14px * var(--s));
+  color: var(--navy);
+}
+.mk {
+  display: inline-block;
+  flex: none;
+  --s: 0.8;
+}
+.mk.look {
+  margin: 0 3px;
+}
+.pin {
+  position: relative;
+}
+/* Selected: a 3 px ring outside the marker (review L1). */
+.pin.selected {
+  box-shadow: inset 0 0 0 3px var(--navy-ring);
+  border-radius: 50%;
+}
+/* Recently checked: a ring that grows and fades; still and thin under reduced motion (L6). */
+.pin.just {
+  isolation: isolate;
+}
+.pin.just::after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid var(--done);
+  animation: pulse 2.4s ease-out infinite;
+  z-index: -1;
+}
+@keyframes pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+.mk.just-static {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--done);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin.just::after {
+    animation: none;
+    opacity: 0.8;
+    border-width: 1.5px;
+    transform: scale(1.5);
+  }
+}
+/* Projector: bigger markers from 1400 px wide (L9). */
+@media (min-width: 1400px) {
+  .pin {
+    --s: 1.25;
+  }
+}
+
+.panel {
+  position: absolute;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 10px 14px;
+  font-size: 15px;
+  z-index: 2;
+}
+.legend {
+  left: 16px;
+  bottom: 28px;
+  display: grid;
+  gap: 4px;
+}
+.legend div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fresh {
+  right: 16px;
+  bottom: 28px;
+  color: var(--text2);
+  font-size: 14px;
+}
+.fresh.bad {
+  color: var(--danger);
+  font-weight: 600;
+}
+.fresh .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--done);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.fresh.bad .dot {
+  background: var(--danger);
+}
+
+.card {
+  width: min(360px, calc(100% - 32px));
+  left: 16px;
+  top: 16px;
+  padding: 14px 16px;
+}
+.card h3 {
+  margin: 0 32px 4px 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+.card h3:focus {
+  outline: none;
+}
+.card .state {
+  font-weight: 700;
+}
+.card .state.checked {
+  color: var(--done);
+}
+.card .state.look {
+  color: var(--accent-text);
+}
+.card .state.todo {
+  color: var(--text2);
+}
+.card .when {
+  color: var(--text2);
+  font-size: 14px;
+}
+.card .outcome {
+  margin-top: 10px;
+  font-weight: 600;
+}
+.card dl {
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2px 10px;
+  font-size: 15px;
+}
+.card dt {
+  color: var(--text2);
+}
+.card dd {
+  margin: 0;
+  font-weight: 600;
+}
+.card .x {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: none;
+  color: var(--text2);
+  font-size: 22px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+/* Without a map style: the same stops as a list. */
+.stop-list {
+  list-style: none;
+  margin: 0;
+  padding: 16px 16px 140px;
+  overflow: auto;
+  position: absolute;
+  inset: 0;
+}
+.stop-list .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* List mode has no stop to sit beside: the card docks at the bottom, over the list's spare padding. */
+.list-mode .card {
+  top: auto;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.live footer {
+  padding: 10px 24px;
+  font-size: 14px;
+  color: var(--text2);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+.live footer a {
+  color: var(--accent-text);
+}
+
+.message {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.message > div {
+  max-width: 480px;
+  text-align: center;
+}
+.message h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+}
+.message p {
+  color: var(--text2);
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .live header {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .tally {
+    margin-left: 0;
+    text-align: left;
+    width: 100%;
+  }
+  .legend {
+    left: 8px;
+    bottom: 24px;
+    font-size: 13px;
+  }
+  .fresh {
+    right: 8px;
+    top: 8px;
+    bottom: auto;
+    font-size: 13px;
+  }
+  /* Docked at the bottom: main.ts clears the inline left and top on phones. */
+  .card,
+  .list-mode .card {
+    right: 8px;
+    left: 8px;
+    top: auto;
+    bottom: 8px;
+    width: auto;
+    transform: none;
+  }
+  /* The freshness pill sits at the top on phones: keep the first row clear of it. */
+  .list-mode .stop-list {
+    padding-top: 52px;
+  }
+  .stage:has(.card:not([hidden])) .legend {
+    display: none;
+  }
+  .live footer {
+    padding: 10px 16px;
+  }
+}
