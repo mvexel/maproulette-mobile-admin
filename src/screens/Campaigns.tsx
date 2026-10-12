@@ -5,6 +5,7 @@ import {
   type ChallengeDetail,
   fetchChallengeResults,
   getChallenge,
+  listTaskWork,
   getWritePolicy,
   listCampaigns,
   onWritePolicyChange,
@@ -12,6 +13,7 @@ import {
 } from "../api";
 import { appLink, appState, type AppState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
 import { config } from "../config";
+import { type GuestReadiness, guestReadiness } from "../publish";
 import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { ProjectToggle } from "./Projects";
@@ -202,8 +204,14 @@ export function CampaignPage({ id }: { id: number }) {
   const [sheet, setSheet] = useState<"publish" | "project">();
   const [notice, setNotice] = useState("");
   const [actionError, setActionError] = useState<unknown>();
+  const [guests, setGuests] = useState<GuestReadiness>();
   useEffect(() => {
     getChallenge(id).then(setChallenge, setTextsError);
+    // The publish check only shows when the tasks could be read.
+    listTaskWork(id).then(
+      (works) => setGuests(guestReadiness(works)),
+      () => setGuests(undefined),
+    );
     getWritePolicy().then(
       (p) => setWrites(p.enabled),
       () => setWrites(undefined),
@@ -378,6 +386,7 @@ export function CampaignPage({ id }: { id: number }) {
             checkinComment: challenge.checkinComment ?? "",
             checkinSource: challenge.checkinSource ?? "",
             description: challenge.description ?? "",
+            guests,
           }}
           onCancel={() => setSheet(undefined)}
           onPublish={async () => {
