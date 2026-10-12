@@ -152,7 +152,7 @@ function guestCheck(g: GuestReadiness | undefined): Check | undefined {
   return {
     id: "guests",
     kind: "warning",
-    text: "Signed-in only: these questions check values already on the map, so guests can't answer. People need an OpenStreetMap account.",
+    text: "Signed-in only for now: these questions check values already on the map, so guests can't answer them yet. Participants need an OpenStreetMap account.",
   };
 }
 
