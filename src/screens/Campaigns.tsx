@@ -205,13 +205,17 @@ export function CampaignPage({ id }: { id: number }) {
   const [notice, setNotice] = useState("");
   const [actionError, setActionError] = useState<unknown>();
   const [guests, setGuests] = useState<GuestReadiness>();
+  const [guestsRead, setGuestsRead] = useState(false);
   useEffect(() => {
     getChallenge(id).then(setChallenge, setTextsError);
     // The publish check only shows when the tasks could be read.
-    listTaskWork(id).then(
-      (works) => setGuests(guestReadiness(works)),
-      () => setGuests(undefined),
-    );
+    setGuestsRead(false);
+    listTaskWork(id)
+      .then(
+        (works) => setGuests(guestReadiness(works)),
+        () => setGuests(undefined),
+      )
+      .finally(() => setGuestsRead(true));
     getWritePolicy().then(
       (p) => setWrites(p.enabled),
       () => setWrites(undefined),
@@ -388,6 +392,7 @@ export function CampaignPage({ id }: { id: number }) {
             description: challenge.description ?? "",
             guests,
           }}
+          waiting={!guestsRead}
           onCancel={() => setSheet(undefined)}
           onPublish={async () => {
             try {
