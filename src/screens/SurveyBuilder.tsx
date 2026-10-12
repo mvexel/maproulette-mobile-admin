@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { createSurveyChallenge, describeError, importChallengeTasks, publishSurveyChallenge, type TaskImportReport } from "../api";
 import { config } from "../config";
-import { guestReadiness } from "../publish";
 import { navigate } from "../router";
 import { Challenges } from "./Challenges";
 import { PublishSheet } from "./PublishSheet";
@@ -192,7 +191,7 @@ export function SurveyBuilder() {
       {challengeId && <><p>Challenge <strong>{challengeId}</strong> on <code>{config().backend}</code>. Keep this ID with your survey file.</p><button type="button" disabled={busy || importAttempted} onClick={() => void importTasks()}>Import {result.generated?.count} reviewed tasks</button></>}
       {report && <div role="status"><p>Created {report.created}; updated {report.updated}; rejected {report.rejected.length}.</p>{report.rejected.map(r => <p className="error" key={r.line}>Line {r.line}: {r.errors.join("; ")}</p>)}</div>}
       {report && !published && <><p>Publish only after every reviewed task was created successfully. This makes the challenge visible in the mobile app; it does not enable OSM writes.</p><button type="button" disabled={busy || publishAttempted || report.rejected.length > 0 || report.updated > 0 || report.created !== result.generated?.count} onClick={() => setPublishing(true)}>Publish</button></>}
-      {publishing && challengeId && projectId !== undefined && report && result.survey && <PublishSheet projectId={projectId} input={{ report: { created: report.created, updated: report.updated, rejected: report.rejected.length, expected: result.generated?.count ?? 0 }, checkinComment: result.survey.challenge.checkinComment, checkinSource: result.survey.challenge.checkinSource, description: result.survey.challenge.description ?? "", guests: guestReadiness(result.generated?.text.trim().split("\n").filter(Boolean).map(l => JSON.parse(l).cooperativeWork) ?? []) }} onPublish={publish} onCancel={() => setPublishing(false)} />}
+      {publishing && challengeId && projectId !== undefined && report && result.survey && <PublishSheet projectId={projectId} input={{ report: { created: report.created, updated: report.updated, rejected: report.rejected.length, expected: result.generated?.count ?? 0 }, checkinComment: result.survey.challenge.checkinComment, checkinSource: result.survey.challenge.checkinSource, description: result.survey.challenge.description ?? "" }} onPublish={publish} onCancel={() => setPublishing(false)} />}
       {published && challengeId && <p>Refresh the campaign list in the mobile app to find this survey. <a href={`/campaigns/${challengeId}`} onClick={e => { e.preventDefault(); navigate(`/campaigns/${challengeId}`); }}>Open the campaign page</a> to share it.</p>}
     </div>
     <details className="panel advanced-import">

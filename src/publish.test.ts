@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canPublish, guestReadiness, publishChecks, type PublishInput } from "./publish";
+import { canPublish, publishChecks, type PublishInput } from "./publish";
 
 const good: PublishInput = {
   report: { created: 3, updated: 0, rejected: 0, expected: 3 },
@@ -53,37 +53,5 @@ describe("publish checks", () => {
 
   it("leave out the import check on the campaign page", () => {
     expect(kinds({ ...good, report: undefined }).import).toBeUndefined();
-  });
-});
-
-describe("guest check (temporary until G1)", () => {
-  const fill = { liveMissingQuestions: true, questions: [{ expect: { door: null } }] };
-  const unflagged = { questions: [{ expect: { door: null } }] };
-  const verify = { questions: [{ expect: { amenity: "bench" } }] };
-
-  it("reads readiness from task payloads", () => {
-    expect(guestReadiness([fill, fill])).toEqual({ flagged: true, fillMissing: true });
-    expect(guestReadiness([fill, unflagged])).toEqual({ flagged: false, fillMissing: true });
-    expect(guestReadiness([verify])).toEqual({ flagged: false, fillMissing: false });
-    expect(guestReadiness([])).toBeUndefined();
-  });
-
-  it("passes a guest-ready campaign and leaves the check out when unknown", () => {
-    expect(kinds({ ...good, guests: { flagged: true, fillMissing: true } }).guests).toBe("pass");
-    expect(kinds(good).guests).toBeUndefined();
-  });
-
-  it("refuses a fill-missing campaign made without the guest setting", () => {
-    const input = { ...good, guests: { flagged: false, fillMissing: true } };
-    expect(kinds(input).guests).toBe("block");
-    expect(canPublish(publishChecks(input), new Set(["guests"]))).toBe(false);
-  });
-
-  it("never blocks a signed-in-only campaign: a warning to tick, saying so", () => {
-    const input = { ...good, guests: { flagged: false, fillMissing: false } };
-    const check = publishChecks(input).find((c) => c.id === "guests");
-    expect(check).toMatchObject({ kind: "warning" });
-    expect(check?.text).toMatch(/^Signed-in only/);
-    expect(canPublish(publishChecks(input), new Set(["guests"]))).toBe(true);
   });
 });
