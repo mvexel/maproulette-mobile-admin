@@ -19,13 +19,16 @@ export function NotSuperUser() {
       {/* OpenStreetMap ignores prompt=login for this kind of sign-in and keeps you signed in, so
           signing in again would pick the same account: sign out there first. Its logout page only
           returns to its own site, hence a new tab. */}
-      <p className="hint">
-        OpenStreetMap remembers the account you used. To use another one, first{" "}
-        <a href={`${config().osmWeb}/logout`} target="_blank" rel="noopener noreferrer">
-          sign out of OpenStreetMap
-        </a>{" "}
-        in the tab that opens, then come back here.
-      </p>
+      <p className="hint">Signed in with the wrong OpenStreetMap account? OpenStreetMap remembers it, so do this first:</p>
+      <ol className="hint">
+        <li>
+          <a href={`${config().osmWeb}/logout`} target="_blank" rel="noopener noreferrer">
+            Sign out of OpenStreetMap
+          </a>{" "}
+          (opens in a new tab; confirm there, then close the tab).
+        </li>
+        <li>Come back here and tap Sign in with another account.</li>
+      </ol>
       <button
         type="button"
         disabled={busy}
