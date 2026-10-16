@@ -20,6 +20,9 @@ function runtimeConfig(): Plugin {
         backend,
         clientId: process.env.ADMIN_CLIENT_ID ?? "maproulette-mobile-admin",
         environment: process.env.ADMIN_ENVIRONMENT || undefined,
+        // The wizard's place search and map: the mock answers /search, and no map unless asked for.
+        geocoder: process.env.ADMIN_GEOCODER ?? backend,
+        mapStyle: process.env.ADMIN_MAP_STYLE ?? "",
       }),
     );
   };

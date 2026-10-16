@@ -1,31 +1,34 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { describeError, me, type Me } from "./api";
+import { describeError, type Me, me } from "./api";
 import { hasSession, onAuthChange, signOut } from "./auth";
 import { navigate, usePath } from "./router";
 import { Audit } from "./screens/Audit";
 import { Callback } from "./screens/Callback";
-import { Clients } from "./screens/Clients";
 import { CampaignList, CampaignPage } from "./screens/Campaigns";
+import { Clients } from "./screens/Clients";
 import { EnvironmentBadge, WritesPill } from "./screens/Environment";
 import { SignIn } from "./screens/SignIn";
-import { WritePolicy } from "./screens/WritePolicy";
 import { SurveyBuilder } from "./screens/SurveyBuilder";
+import { Wizard } from "./screens/Wizard";
+import { WritePolicy } from "./screens/WritePolicy";
 
 const SCREENS: Record<string, { title: string; render: () => React.ReactNode }> = {
   "/": { title: "Campaigns", render: () => <CampaignList /> },
-  "/new": { title: "New campaign", render: () => <SurveyBuilder /> },
+  "/new": { title: "New campaign", render: () => <Wizard /> },
   "/writes": { title: "Task writes", render: () => <WritePolicy /> },
   "/clients": { title: "Clients", render: () => <Clients /> },
   "/audit": { title: "Audit log", render: () => <Audit /> },
 };
 
-/** Old addresses, kept working: the survey builder and challenge import now live in New campaign. */
-const MOVED: Record<string, string> = { "/surveys": "/new", "/challenges": "/new" };
+/** Old addresses, kept working: the survey builder and challenge import are New campaign's advanced path. */
+const MOVED: Record<string, string> = { "/surveys": "/new/advanced", "/challenges": "/new/advanced" };
 
 /** The screen for a path, and which nav entry it belongs to. */
 function route(path: string): { nav: string; node: React.ReactNode } | undefined {
   const m = /^\/campaigns\/([1-9][0-9]{0,15})$/.exec(path);
   if (m) return { nav: "/", node: <CampaignPage key={m[1]} id={Number(m[1])} /> };
+  // The survey builder: the advanced path under New campaign.
+  if (path === "/new/advanced") return { nav: "/new", node: <SurveyBuilder /> };
   const screen = SCREENS[path];
   return screen && { nav: path, node: screen.render() };
 }

@@ -14,6 +14,93 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 
+/** The wizard's question sets (design/wizard/wizard-api-draft.md §1), from our campaign files. */
+export const QUESTION_SETS = [
+  {
+    id: "entrance-doors",
+    version: 3,
+    name: "Entrance doors",
+    why: "Wheelchair, stroller and walker users know what to expect",
+    audience: "wheelchair, stroller and walker users",
+    noun: { one: "entrance", many: "entrances" },
+    example: "How does this door open?",
+    pace: 30,
+    description: "Help map the {nounMany} around {place}, so {audience} know what to expect.",
+  },
+  {
+    id: "crossings",
+    version: 1,
+    name: "Crossings",
+    why: "Blind and low-vision people find safe crossings",
+    audience: "blind and low-vision people",
+    noun: { one: "crossing", many: "crossings" },
+    example: "Are there tactile paving bumps at the kerb?",
+    pace: 25,
+    description: "Help map the {nounMany} around {place}, so {audience} can find safe ones.",
+  },
+  {
+    id: "bus-stops",
+    version: 2,
+    name: "Bus stops",
+    why: "Riders know if there's a shelter, bench or bin",
+    audience: "riders",
+    noun: { one: "stop", many: "stops" },
+    example: "Is there a shelter with a roof?",
+    pace: 12,
+    description: "Help map the bus {nounMany} around {place}, so {audience} know what's there.",
+  },
+  {
+    id: "benches",
+    version: 1,
+    name: "Benches",
+    why: "People who need to rest know where they can",
+    audience: "people who need to rest",
+    noun: { one: "bench", many: "benches" },
+    example: "Does it have a backrest?",
+    pace: 40,
+    description: "Help map the {nounMany} around {place}, so {audience} know where they can.",
+  },
+  {
+    id: "trees",
+    version: 1,
+    name: "Trees",
+    why: "Maps of shade and canopy",
+    audience: "people planning for shade",
+    noun: { one: "tree", many: "trees" },
+    example: "What kind of leaves does it have?",
+    pace: 60,
+    description: "Help map the {nounMany} around {place}, for better maps of shade and canopy.",
+  },
+];
+
+/** Nominatim-shaped places for the wizard's search. */
+export const MOCK_PLACES = [
+  { lat: "40.7538166", lon: "-111.9068120", name: "Woodbine Food Hall", display_name: "Woodbine Food Hall, 545 West 700 South, Salt Lake City, Utah, United States" },
+  { lat: "40.7608", lon: "-111.8910", name: "Salt Lake City", display_name: "Salt Lake City, Salt Lake County, Utah, United States" },
+  { lat: "40.7650", lon: "-111.9010", name: "Salt Lake City Library", display_name: "Salt Lake City Library, 210 East 400 South, Salt Lake City, Utah, United States" },
+];
+
+/** The wizard's area from a query, or undefined when it's out of range. */
+function wizardArea(q: URLSearchParams): { lat: number; lon: number; radius: number } | undefined {
+  const lat = Number(q.get("lat"));
+  const lon = Number(q.get("lon"));
+  const radius = Number(q.get("radius"));
+  if (![lat, lon, radius].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || radius < 200 || radius > 3000) return undefined;
+  return { lat, lon, radius };
+}
+
+/**
+ * The mock's counts grow with the circle's area. Benches have nothing open (every one is complete)
+ * and trees always time out, so both card states show.
+ */
+function wizardCount(set: string, version: number, a: { radius: number }) {
+  if (set === "trees") return { set, version, unavailable: true as const };
+  const scale = (a.radius / 800) ** 2;
+  const base: Record<string, [number, number]> = { "entrance-doors": [23, 41], crossings: [14, 9], "bus-stops": [6, 2], benches: [0, 12] };
+  const [open, complete] = base[set] ?? [0, 0];
+  return { set, version, open: Math.round(open * scale), complete: Math.round(complete * scale) };
+}
+
 /** The one challenge the mock has results for (GET /api/v2/mobile-admin/challenges/:id/results). */
 export const RESULTS_CHALLENGE_ID = 42;
 export const RESULTS_CSV =
@@ -586,7 +673,12 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   const oauthPaths = ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"];
   const adminPaths = (path: string) =>
-    path.startsWith("/api/v2/mobile-admin/") || /^\/api\/v2\/challenge\/[0-9]+$/.test(path) || oauthPaths.includes(path);
+    path.startsWith("/api/v2/mobile-admin/") ||
+    path.startsWith("/api/v2/mobile-organize/") ||
+    // The wizard's place search (Nominatim's shape), so tests need no network.
+    path === "/search" ||
+    /^\/api\/v2\/challenge\/[0-9]+$/.test(path) ||
+    oauthPaths.includes(path);
   // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
   const claimPaths = (path: string) =>
     oauthPaths.includes(path) ||
@@ -852,6 +944,23 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, { id, name, enabled, parent: projectId, description, instruction, checkinComment, checkinSource });
     }
 
+    // Nominatim's /search, for the wizard's step 1 (design/wizard/wizard-api-draft.md).
+    if (path === "/search" && req.method === "GET") {
+      const term = (q.get("q") ?? "").toLowerCase();
+      return send(res, 200, term.includes("nowhere") ? [] : MOCK_PLACES.filter((p) => term.split(/\s+/).some((w) => w && p.display_name.toLowerCase().includes(w))));
+    }
+
+    // The campaign wizard's endpoints (design/wizard/wizard-api-draft.md). An admin grant reaches
+    // them until the organizer role (piece 1) adds mobile:organize.
+    if (path.startsWith("/api/v2/mobile-organize/")) {
+      if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
+      const b = bearer(req);
+      if (!b) return problem(res, 401, "invalid_token");
+      if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
+      if (!b.user.superUser) return problem(res, 403, "admin_required");
+      return organize(res, path, q);
+    }
+
     if (path.startsWith("/api/v2/mobile-admin/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
@@ -1073,6 +1182,38 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       tasks: { total: c.total, checked: c.checked, needsLook: c.needsLook },
     };
   };
+
+  // --- campaign wizard (design/wizard/wizard-api-draft.md) ------------------------------------------
+
+  function organize(res: ServerResponse, path: string, q: URLSearchParams) {
+    if (path === "/api/v2/mobile-organize/question-sets") return send(res, 200, { sets: QUESTION_SETS });
+    const area = wizardArea(q);
+    if (path === "/api/v2/mobile-organize/counts") {
+      if (!area) return problem(res, 400, "invalid_request", ["lat, lon and radius (200-3000 m)"]);
+      return send(res, 200, { counts: QUESTION_SETS.map((s) => wizardCount(s.id, s.version, area)) });
+    }
+    const fm = /^\/api\/v2\/mobile-organize\/question-sets\/([a-z-]+)\/features$/.exec(path);
+    if (fm) {
+      const s = QUESTION_SETS.find((x) => x.id === fm[1]);
+      if (!s) return problem(res, 404, "not_found");
+      if (!area) return problem(res, 400, "invalid_request", ["lat, lon and radius (200-3000 m)"]);
+      const c = wizardCount(s.id, s.version, area);
+      const n = "unavailable" in c ? 0 : c.open;
+      const open = Array.from({ length: n }, (_, i) => {
+        // A golden-angle spiral inside the circle: spread out, and the same every time.
+        const r = (area.radius * Math.sqrt((i + 0.5) / n)) / 111_320;
+        const t = i * 2.399963;
+        return {
+          id: i % 7 === 6 ? `way/${7000 + i}` : `node/${9100 + i}`,
+          lon: area.lon + (r * Math.cos(t)) / Math.cos((area.lat * Math.PI) / 180),
+          lat: area.lat + r * Math.sin(t),
+          name: i % 3 === 0 ? `${s.noun.one.charAt(0).toUpperCase()}${s.noun.one.slice(1)} ${i + 1}` : null,
+        };
+      });
+      return send(res, 200, { set: s.id, version: s.version, complete: "unavailable" in c ? 0 : c.complete, truncated: false, open });
+    }
+    return problem(res, 404, "not_found");
+  }
 
   async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {
     const results = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/results$/.exec(path);

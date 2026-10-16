@@ -234,6 +234,7 @@ test("lists a challenge's not-here and moved reports with iD links", async ({ pa
   await signIn(page);
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
   await page.getByRole("link", { name: "New campaign" }).click();
+  await page.getByRole("link", { name: "Advanced: build from a survey file" }).click();
   await page.getByText("Advanced: import a task file into an existing challenge").click();
   const panel = page.locator(".panel:has(> h3:text-is('Reports'))");
   await panel.getByLabel("Challenge ID").fill("12345");

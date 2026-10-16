@@ -10,9 +10,15 @@ export interface Config {
   osmWeb: string;
   /** The participant site (live and review pages, campaign links) for this backend, as an origin. */
   participantSite: string;
+  /** The place search for the campaign wizard: a Nominatim-compatible origin. */
+  geocoder: string;
+  /** The basemap style for the wizard's maps; empty for list-only (tests). */
+  mapStyle: string;
 }
 
 const OSM = "https://www.openstreetmap.org";
+const NOMINATIM = "https://nominatim.openstreetmap.org";
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 const OSM_DEV = "https://master.apis.dev.openstreetmap.org";
 
 const SITE: Record<Environment, string> = {
@@ -48,13 +54,19 @@ export function configure(raw: Partial<Config>): Config {
     throw new Error("config.json osmWeb must be an origin like https://www.openstreetmap.org");
   if (raw.participantSite !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?$/.test(raw.participantSite))
     throw new Error("config.json participantSite must be an origin like https://streettally.osm.lol");
+  if (raw.geocoder !== undefined && !/^https?:\/\/[A-Za-z0-9.-]+(:[0-9]+)?$/.test(raw.geocoder))
+    throw new Error("config.json geocoder must be an origin like https://nominatim.openstreetmap.org");
+  if (raw.mapStyle !== undefined && raw.mapStyle !== "" && !/^https?:\/\//.test(raw.mapStyle))
+    throw new Error("config.json mapStyle must be a style URL, or empty for no map");
   const backend = raw.backend.replace(/\/+$/, "");
   const environment = raw.environment ?? inferEnvironment(backend);
   // Dev signs in with the OSM dev server; stage and prod with openstreetmap.org.
   const osmWeb = raw.osmWeb ?? (environment === "dev" ? OSM_DEV : OSM);
   // Each environment has its own participant site; an unknown backend links to prod's.
   const participantSite = raw.participantSite ?? SITE[environment ?? "prod"];
-  current = { backend, clientId: raw.clientId, environment, osmWeb, participantSite };
+  const geocoder = raw.geocoder ?? NOMINATIM;
+  const mapStyle = raw.mapStyle ?? MAP_STYLE;
+  current = { backend, clientId: raw.clientId, environment, osmWeb, participantSite, geocoder, mapStyle };
   return current;
 }
 
