@@ -207,6 +207,8 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "That area has more than 2,000 places to check. Make it smaller.", detail: [] };
     case "osm_unavailable":
       return { message: "OpenStreetMap data isn't reachable right now. Try again in a few minutes.", detail: [] };
+    case "osm_timeout":
+      return { message: "OpenStreetMap took too long to answer. Try a smaller area, or try again in a few minutes.", detail: [] };
     case "write_prerequisites_missing":
       return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:

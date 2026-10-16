@@ -1323,7 +1323,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     // The mock's feature ids run node/9100+i (see the features route); every set is nodes only.
     const inArea = new Set(Array.from({ length: open }, (_, i) => `node/${9100 + i}`));
     const tasks = open - new Set(leaveOut.filter((id) => inArea.has(id))).size;
-    if (open > 2000) return problem(res, 422, "area_too_big");
+    if (open > 2000) return problem(res, 400, "area_too_big");
     if (tasks <= 0) return problem(res, 422, "nothing_to_check");
     const id = Math.max(100, ...campaigns.map((x) => x.id)) + 1;
     const tag = `#StreetTally${String(b.area?.place).replace(/[^A-Za-z0-9 ]/g, "").replace(/(?:^|\s+)(\w)/g, (_, ch: string) => ch.toUpperCase())}`.slice(0, 40);
