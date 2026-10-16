@@ -748,6 +748,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     // A MapLibre style with no tiles, so map pages can be checked without the network.
     if (path === "/__mock/style.json" && req.method === "GET")
       return send(res, 200, { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#ECEBE5" } }] }, { "Access-Control-Allow-Origin": "*" });
+    // The server's task-write switch, without an admin sign-in (wizard tests).
+    if (path === "/__mock/write-policy" && req.method === "POST") {
+      writePolicy = q.get("enabled") === "true";
+      return send(res, 204);
+    }
     if (path === "/__mock/claim-writes" && req.method === "POST") {
       claimWrites = q.get("enabled") === "true";
       return send(res, 204);
@@ -1224,15 +1229,22 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   /** `own`: an organizer's projects; undefined for a super-user, who may use any project. */
   async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, own: Set<number> | undefined) {
-    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") return createCampaign(req, res, user, own);
+    // Scala's wizard backend: create and publish are writes, refused while saving is off (#47's rule).
+    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") {
+      if (!writePolicy) return problem(res, 403, "mobile_writes_disabled");
+      return createCampaign(req, res, user, own);
+    }
     const pub = /^\/api\/v2\/mobile-organize\/campaigns\/([0-9]+)\/publish$/.exec(path);
     if (pub && req.method === "POST") {
       const c = campaigns.find((x) => x.id === Number(pub[1]));
       if (!c) return problem(res, 404, "not_found");
+      if (own && !own.has(c.projectId)) return problem(res, 403, "organizer_forbidden");
+      if (!writePolicy) return problem(res, 403, "mobile_writes_disabled");
       c.enabled = c.published = true;
       c.modified = new Date().toISOString();
       record(user.id, "campaign.publish", `challenge:${c.id}`, { published: false }, { published: true });
-      return send(res, 200, { id: c.id, published: true });
+      // Publish doesn't turn the project on: that would list its other campaigns too.
+      return send(res, 200, { id: c.id, published: true, listed: projects.get(c.projectId)?.enabled ?? false });
     }
     if (path === "/api/v2/mobile-organize/question-sets") return send(res, 200, { sets: QUESTION_SETS });
     const area = wizardArea(q);
@@ -1252,7 +1264,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         const r = (area.radius * Math.sqrt((i + 0.5) / n)) / 111_320;
         const t = i * 2.399963;
         return {
-          id: i % 7 === 6 ? `way/${7000 + i}` : `node/${9100 + i}`,
+          id: `node/${9100 + i}`,
           lon: area.lon + (r * Math.cos(t)) / Math.cos((area.lat * Math.PI) / 180),
           lat: area.lat + r * Math.sin(t),
           name: i % 3 === 0 ? `${s.noun.one.charAt(0).toUpperCase()}${s.noun.one.slice(1)} ${i + 1}` : null,
@@ -1296,8 +1308,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     if (b.version !== s.version) return problem(res, 409, "set_changed", [`${s.id} is at version ${s.version}`]);
     const c = wizardCount(s.id, s.version, area);
     const open = "unavailable" in c ? 0 : c.open;
-    // The mock's feature ids run node/9100+i and way/7000+i (see the features route).
-    const inArea = new Set(Array.from({ length: open }, (_, i) => (i % 7 === 6 ? `way/${7000 + i}` : `node/${9100 + i}`)));
+    // The mock's feature ids run node/9100+i (see the features route); every set is nodes only.
+    const inArea = new Set(Array.from({ length: open }, (_, i) => `node/${9100 + i}`));
     const tasks = open - new Set(leaveOut.filter((id) => inArea.has(id))).size;
     if (tasks <= 0) return problem(res, 422, "nothing_to_check");
     const id = Math.max(100, ...campaigns.map((x) => x.id)) + 1;

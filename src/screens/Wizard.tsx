@@ -38,7 +38,7 @@ import {
   RADIUS_MAX,
   RADIUS_MIN,
 } from "../wizard/words";
-import { useProjects } from "./Projects";
+import { ProjectToggle, useProjects } from "./Projects";
 import { QrSvg, ShareLine } from "./Share";
 
 /**
@@ -191,7 +191,9 @@ export function Wizard() {
           }}
         />
       )}
-      {step === 5 && set && place && words && created && <PublishStep set={set} place={place.name} words={words} campaign={created} />}
+      {step === 5 && set && place && words && created && (
+        <PublishStep set={set} place={place.name} words={words} campaign={created} project={projects?.find((p) => p.id === projectId)} />
+      )}
     </section>
   );
 }
@@ -597,8 +599,21 @@ function Preview({ set, words, open }: { set: QuestionSet; words: Words; open: n
 }
 
 /** Step 5: try the draft, publish, then the share panel (link, QR, invite text and table card). */
-function PublishStep({ set, place, words, campaign }: { set: QuestionSet; place: string; words: Words; campaign: CreatedCampaign }) {
-  const [published, setPublished] = useState(false);
+function PublishStep({
+  set,
+  place,
+  words,
+  campaign,
+  project,
+}: {
+  set: QuestionSet;
+  place: string;
+  words: Words;
+  campaign: CreatedCampaign;
+  project?: Project;
+}) {
+  // undefined: not published yet; otherwise whether the app lists it (false while the project is off).
+  const [listed, setListed] = useState<boolean>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const link = webLink(campaign.id);
@@ -606,15 +621,14 @@ function PublishStep({ set, place, words, campaign }: { set: QuestionSet; place:
     setBusy(true);
     setError(undefined);
     try {
-      await publishCampaign(campaign.id);
-      setPublished(true);
+      setListed((await publishCampaign(campaign.id)).listed);
     } catch (e) {
       setError(describeError(e).message);
     } finally {
       setBusy(false);
     }
   }
-  if (!published)
+  if (listed === undefined)
     return (
       <div className="step publish">
         <p className="saved-line">
@@ -638,17 +652,70 @@ function PublishStep({ set, place, words, campaign }: { set: QuestionSet; place:
         </div>
       </div>
     );
-  return <SharePanel set={set} place={place} words={words} id={campaign.id} link={link} />;
+  return (
+    <SharePanel
+      set={set}
+      place={place}
+      words={words}
+      id={campaign.id}
+      link={link}
+      listed={listed}
+      project={project}
+      onListed={() => setListed(true)}
+    />
+  );
 }
 
-function SharePanel({ set, place, words, id, link }: { set: QuestionSet; place: string; words: Words; id: number; link: string }) {
+function SharePanel({
+  set,
+  place,
+  words,
+  id,
+  link,
+  listed,
+  project,
+  onListed,
+}: {
+  set: QuestionSet;
+  place: string;
+  words: Words;
+  id: number;
+  link: string;
+  listed: boolean;
+  project?: Project;
+  onListed: () => void;
+}) {
   const invite = inviteText(set, place, link, words.eventDate || undefined);
   const [copied, setCopied] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const projectName = project ? project.displayName || project.name : "its project";
   return (
     <div className="step share">
-      <p className="live-line" role="status">
-        Your campaign is live. Anyone with the link can join.
-      </p>
+      {listed ? (
+        <p className="live-line" role="status">
+          Your campaign is live. Anyone with the link can join.
+        </p>
+      ) : (
+        <p className="warning" role="status">
+          Published, but project “{projectName}” is off, so the campaign isn't in the app yet.{" "}
+          {project && (
+            <button type="button" onClick={() => setToggling(true)}>
+              Turn project on
+            </button>
+          )}
+        </p>
+      )}
+      {toggling && project && (
+        <ProjectToggle
+          project={{ id: project.id, name: projectName }}
+          enable
+          onDone={() => {
+            setToggling(false);
+            onListed();
+          }}
+          onCancel={() => setToggling(false)}
+        />
+      )}
       <ShareLine label="Invite link" url={link} file={`campaign-${id}-qr.png`} />
       <div className="invite">
         <h4>Invite to paste</h4>

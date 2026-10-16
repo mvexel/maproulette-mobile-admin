@@ -12,6 +12,8 @@ async function openWizard(page: Page) {
 
 test.beforeEach(async ({ request }) => {
   expect((await request.post(`${MOCK}/__mock/reset`)).status()).toBe(204);
+  // Create and publish are writes: refused while saving is off (backend #47's rule).
+  expect((await request.post(`${MOCK}/__mock/write-policy?enabled=true`)).status()).toBe(204);
 });
 
 test("goes from a place to drafted words with no tags or files", async ({ page }) => {
@@ -195,4 +197,30 @@ test("an organizer starts the wizard from Campaigns and the campaign lands in th
   await page.getByRole("link", { name: "Open the campaign page" }).click();
   await expect(page).toHaveURL("/campaigns/101");
   await expect(page.getByRole("heading", { level: 2, name: /^Crossings around Woodbine Food Hall/ })).toBeVisible();
+});
+
+test("says when saving is off, and offers to turn an off project on after publishing", async ({ page, request }) => {
+  await openWizard(page);
+  await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "SLC test" });
+  await page.getByRole("button", { name: "Next: what to check" }).click();
+  await page.getByRole("list", { name: "Question sets" }).getByRole("button", { name: /^Bus stops/ }).click();
+  await page.getByRole("button", { name: "Next: check the list" }).click();
+  await page.getByRole("button", { name: "Next: words" }).click();
+
+  await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
+  await page.getByRole("button", { name: "Next: save and share" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Saving is off on this server, so you can't make changes now. Ask the Street Tally team to turn it on.",
+  );
+  await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
+  await page.getByRole("button", { name: "Next: save and share" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+
+  const status = page.getByRole("status").first();
+  await expect(status).toHaveText("Published, but project “SLC test” is off, so the campaign isn't in the app yet. Turn project on");
+  await status.getByRole("button", { name: "Turn project on" }).click();
+  await page.getByRole("dialog", { name: "Turn on project “SLC test”?" }).getByRole("button", { name: "Turn on" }).click();
+  await expect(page.getByRole("status").first()).toHaveText("Your campaign is live. Anyone with the link can join.");
 });

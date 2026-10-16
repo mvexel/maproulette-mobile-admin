@@ -74,7 +74,8 @@ export interface CreatedCampaign {
 
 /** Creates the campaign as a draft. A 409 `set_changed` means `version` is no longer current. */
 export const createCampaign = (c: NewCampaign) => api<CreatedCampaign>(`${ORGANIZE}/campaigns`, { method: "POST", body: JSON.stringify(c) });
-export const publishCampaign = (id: number) => api<{ id: number; published: true }>(`${ORGANIZE}/campaigns/${id}/publish`, { method: "POST" });
+/** `listed` is false while the project is off; publishing never turns a project on. */
+export const publishCampaign = (id: number) => api<{ id: number; published: true; listed: boolean }>(`${ORGANIZE}/campaigns/${id}/publish`, { method: "POST" });
 
 /** A place search result. */
 export interface Place {
