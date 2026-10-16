@@ -66,7 +66,7 @@ export function stateLabel(p: ReviewPlace): string | undefined {
 export function stateHint(p: ReviewPlace): string | undefined {
   if (p.state === "disagree") return "People gave different answers here. Look before you add one.";
   if (p.state === "stale") return "OpenStreetMap changed here after the survey. Check what's there now before you add anything.";
-  if (p.state === "gone") return "This is no longer on OpenStreetMap. Look on the ground or on imagery before you add it back.";
+  if (p.state === "gone") return "This was deleted from OpenStreetMap after the survey, maybe for a reason. Check on the ground before adding it back.";
   if (p.state === "open" && needsLook(p)) return "Not a tag change. Look at it on the ground or on imagery first.";
   return undefined;
 }
