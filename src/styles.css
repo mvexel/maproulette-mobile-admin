@@ -357,6 +357,43 @@ progress { width: 100%; max-width: 30rem; height: .8rem; accent-color: var(--suc
 .wizard .phone .tally { font-weight: 700; }
 .wizard .phone .cta { justify-self: start; margin-top: .4rem; background: var(--accent); color: var(--on-accent); font-weight: 700; border-radius: 999px; padding: .5rem 1rem; }
 .wizard .phone figcaption { margin-top: 1rem; text-align: center; color: var(--muted); font-size: .85rem; }
+.wizard .attribution { margin: .4rem 0 0; color: var(--muted); font-size: .8rem; }
+.wizard .saved-line, .wizard .live-line { font-weight: 600; margin: 0 0 .5rem; }
+.wizard .live-line { color: var(--success); font-size: 1.1rem; }
+.wizard .invite, .wizard .card-block { display: grid; gap: .5rem; justify-items: start; padding: .8rem 0; border-top: 1px solid var(--line); }
+.wizard .invite h4, .wizard .card-block h4 { margin: 0; }
+.wizard .invite textarea { width: 100%; max-width: 40rem; font-weight: 400; }
+.wizard .table-card { --navy: #14213d; --amber: #f5a524; --text2: #4a5468; --surface: #f4f5f7; --line: #dde1e7;
+  zoom: .62; width: 5.5in; height: 8.5in; overflow: hidden; display: flex; flex-direction: column; background: #fff; color: var(--navy);
+  border: 1px solid var(--line); font: 11pt/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.wizard .table-card header { display: block; position: static; border: 0; box-shadow: none; background: var(--navy); color: #fff; padding: .26in .4in .24in; }
+.wizard .table-card .brand { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 10pt; }
+.wizard .table-card .brand img { border-radius: 5px; }
+.wizard .table-card .eyebrow { margin: .14in 0 0; font-size: 9pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #c9ced8; }
+.wizard .table-card h3 { margin: .04in 0 0; font-size: 25pt; line-height: 1.08; font-weight: 800; }
+.wizard .table-card .lede { margin: .08in 0 0; font-size: 11.5pt; color: #e5e8ee; }
+.wizard .table-card ol { list-style: none; margin: .06in .4in 0; padding: 0; display: grid; gap: .07in; }
+.wizard .table-card li { display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: .08in .14in; }
+.wizard .table-card li b { display: block; font-size: 12pt; }
+.wizard .table-card .num { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--amber); font-weight: 800; display: grid; place-items: center; }
+.wizard .table-card .mid { display: flex; gap: .22in; align-items: center; padding: .14in .4in .06in; }
+.wizard .table-card .mid svg { flex: none; width: 2.2in; height: 2.2in; }
+.wizard .table-card .mid path { fill: var(--navy); }
+.wizard .table-card .mid b { display: block; font-size: 15pt; line-height: 1.2; }
+.wizard .table-card .say { display: block; margin-top: 4px; color: var(--text2); font-size: 10pt; }
+.wizard .table-card .mid .say { font-size: 10.5pt; }
+.wizard .table-card .mid code { display: block; margin-top: 8px; font-size: 8pt; color: var(--text2); overflow-wrap: anywhere; }
+.wizard .table-card .saved { margin: .1in .4in 0; padding: .1in .14in; border-left: 4px solid var(--amber); background: var(--surface); border-radius: 0 12px 12px 0; font-size: 10pt; color: var(--text2); }
+.wizard .table-card .saved b { color: var(--navy); }
+.wizard .table-card footer { margin-top: auto; padding: .1in .4in .22in; display: flex; justify-content: space-between; gap: 1rem; font-size: 9pt; color: var(--text2); }
+.wizard .table-card .tag { color: #a84f00; font-weight: 700; }
+@media print {
+  body:has(.table-card) { background: #fff; }
+  body:has(.table-card) * { visibility: hidden; }
+  body:has(.table-card) .table-card, body:has(.table-card) .table-card * { visibility: visible; }
+  body:has(.table-card) .wizard .table-card { zoom: 1; position: fixed; inset: 0; border: 0; }
+}
 .wizard .stepper { display: flex; flex-wrap: wrap; gap: .4rem; list-style: none; padding: 0; margin: .5rem 0 1.25rem; }
 .wizard .stepper button { background: var(--paper); border-radius: 999px; padding: .3rem .9rem .3rem .35rem; display: inline-flex; align-items: center; gap: .45rem; }
 .wizard .stepper .n { display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--surface-strong); font-weight: 700; font-size: .85rem; }

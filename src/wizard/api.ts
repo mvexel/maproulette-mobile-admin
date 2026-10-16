@@ -52,6 +52,28 @@ export const questionSets = async () => (await api<{ sets: QuestionSet[] }>(`${O
 export const countSets = async (a: Area) => (await api<{ counts: SetCount[] }>(`${ORGANIZE}/counts?${areaQuery(a)}`)).counts;
 export const setFeatures = (set: string, a: Area) => api<SetFeatures>(`${ORGANIZE}/question-sets/${encodeURIComponent(set)}/features?${areaQuery(a)}`);
 
+/** What the admin sends to create a campaign. The server re-queries the features and drops `leaveOut`. */
+export interface NewCampaign {
+  set: string;
+  version: number;
+  area: Area & { place: string };
+  leaveOut: string[];
+  name: string;
+  description: string;
+  eventDate?: string;
+}
+
+export interface CreatedCampaign {
+  /** The challenge id; the campaign is a draft until published. */
+  id: number;
+  /** Tasks created: the open features in the area, less the ones left out. */
+  tasks: number;
+}
+
+/** Creates the campaign as a draft. A 409 `set_changed` means `version` is no longer current. */
+export const createCampaign = (c: NewCampaign) => api<CreatedCampaign>(`${ORGANIZE}/campaigns`, { method: "POST", body: JSON.stringify(c) });
+export const publishCampaign = (id: number) => api<{ id: number; published: true }>(`${ORGANIZE}/campaigns/${id}/publish`, { method: "POST" });
+
 /** A place search result. */
 export interface Place {
   /** The short name for the drafted words: "Woodbine Food Hall". */

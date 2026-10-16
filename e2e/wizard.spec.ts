@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { MOCK } from "./env";
 
-/** The campaign wizard, steps 1–4 (design/campaign-wizard.md), against the mock's endpoints. Without a map style: lists. */
+/** The campaign wizard (design/campaign-wizard.md), against the mock's endpoints. Without a map style: lists. */
 
 async function openWizard(page: Page) {
   await page.goto("/");
@@ -94,4 +94,76 @@ test("says when a search finds nothing, and keeps the old builder one click away
   await page.getByRole("link", { name: "Advanced: build from a survey file" }).click();
   await expect(page).toHaveURL("/new/advanced");
   await expect(page.getByRole("button", { name: "Export survey file" })).toBeVisible();
+});
+
+test("saves a draft, survives a changed question set, publishes and shares", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openWizard(page);
+  await expect(page.getByRole("link", { name: "Nominatim" })).toHaveAttribute("href", "https://nominatim.org/");
+  await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("button", { name: "Next: what to check" }).click();
+  await page.getByRole("list", { name: "Question sets" }).getByRole("button", { name: /^Entrance doors/ }).click();
+  await page.getByRole("button", { name: "Next: check the list" }).click();
+  await page.getByRole("button", { name: "Next: words" }).click();
+  await page.getByLabel("Name").fill("Woodbine entrance doors");
+  await page.getByLabel("Event date (optional)").fill("2026-11-10");
+
+  // The first save finds the set moved on: back to step 2, words kept.
+  let first = true;
+  await page.route(`${MOCK}/api/v2/mobile-organize/campaigns`, async (route) => {
+    if (!first) return route.fallback();
+    first = false;
+    await route.fulfill({
+      status: 409,
+      json: { error: "set_changed", detail: ["entrance-doors is at version 4"] },
+      headers: { "Access-Control-Allow-Origin": "http://localhost:4173" },
+    });
+  });
+  await page.getByRole("button", { name: "Next: save and share" }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "The Entrance doors questions changed while you were working. Pick a set again to get the updated list. Your words are kept.",
+  );
+  await page.getByRole("list", { name: "Question sets" }).getByRole("button", { name: /^Entrance doors/ }).click();
+  await page.getByRole("button", { name: "Next: check the list" }).click();
+  await page.getByRole("list", { name: "entrances in the campaign" }).getByRole("button", { name: "Leave out Entrance 1", exact: true }).click();
+  await page.getByRole("button", { name: "Next: words" }).click();
+  await expect(page.getByLabel("Name")).toHaveValue("Woodbine entrance doors");
+
+  const create = page.waitForRequest((r) => r.url().endsWith("/api/v2/mobile-organize/campaigns") && r.method() === "POST");
+  await page.getByRole("button", { name: "Next: save and share" }).click();
+  expect((await create).postDataJSON()).toMatchObject({
+    set: "entrance-doors",
+    version: 3,
+    area: { radius: 800, place: "Woodbine Food Hall" },
+    leaveOut: ["node/9100"],
+    name: "Woodbine entrance doors",
+    eventDate: "2026-11-10",
+  });
+
+  // Step 5: the draft, then publish and the share panel. Earlier steps are closed.
+  await expect(page.locator(".saved-line")).toHaveText("Saved as a draft with 22 entrances. It isn't in the app until you publish.");
+  await expect(page.getByRole("button", { name: /Words/ })).toBeDisabled();
+  await expect(page.getByRole("img", { name: "QR code for https://streettally.mr-dev.osm.lol/challenge/101?preview=1" })).toBeVisible();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Your campaign is live. Anyone with the link can join.");
+  await expect(page.getByRole("img", { name: "QR code for https://streettally.mr-dev.osm.lol/challenge/101" }).first()).toBeVisible();
+  await expect(page.getByLabel("Invite to paste")).toHaveValue(
+    "Join us at Woodbine Food Hall on 10 November 2026 to check entrances for Street Tally. No account needed, just your phone: https://streettally.mr-dev.osm.lol/challenge/101",
+  );
+  const png = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download PNG" }).click();
+  expect((await png).suggestedFilename()).toBe("campaign-101-qr.png");
+  const card = page.getByRole("article", { name: "Table card preview" });
+  await expect(card.getByRole("heading")).toHaveText("Woodbine entrance doors");
+  await expect(card).toContainText("Check the entrances");
+  await expect(card.locator("footer")).toHaveText("10 November 2026 · Woodbine Food Hall#StreetTallyWoodbineFoodHall");
+  await page.screenshot({ path: "test-results/wizard-share.png", fullPage: true });
+  await page.emulateMedia({ media: "print" });
+  await page.screenshot({ path: "test-results/wizard-card-print.png" });
+  await page.emulateMedia({ media: "screen" });
+
+  await page.getByRole("link", { name: "Open the campaign page" }).click();
+  await expect(page).toHaveURL("/campaigns/101");
+  await expect(page.locator(".status-line")).toContainText("Listed in the app");
 });

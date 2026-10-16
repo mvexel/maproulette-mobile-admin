@@ -958,7 +958,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!b) return problem(res, 401, "invalid_token");
       if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
       if (!b.user.superUser) return problem(res, 403, "admin_required");
-      return organize(res, path, q);
+      return organize(req, res, path, q, b.user);
     }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
@@ -1185,7 +1185,17 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   // --- campaign wizard (design/wizard/wizard-api-draft.md) ------------------------------------------
 
-  function organize(res: ServerResponse, path: string, q: URLSearchParams) {
+  async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User) {
+    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") return createCampaign(req, res, user);
+    const pub = /^\/api\/v2\/mobile-organize\/campaigns\/([0-9]+)\/publish$/.exec(path);
+    if (pub && req.method === "POST") {
+      const c = campaigns.find((x) => x.id === Number(pub[1]));
+      if (!c) return problem(res, 404, "not_found");
+      c.enabled = c.published = true;
+      c.modified = new Date().toISOString();
+      record(user.id, "campaign.publish", `challenge:${c.id}`, { published: false }, { published: true });
+      return send(res, 200, { id: c.id, published: true });
+    }
     if (path === "/api/v2/mobile-organize/question-sets") return send(res, 200, { sets: QUESTION_SETS });
     const area = wizardArea(q);
     if (path === "/api/v2/mobile-organize/counts") {
@@ -1213,6 +1223,59 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, { set: s.id, version: s.version, complete: "unavailable" in c ? 0 : c.complete, truncated: false, open });
     }
     return problem(res, 404, "not_found");
+  }
+
+  /**
+   * The wizard's create (wizard-api-draft.md §4): a draft challenge in the pilots project. Like the real
+   * one, it trusts no client list: the task count comes from the area, less what was left out.
+   */
+  async function createCampaign(req: IncomingMessage, res: ServerResponse, user: User) {
+    let b: { set?: unknown; version?: unknown; area?: { lat?: unknown; lon?: unknown; radius?: unknown; place?: unknown }; leaveOut?: unknown; name?: unknown; description?: unknown; eventDate?: unknown };
+    try {
+      b = JSON.parse((await readBody(req)) || "{}");
+    } catch {
+      return problem(res, 400, "invalid_request", ["body is not JSON"]);
+    }
+    const s = QUESTION_SETS.find((x) => x.id === b.set);
+    const area = wizardArea(new URLSearchParams({ lat: String(b.area?.lat), lon: String(b.area?.lon), radius: String(b.area?.radius) }));
+    const leaveOut = Array.isArray(b.leaveOut) && b.leaveOut.every((x) => typeof x === "string" && /^(node|way)\/[0-9]+$/.test(x)) ? (b.leaveOut as string[]) : undefined;
+    const name = typeof b.name === "string" ? b.name.trim() : "";
+    const bad = [
+      !s && "set is not a question set",
+      !area && "area needs lat, lon and radius (200-3000 m)",
+      typeof b.area?.place !== "string" && "area.place is required",
+      !leaveOut && "leaveOut must be a list of node/n or way/n",
+      (!name || name.length > 120) && "name is required (up to 120 characters)",
+      typeof b.description !== "string" && "description is required",
+      b.eventDate !== undefined && !(typeof b.eventDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.eventDate)) && "eventDate is YYYY-MM-DD",
+    ].filter((x): x is string => !!x);
+    if (bad.length || !s || !area || !leaveOut) return problem(res, 400, "invalid_request", bad);
+    if (b.version !== s.version) return problem(res, 409, "set_changed", [`${s.id} is at version ${s.version}`]);
+    const c = wizardCount(s.id, s.version, area);
+    const open = "unavailable" in c ? 0 : c.open;
+    // The mock's feature ids run node/9100+i and way/7000+i (see the features route).
+    const inArea = new Set(Array.from({ length: open }, (_, i) => (i % 7 === 6 ? `way/${7000 + i}` : `node/${9100 + i}`)));
+    const tasks = open - new Set(leaveOut.filter((id) => inArea.has(id))).size;
+    if (tasks <= 0) return problem(res, 422, "nothing_to_check");
+    const id = Math.max(100, ...campaigns.map((x) => x.id)) + 1;
+    const tag = `#StreetTally${String(b.area?.place).replace(/[^A-Za-z0-9 ]/g, "").replace(/(?:^|\s+)(\w)/g, (_, ch: string) => ch.toUpperCase())}`.slice(0, 40);
+    campaigns.push({
+      id,
+      name,
+      projectId: 2,
+      enabled: false,
+      published: false,
+      total: tasks,
+      checked: 0,
+      needsLook: 0,
+      modified: new Date().toISOString(),
+      description: b.description as string,
+      instruction: s.why,
+      checkinComment: `From a Street Tally survey for ${name}. Checked by me. #StreetTally ${tag}`,
+      checkinSource: "survey",
+    });
+    record(user.id, "campaign.create", `challenge:${id}`, undefined, { set: s.id, version: s.version, tasks });
+    return send(res, 201, { id, tasks });
   }
 
   async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {

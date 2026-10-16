@@ -1,8 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { describeError } from "../api";
+import { ApiError, describeError } from "../api";
+import { webLink } from "../campaigns";
 import { config } from "../config";
 import { navigate } from "../router";
-import { type Area, countSets, type OpenFeature, type Place, type QuestionSet, questionSets, type SetCount, type SetFeatures, searchPlaces, setFeatures } from "../wizard/api";
+import {
+  type Area,
+  type CreatedCampaign,
+  countSets,
+  createCampaign,
+  type OpenFeature,
+  type Place,
+  publishCampaign,
+  type QuestionSet,
+  questionSets,
+  type SetCount,
+  type SetFeatures,
+  searchPlaces,
+  setFeatures,
+} from "../wizard/api";
 import { WizardMap } from "../wizard/WizardMap";
 import {
   bySetCount,
@@ -15,20 +30,22 @@ import {
   draftName,
   eventDay,
   hashtag,
+  inviteText,
   paceHint,
   pickable,
   RADII,
   RADIUS_MAX,
   RADIUS_MIN,
 } from "../wizard/words";
+import { QrSvg, ShareLine } from "./Share";
 
 /**
  * New campaign in ten minutes (design/campaign-wizard.md): where, what to check, check the list,
- * words. Publish and share (step 5) follow with the create endpoint.
+ * words, publish and share. Leaving step 4 saves a draft; after that, steps 1 to 4 are closed.
  */
 
 const STEPS = ["Where", "What to check", "Check the list", "Words", "Publish and share"] as const;
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 interface Words {
   name: string;
@@ -45,6 +62,9 @@ export function Wizard() {
   const [words, setWords] = useState<Words>();
   // How many features step 3 ended with, for the preview.
   const [openCount, setOpenCount] = useState(0);
+  // The saved draft; once it exists the earlier steps are closed.
+  const [created, setCreated] = useState<CreatedCampaign>();
+  const [setChanged, setSetChanged] = useState<QuestionSet>();
   const area = useMemo<Area | undefined>(() => place && { lat: place.lat, lon: place.lon, radius }, [place, radius]);
   const reached: Step = !place ? 1 : !set ? 2 : !words ? 3 : 4;
 
@@ -69,7 +89,7 @@ export function Wizard() {
       <ol className="stepper">
         {STEPS.map((label, i) => {
           const n = i + 1;
-          const can = n <= Math.max(reached, step) && n <= 4;
+          const can = created ? n === 5 : n <= Math.max(reached, step) && n <= 4;
           return (
             <li key={label} aria-current={n === step ? "step" : undefined} className={n < step ? "done" : undefined}>
               <button type="button" disabled={!can} onClick={() => setStep(n as Step)}>
@@ -96,9 +116,12 @@ export function Wizard() {
         <WhatToCheck
           area={area}
           chosen={set}
+          changed={setChanged?.name}
           onChoose={(s) => {
+            // The same set picked again (after a set_changed) keeps the words.
+            if (s.id !== (set ?? setChanged)?.id) setWords(undefined);
             setSet(s);
-            setWords(undefined);
+            setSetChanged(undefined);
           }}
           next={() => setStep(3)}
         />
@@ -123,7 +146,39 @@ export function Wizard() {
           }}
         />
       )}
-      {step === 4 && set && place && words && <WordsStep set={set} place={place.name} words={words} onWords={setWords} open={openCount} />}
+      {step === 4 && set && place && area && words && (
+        <WordsStep
+          set={set}
+          place={place.name}
+          words={words}
+          onWords={setWords}
+          open={openCount}
+          save={async () => {
+            try {
+              const c = await createCampaign({
+                set: set.id,
+                version: set.version,
+                area: { ...area, place: place.name },
+                leaveOut: [...leftOut],
+                name: words.name.trim(),
+                description: words.description.trim(),
+                ...(words.eventDate ? { eventDate: words.eventDate } : {}),
+              });
+              setCreated(c);
+              setStep(5);
+            } catch (e) {
+              if (e instanceof ApiError && e.code === "set_changed") {
+                setSetChanged(set);
+                setSet(undefined);
+                setStep(2);
+                return;
+              }
+              throw e;
+            }
+          }}
+        />
+      )}
+      {step === 5 && set && place && words && created && <PublishStep set={set} place={place.name} words={words} campaign={created} />}
     </section>
   );
 }
@@ -175,6 +230,9 @@ function Where({
             {busy ? "Searching…" : "Search"}
           </button>
         </div>
+        <p className="attribution">
+          Search by <a href="https://nominatim.org/">Nominatim</a>. Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL.
+        </p>
       </form>
       {error && <p className="error">{error}</p>}
       {results && results.length === 0 && <p className="hint">Nothing found. Try a street address or a nearby landmark.</p>}
@@ -243,7 +301,20 @@ function Where({
   );
 }
 
-function WhatToCheck({ area, chosen, onChoose, next }: { area: Area; chosen?: QuestionSet; onChoose: (s: QuestionSet) => void; next: () => void }) {
+function WhatToCheck({
+  area,
+  chosen,
+  changed,
+  onChoose,
+  next,
+}: {
+  area: Area;
+  chosen?: QuestionSet;
+  /** The set whose create came back set_changed. */
+  changed?: string;
+  onChoose: (s: QuestionSet) => void;
+  next: () => void;
+}) {
   const [sets, setSets] = useState<QuestionSet[]>();
   const [counts, setCounts] = useState<Map<string, SetCount>>(new Map());
   const [error, setError] = useState<string>();
@@ -275,6 +346,11 @@ function WhatToCheck({ area, chosen, onChoose, next }: { area: Area; chosen?: Qu
   const hint = chosen && chosenCount && !("unavailable" in chosenCount) ? paceHint(chosenCount.open, chosen) : undefined;
   return (
     <div className="step">
+      {changed && (
+        <p className="warning" role="alert">
+          The {changed} questions changed while you were working. Pick a set again to get the updated list. Your words are kept.
+        </p>
+      )}
       <ul className="sets" aria-label="Question sets">
         {ordered.map((s) => {
           const c = counts.get(s.id);
@@ -385,12 +461,39 @@ function FeatureRow({ f, set, out, onToggle }: { f: OpenFeature; set: QuestionSe
   );
 }
 
-function WordsStep({ set, place, words, onWords, open }: { set: QuestionSet; place: string; words: Words; onWords: (w: Words) => void; open: number }) {
+function WordsStep({
+  set,
+  place,
+  words,
+  onWords,
+  open,
+  save,
+}: {
+  set: QuestionSet;
+  place: string;
+  words: Words;
+  onWords: (w: Words) => void;
+  open: number;
+  save: () => Promise<void>;
+}) {
   const tag = hashtag(place);
   const comment = changesetComment(words.name, tag);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(undefined);
+    try {
+      await save();
+    } catch (err) {
+      setError(describeError(err).message);
+      setBusy(false);
+    }
+  }
   return (
     <div className="step words">
-      <form className="fields" onSubmit={(e) => e.preventDefault()}>
+      <form className="fields" onSubmit={submit}>
         <label>
           Name
           <input value={words.name} onChange={(e) => onWords({ ...words, name: e.target.value })} maxLength={120} required />
@@ -417,7 +520,17 @@ function WordsStep({ set, place, words, onWords, open }: { set: QuestionSet; pla
             </dd>
           </dl>
         </details>
-        <p className="hint">Publishing and the share panel come next, with the organizer role.</p>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <p className="hint">Saving makes a draft. Nobody sees it until you publish.</p>
+        <div className="actions">
+          <button type="submit" className="primary" disabled={busy || !words.name.trim()}>
+            {busy ? "Saving…" : "Next: save and share"}
+          </button>
+        </div>
       </form>
       <Preview set={set} words={words} open={open} />
     </div>
@@ -440,5 +553,156 @@ function Preview({ set, words, open }: { set: QuestionSet; words: Words; open: n
       </div>
       <figcaption>What participants see</figcaption>
     </figure>
+  );
+}
+
+/** Step 5: try the draft, publish, then the share panel (link, QR, invite text and table card). */
+function PublishStep({ set, place, words, campaign }: { set: QuestionSet; place: string; words: Words; campaign: CreatedCampaign }) {
+  const [published, setPublished] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+  const link = webLink(campaign.id);
+  async function publish() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await publishCampaign(campaign.id);
+      setPublished(true);
+    } catch (e) {
+      setError(describeError(e).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!published)
+    return (
+      <div className="step publish">
+        <p className="saved-line">
+          Saved as a draft with {campaign.tasks} {campaign.tasks === 1 ? set.noun.one : set.noun.many}. It isn't in the app until you publish.
+        </p>
+        <ShareLine
+          label="Try it on your phone first"
+          url={`${link}?preview=1`}
+          file={`campaign-${campaign.id}-preview-qr.png`}
+          warning="Preview mode isn't in the app yet. Until it is, this opens the campaign normally and answers are saved."
+        />
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="actions">
+          <button type="button" className="primary" disabled={busy} onClick={publish}>
+            {busy ? "Publishing…" : "Publish"}
+          </button>
+        </div>
+      </div>
+    );
+  return <SharePanel set={set} place={place} words={words} id={campaign.id} link={link} />;
+}
+
+function SharePanel({ set, place, words, id, link }: { set: QuestionSet; place: string; words: Words; id: number; link: string }) {
+  const invite = inviteText(set, place, link, words.eventDate || undefined);
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="step share">
+      <p className="live-line" role="status">
+        Your campaign is live. Anyone with the link can join.
+      </p>
+      <ShareLine label="Invite link" url={link} file={`campaign-${id}-qr.png`} />
+      <div className="invite">
+        <h4>Invite to paste</h4>
+        <textarea readOnly value={invite} rows={3} aria-label="Invite to paste" />
+        <button
+          type="button"
+          onClick={() =>
+            void navigator.clipboard.writeText(invite).then(
+              () => setCopied(true),
+              () => setCopied(false),
+            )
+          }
+        >
+          {copied ? "Copied" : "Copy invite"}
+        </button>
+      </div>
+      <div className="card-block">
+        <h4>Table card</h4>
+        <p className="hint">Half a letter sheet. In the print window, choose Save as PDF to keep a file.</p>
+        <TableCard set={set} place={place} words={words} link={link} />
+        <button type="button" onClick={() => window.print()}>
+          Print table card
+        </button>
+      </div>
+      <p>
+        <a
+          href={`/campaigns/${id}`}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(`/campaigns/${id}`);
+          }}
+        >
+          Open the campaign page
+        </a>{" "}
+        for progress, the live page and results.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Juno's table card (brand/woodbine-handout/card.html) filled in for this campaign. On screen it is a
+ * preview; when printing it is the only thing on the page, at 5.5 × 8.5 in.
+ */
+function TableCard({ set, place, words, link }: { set: QuestionSet; place: string; words: Words; link: string }) {
+  return (
+    <article className="table-card" aria-label="Table card preview">
+      <style>{"@page { size: 5.5in 8.5in; margin: 0; }"}</style>
+      <header>
+        <p className="brand">
+          <img src="/icon.svg" alt="" width={24} height={24} /> Street Tally
+        </p>
+        <p className="eyebrow">You're invited</p>
+        <h3>{words.name}</h3>
+        <p className="lede">{words.description}</p>
+      </header>
+      <div className="mid">
+        <QrSvg text={link} />
+        <div>
+          <b>Scan with your phone camera</b>
+          <span className="say">The page shows how to install Street Tally and open this campaign.</span>
+          <code>{link.replace(/^https?:\/\//, "")}</code>
+        </div>
+      </div>
+      <ol>
+        <li>
+          <span className="num">1</span>
+          <div>
+            <b>Install Street Tally</b>
+            <span className="say">Follow the steps on the page for your phone.</span>
+          </div>
+        </li>
+        <li>
+          <span className="num">2</span>
+          <div>
+            <b>Open the campaign</b>
+            <span className="say">Come back to the page and tap Open this campaign.</span>
+          </div>
+        </li>
+        <li>
+          <span className="num">3</span>
+          <div>
+            <b>Check the {set.noun.many}</b>
+            <span className="say">Answer what you can see. “I'm not sure” is a fine answer. Stay on public paths.</span>
+          </div>
+        </li>
+      </ol>
+      <p className="saved">
+        <b>No OpenStreetMap account needed.</b> Your answers count right away, and local mappers add them to the map.
+      </p>
+      <footer>
+        <span>{words.eventDate ? `${eventDay(words.eventDate)} · ${place}` : place}</span>
+        <span className="tag">{hashtag(place)}</span>
+      </footer>
+    </article>
   );
 }
