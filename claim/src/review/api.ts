@@ -39,8 +39,11 @@ export interface ReviewPlace {
   lat: number;
   name?: string | null;
   ref?: string | null;
-  /** "done" is set by the server once OSM carries the tag, whoever added it. */
-  state: "open" | "done" | "needs_visit";
+  /**
+   * "done" is set by the server once OSM carries the tag, whoever added it. From H1b: "stale" (OSM changed
+   * since the survey), "gone" (deleted on OSM) and "disagree" (people answered a question differently).
+   */
+  state: "open" | "done" | "needs_visit" | "stale" | "gone" | "disagree";
   /** Only with a signed-in read: this mapper skipped it. */
   skipped?: boolean;
   suggestions: Suggestion[];
@@ -49,7 +52,7 @@ export interface ReviewPlace {
 
 export interface ReviewPage {
   campaign: { name: string; hashtags: string[]; match?: Record<string, string>; changesetComment?: string };
-  counts: { toReview: number; added: number; needsVisit: number };
+  counts: { toReview: number; added: number; needsVisit: number; stale?: number; gone?: number; disagree?: number };
   places: ReviewPlace[];
   /** Set while more places remain: pass it as `after`. */
   next?: number;

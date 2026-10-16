@@ -10,6 +10,9 @@ export function countsLine(p: ReviewPage): string {
     `${plural(c.toReview, "answer", "answers")} to review`,
     `${c.added} added`,
     `${c.needsVisit} ${c.needsVisit === 1 ? "needs" : "need"} a visit`,
+    ...(c.disagree ? [`${c.disagree} with different answers`] : []),
+    ...(c.stale ? [`${c.stale} changed on OSM`] : []),
+    ...(c.gone ? [`${c.gone} gone from OSM`] : []),
   ].join(" · ");
 }
 
@@ -53,17 +56,38 @@ export function shown(p: ReviewPlace, f: Filter): boolean {
 export function stateLabel(p: ReviewPlace): string | undefined {
   if (p.state === "done") return "On the map";
   if (p.state === "needs_visit") return "Needs a visit";
-  if (needsLook(p)) return "Needs a look";
+  if (p.state === "disagree") return "Answers differ";
+  if (p.state === "stale") return "Changed on OSM";
+  if (p.state === "gone" || needsLook(p)) return "Needs a look";
   return undefined;
 }
 
+/** Why a held-back place isn't a plain tag change; shown under its evidence. */
+export function stateHint(p: ReviewPlace): string | undefined {
+  if (p.state === "disagree") return "People gave different answers here. Look before you add one.";
+  if (p.state === "stale") return "OpenStreetMap changed here after the survey. Check what's there now before you add anything.";
+  if (p.state === "gone") return "This is no longer on OpenStreetMap. Look on the ground or on imagery before you add it back.";
+  if (p.state === "open" && needsLook(p)) return "Not a tag change. Look at it on the ground or on imagery first.";
+  return undefined;
+}
+
+/** The chip and pin style: the amber "look" diamond for anything that needs a closer look. */
+export function stateStyle(p: ReviewPlace): string {
+  if (p.state === "done" || p.state === "needs_visit") return p.state;
+  if (p.state === "open" && !needsLook(p)) return "open";
+  return "look";
+}
+
+/** JOSM pre-fills tags only for a plain change; a deleted object can't be opened at all. */
+export const prefill = (p: ReviewPlace) => p.state === "open" || p.state === "done" || p.state === "needs_visit";
+
 /**
  * JOSM remote control: loads the object and pre-fills the suggested tags for the mapper to check.
- * A place that only needs a look loads without tags.
+ * A place that only needs a look, or that changed or got different answers, loads without tags.
  */
 export function josmUrl(p: ReviewPlace): string {
   const q = new URLSearchParams({ new_layer: "false", objects: `${p.osm.type === "way" ? "w" : "n"}${p.osm.id}` });
-  const tags = p.suggestions.flatMap((s) => Object.entries(s.tags).map(([k, v]) => `${k}=${v ?? ""}`));
+  const tags = (prefill(p) ? p.suggestions : []).flatMap((s) => Object.entries(s.tags).map(([k, v]) => `${k}=${v ?? ""}`));
   // JOSM removes a tag given an empty value.
   if (tags.length) q.set("addtags", tags.join("|"));
   return `http://127.0.0.1:8111/load_object?${q}`;

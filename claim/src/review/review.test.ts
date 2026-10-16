@@ -3,7 +3,7 @@ import { MOCK_LIVE_TOKENS, type MockBackend, startMockBackend } from "../../../m
 import { configure } from "../config";
 import { fetchReview, MarkError, mark, type ReviewPage, type ReviewPlace, type Suggestion, tokenFrom } from "./api";
 import { accessToken, completeSignIn, displayName, signedIn, signOut, startSignIn } from "./session";
-import { changesetComment, countsLine, currentLine, dayRange, idUrl, josmUrl, needsLook, reportText, shortDay, shown, stateLabel, tagText, whoLine } from "./words";
+import { changesetComment, countsLine, currentLine, dayRange, idUrl, josmUrl, needsLook, reportText, shortDay, shown, stateHint, stateLabel, stateStyle, tagText, whoLine } from "./words";
 
 const SITE = "https://site.test";
 const T = MOCK_LIVE_TOKENS.live;
@@ -56,6 +56,9 @@ describe("review page words (handback-copy §2)", () => {
   it("writes the header counts with plurals", () => {
     expect(countsLine(page())).toBe("47 answers to review · 12 added · 3 need a visit");
     expect(countsLine(page({ counts: { toReview: 1, added: 0, needsVisit: 1 } }))).toBe("1 answer to review · 0 added · 1 needs a visit");
+    expect(countsLine(page({ counts: { toReview: 1, added: 0, needsVisit: 0, stale: 2, gone: 0, disagree: 1 } }))).toBe(
+      "1 answer to review · 0 added · 0 need a visit · 1 with different answers · 2 changed on OSM",
+    );
   });
 
   it("shows days only, people counts and what OSM has now", () => {
@@ -84,6 +87,14 @@ describe("review page words (handback-copy §2)", () => {
     expect(stateLabel(place())).toBeUndefined();
     expect(stateLabel(place({ state: "done" }))).toBe("On the map");
     expect(stateLabel(place({ state: "needs_visit" }))).toBe("Needs a visit");
+    expect(stateLabel(place({ state: "disagree" }))).toBe("Answers differ");
+    expect(stateLabel(place({ state: "stale" }))).toBe("Changed on OSM");
+    expect(stateLabel(place({ state: "gone" }))).toBe("Needs a look");
+    expect([place(), place({ suggestions: [] }), place({ state: "stale" }), place({ state: "done" })].map(stateStyle)).toEqual(["open", "look", "look", "done"]);
+    expect(stateHint(place())).toBeUndefined();
+    expect(stateHint(place({ state: "stale" }))).toMatch(/^OpenStreetMap changed here/);
+    // A held-back place opens in JOSM without tags, so nothing goes in unchecked.
+    expect(new URL(josmUrl(place({ state: "disagree" }))).searchParams.has("addtags")).toBe(false);
   });
 
   it("opens JOSM with the suggested tags and iD on the object only", () => {
@@ -144,7 +155,7 @@ describe("review page API and sign-in", () => {
 
   it("reads the page without signing in, and tells a turned-off page and a bad link apart", async () => {
     const r = await fetchReview(T);
-    expect("page" in r && r.page.places.length).toBe(5);
+    expect("page" in r && r.page.places.length).toBe(8);
     expect("page" in r && r.page.places.some((p) => "skipped" in p)).toBe(false);
     expect(await fetchReview(MOCK_LIVE_TOKENS.off)).toEqual({ problem: "off" });
     expect(await fetchReview("x".repeat(43))).toEqual({ problem: "missing" });

@@ -160,6 +160,39 @@ function reviewPlaces() {
       suggestions: [],
       reports: [{ outcome: "not_here", label: "It's not here", people: 1, day: "2026-10-13" }],
     },
+    {
+      id: 206,
+      osm: { type: "node", id: 9006 },
+      lon: -111.9055,
+      lat: 40.7531,
+      name: "Side door",
+      state: "disagree",
+      suggestions: [
+        { question: "door", prompt: "How does this door open?", answer: "sliding", label: "Slides sideways", tags: { door: "sliding" }, people: 1, day: "2026-10-14", current: { door: null } },
+        { question: "door", prompt: "How does this door open?", answer: "hinged", label: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-14", current: { door: null } },
+      ],
+      reports: [],
+    },
+    {
+      id: 207,
+      osm: { type: "node", id: 9007 },
+      lon: -111.9053,
+      lat: 40.7533,
+      name: "Loading bay",
+      state: "stale",
+      suggestions: [{ question: "door", prompt: "How does this door open?", answer: "sliding", label: "Slides sideways", tags: { door: "sliding" }, people: 2, day: "2026-10-13", current: { door: null } }],
+      reports: [],
+    },
+    {
+      id: 208,
+      osm: { type: "node", id: 9008 },
+      lon: -111.9051,
+      lat: 40.7535,
+      name: "Old annex",
+      state: "gone",
+      suggestions: [{ question: "door", prompt: "How does this door open?", answer: "hinged", label: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-13", current: { door: null } }],
+      reports: [],
+    },
   ];
 }
 
@@ -748,7 +781,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       const view = () =>
         reviewPlaces().map((p) => ({
           ...p,
-          state: p.state === "done" ? "done" : reviewVisits.has(p.id) || p.id === 205 ? "needs_visit" : "open",
+          state: p.state === "done" ? "done" : reviewVisits.has(p.id) || p.id === 205 ? "needs_visit" : p.state === "needs_visit" ? "open" : p.state,
           ...(b ? { skipped: mine.has(p.id) } : {}),
         }));
       if (!review[2] && req.method === "GET") {
@@ -762,6 +795,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
               toReview: places.filter((p) => p.state === "open").reduce((n, p) => n + p.suggestions.length, 0),
               added: places.filter((p) => p.state === "done").length,
               needsVisit: places.filter((p) => p.state === "needs_visit").length,
+              stale: places.filter((p) => p.state === "stale").length,
+              gone: places.filter((p) => p.state === "gone").length,
+              disagree: places.filter((p) => p.state === "disagree").length,
             },
             places,
           },

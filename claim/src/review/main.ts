@@ -12,10 +12,11 @@ import {
   type Filter,
   idUrl,
   josmUrl,
-  needsLook,
   reportText,
   shown,
+  stateHint,
   stateLabel,
+  stateStyle,
   tagText,
   whoLine,
 } from "./words";
@@ -126,7 +127,7 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
   row.setAttribute("aria-labelledby", h.id);
   head.append(h);
   const st = stateLabel(p);
-  if (st) head.append(el("span", `chip ${p.state === "open" ? "look" : p.state}`, st));
+  if (st) head.append(el("span", `chip ${stateStyle(p)}`, st));
   if (map) head.append(button("Show on map", () => select(p.id, true), "where"));
   row.append(head);
 
@@ -136,22 +137,27 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
     const a = el("div", "a");
     a.append(el("b", "", s.label), " ", el("code", "", tagText(s.tags)));
     if (s.prompt) li.append(el("div", "q", s.prompt));
-    li.append(a, el("div", "meta", `${whoLine(s)} · ${currentLine(s)}`));
+    // `current` is from the import; for a changed or deleted object it would mislead.
+    const fresh = p.state !== "stale" && p.state !== "gone";
+    li.append(a, el("div", "meta", fresh ? `${whoLine(s)} · ${currentLine(s)}` : whoLine(s)));
     ev.append(li);
   }
   for (const r of p.reports) ev.append(el("li", "report", `${reportText(r)} · ${whoLine(r)}`));
   row.append(ev);
-  if (needsLook(p) && p.state === "open") row.append(el("p", "hint", "Not a tag change. Look at it on the ground or on imagery first."));
+  const hint = stateHint(p);
+  if (hint) row.append(el("p", "hint", hint));
 
   const note = el("p", "note");
   note.setAttribute("role", "status");
   const actions = el("div", "actions");
-  actions.append(button("Open in JOSM", () => void openInJosm(p, note)));
-  const id = el("a", "act", "Open in iD");
-  id.href = idUrl(p, osmWeb);
-  id.target = "_blank";
-  id.rel = "noopener noreferrer";
-  actions.append(id);
+  if (p.state !== "gone") {
+    actions.append(button("Open in JOSM", () => void openInJosm(p, note)));
+    const id = el("a", "act", "Open in iD");
+    id.href = idUrl(p, osmWeb);
+    id.target = "_blank";
+    id.rel = "noopener noreferrer";
+    actions.append(id);
+  }
   if (p.state !== "done") {
     actions.append(
       p.skipped ? button("Undo skip", () => void setMark(p, "skip", false, note)) : button("Skip", () => void setMark(p, "skip", true, note)),
@@ -191,7 +197,7 @@ function renderMap(p: ReviewPage) {
   if (!map) return;
   for (const m of markers.splice(0)) m.remove();
   for (const x of p.places) {
-    const b = el("button", `pin ${x.state === "open" && needsLook(x) ? "look" : x.state}`);
+    const b = el("button", `pin ${stateStyle(x)}`);
     b.type = "button";
     b.classList.toggle("selected", x.id === selected);
     b.setAttribute("aria-label", `${nameOf(x)}${stateLabel(x) ? `, ${stateLabel(x)}` : ""}`);

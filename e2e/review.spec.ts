@@ -11,8 +11,8 @@ test.beforeEach(async ({ request }) => {
 test("shows the evidence per place, with no Accept and nothing that uploads", async ({ page }) => {
   await page.goto(`${CLAIM}/review/${L.live}`);
   await expect(page).toHaveTitle("Review · Woodbine entrance doors · Street Tally");
-  await expect(page.locator("#counts")).toHaveText("3 answers to review · 1 added · 1 needs a visit");
-  await expect(page.locator(".place")).toHaveCount(5);
+  await expect(page.locator("#counts")).toHaveText("3 answers to review · 1 added · 1 needs a visit · 1 with different answers · 1 changed on OSM · 1 gone from OSM");
+  await expect(page.locator(".place")).toHaveCount(8);
 
   const granary = page.getByRole("article", { name: "Granary Live" });
   await expect(granary.locator(".evidence li")).toHaveText([
@@ -29,6 +29,16 @@ test("shows the evidence per place, with no Accept and nothing that uploads", as
   await expect(moved.locator(".report")).toHaveText("It's moved · 1 person, 14 Oct");
   // The hint sits under the report, above the buttons.
   await expect(moved.locator(".evidence + .hint")).toHaveText("Not a tag change. Look at it on the ground or on imagery first.");
+
+  // H1b's held-back places: each says why, and a deleted one has no editor links.
+  const side = page.getByRole("article", { name: "Side door" });
+  await expect(side.locator(".chip")).toHaveText("Answers differ");
+  await expect(side.locator(".hint")).toHaveText("People gave different answers here. Look before you add one.");
+  await expect(page.getByRole("article", { name: "Loading bay" }).locator(".chip")).toHaveText("Changed on OSM");
+  const annex = page.getByRole("article", { name: "Old annex" });
+  await expect(annex.locator(".chip")).toHaveText("Needs a look");
+  await expect(annex.locator(".actions > *")).toHaveText(["Skip", "Needs a visit"]);
+  await expect(annex.locator(".meta")).toHaveText("1 person, 13 Oct");
   const hall = page.getByRole("article", { name: "Woodbine Food Hall" });
   await expect(hall.locator(".chip")).toHaveText("On the map");
   await expect(hall.getByRole("button", { name: "Skip" })).toHaveCount(0);
@@ -65,7 +75,7 @@ test("signs in read-only, skips for you only and marks a visit", async ({ page }
 
   await page.getByRole("article", { name: "Entrance B" }).getByRole("button", { name: "Needs a visit" }).click();
   await expect(page.getByRole("article", { name: "Entrance B" }).locator(".chip")).toHaveText("Needs a visit");
-  await expect(page.locator("#counts")).toHaveText("2 answers to review · 1 added · 2 need a visit");
+  await expect(page.locator("#counts")).toHaveText("2 answers to review · 1 added · 2 need a visit · 1 with different answers · 1 changed on OSM · 1 gone from OSM");
 });
 
 test("a turned-off page and a bad link each say so", async ({ page }) => {
