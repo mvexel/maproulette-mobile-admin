@@ -117,8 +117,8 @@ function reviewPlaces() {
       name: "Granary Live",
       state: "open",
       suggestions: [
-        { question: "How does this door open?", answer: "Slides sideways", tags: { door: "sliding" }, people: 2, day: "2026-10-14", current: { door: null } },
-        { question: "Does it open by itself?", answer: "Yes, when you walk up", tags: { automatic_door: "motion" }, people: 2, day: "2026-10-14", current: { automatic_door: null } },
+        { question: "door", answer: "sliding", label: "Slides sideways", tags: { door: "sliding" }, people: 2, day: "2026-10-14", current: { door: null } },
+        { question: "automatic_door", answer: "motion", label: "Yes, when you walk up", tags: { automatic_door: "motion" }, people: 2, day: "2026-10-14", current: { automatic_door: null } },
       ],
       reports: [],
     },
@@ -129,8 +129,8 @@ function reviewPlaces() {
       lat: 40.7536,
       ref: "B",
       state: "open",
-      suggestions: [{ question: "How does this door open?", answer: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-14", current: { door: null } }],
-      reports: [{ kind: "cant_tell", people: 1, day: "2026-10-14" }],
+      suggestions: [{ question: "door", answer: "hinged", label: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-14", current: { door: null } }],
+      reports: [{ outcome: "no_door", label: "There's no door", people: 1, day: "2026-10-14" }],
     },
     {
       id: 203,
@@ -139,7 +139,7 @@ function reviewPlaces() {
       lat: 40.7533,
       state: "open",
       suggestions: [],
-      reports: [{ kind: "moved", people: 1, day: "2026-10-14", meters: 14, lon: -111.90625, lat: 40.75338 }],
+      reports: [{ outcome: "moved", label: "It's moved", people: 1, day: "2026-10-14", lon: -111.90625, lat: 40.75338 }],
     },
     {
       id: 204,
@@ -148,7 +148,7 @@ function reviewPlaces() {
       lat: 40.7541,
       name: "Woodbine Food Hall",
       state: "done",
-      suggestions: [{ question: "How does this door open?", answer: "Revolves", tags: { door: "revolving" }, people: 3, day: "2026-10-13", current: { door: "revolving" } }],
+      suggestions: [{ question: "door", answer: "revolving", label: "Revolves", tags: { door: "revolving" }, people: 3, day: "2026-10-13", current: { door: "revolving" } }],
       reports: [],
     },
     {
@@ -158,7 +158,7 @@ function reviewPlaces() {
       lat: 40.7529,
       state: "open",
       suggestions: [],
-      reports: [{ kind: "not_here", people: 1, day: "2026-10-13" }],
+      reports: [{ outcome: "not_here", label: "It's not here", people: 1, day: "2026-10-13" }],
     },
   ];
 }
@@ -418,7 +418,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         id: "street-tally-review",
         name: "Street Tally review page",
         redirectUris: [`${claimOrigin}/review/callback`],
-        scopes: ["tasks:read", "tasks:write"],
+        scopes: ["tasks:read"],
       });
     seedGuests();
     audit = [];
@@ -736,13 +736,14 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 404, { error: live[1] === MOCK_LIVE_TOKENS.off ? "turned_off" : "not_found" }, headers);
     }
 
-    // The review page (H1a): public read by the live token; marks need a bearer.
+    // The review page (H1a, backend/h1/h1a-api.md): public read by the live token; marks need a bearer.
+    // One page of results here; the real API pages with after/limit and `next`.
     const review = /^\/api\/v2\/review\/([A-Za-z0-9_-]{43})(?:\/places\/([0-9]+)\/(skip|needs-visit))?$/.exec(path);
     if (review) {
       const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
       if (review[1] !== MOCK_LIVE_TOKENS.live) return send(res, 404, { error: review[1] === MOCK_LIVE_TOKENS.off ? "turned_off" : "not_found" }, headers);
       const b = req.headers.authorization ? bearer(req) : undefined;
-      if (req.headers.authorization && !b) return problem(res, 401, "invalid_token");
+      if (req.headers.authorization && !b) return problem(res, 401, "sign_in_required");
       const mine = b ? (reviewSkips.get(b.user.id) ?? new Set<number>()) : new Set<number>();
       const view = () =>
         reviewPlaces().map((p) => ({
@@ -768,9 +769,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         );
       }
       if (review[2] && (req.method === "PUT" || req.method === "DELETE")) {
-        if (!b) return problem(res, 401, "invalid_token");
+        if (!b) return problem(res, 401, "sign_in_required");
         const id = Number(review[2]);
-        if (!reviewPlaces().some((p) => p.id === id)) return problem(res, 404, "not_found");
+        const found = reviewPlaces().find((p) => p.id === id);
+        if (!found) return problem(res, 404, "not_found");
+        if (review[3] === "needs-visit" && req.method === "PUT" && found.state === "done") return problem(res, 409, "done");
         const on = req.method === "PUT";
         if (review[3] === "skip") {
           if (on) mine.add(id);

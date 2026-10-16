@@ -2,11 +2,11 @@ import { challengeFor, randomString } from "../../../src/pkce";
 import { config } from "../config";
 
 /**
- * The review page's sign-in: its own public client with `tasks:read tasks:write` only, so the grant
- * can't write to OpenStreetMap (handback-copy §2: nothing uploads from this page). Same flow as the
+ * The review page's sign-in: its own public client with `tasks:read` only (H1a: the marks write
+ * only the review tables), so the grant can't write tasks or OpenStreetMap (handback-copy §2: nothing uploads from this page). Same flow as the
  * claim page (session.ts): PKCE, the refresh token in sessionStorage, the access token in memory.
  */
-const SCOPE = "tasks:read tasks:write";
+const SCOPE = "tasks:read";
 const PENDING = "review.pending";
 const REFRESH = "review.refresh";
 const TOKEN = "review.token";

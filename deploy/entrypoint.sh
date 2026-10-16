@@ -32,7 +32,7 @@ printf '{"backend":"%s","clientId":"%s"%s%s}\n' "$BACKEND_ORIGIN" "$CLIENT_ID" "
 CLAIM_CLIENT_ID="${CLAIM_CLIENT_ID:-maproulette-claim}"
 echo "$CLAIM_CLIENT_ID" | grep -Eq '^[A-Za-z0-9._-]{1,100}$' ||
 	{ echo "CLAIM_CLIENT_ID must be 1 to 100 of A-Z a-z 0-9 . _ -" >&2; exit 1; }
-# The review page's client (handback-copy §2): tasks:read tasks:write, no OSM scope.
+# The review page's client (handback-copy §2): tasks:read only, no OSM scope.
 REVIEW_CLIENT_ID="${REVIEW_CLIENT_ID:-street-tally-review}"
 echo "$REVIEW_CLIENT_ID" | grep -Eq '^[A-Za-z0-9._-]{1,100}$' ||
 	{ echo "REVIEW_CLIENT_ID must be 1 to 100 of A-Z a-z 0-9 . _ -" >&2; exit 1; }

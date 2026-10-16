@@ -32,11 +32,8 @@ export function currentLine(s: Suggestion): string {
   return `On OSM now: ${set.length ? set.map(([k, v]) => `${k}=${v}`).join(" · ") : "not set"}`;
 }
 
-export function reportText(r: Report): string {
-  if (r.kind === "cant_tell") return "Can't tell";
-  if (r.kind === "not_here") return "It's not here";
-  return r.meters ? `It's moved about ${Math.round(r.meters)} m` : "It's moved";
-}
+/** The campaign's own label; the outcome id is only a fallback. */
+export const reportText = (r: Report) => r.label || r.outcome;
 
 /** Only "not here" or "moved" answers: a look on the ground, never a tag change. */
 export const needsLook = (p: ReviewPlace) => p.suggestions.length === 0;

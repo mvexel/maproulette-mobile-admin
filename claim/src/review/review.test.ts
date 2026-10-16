@@ -26,8 +26,9 @@ class MemoryStorage {
 const assign = vi.fn<(url: string) => void>();
 
 const sug = (over: Partial<Suggestion> = {}): Suggestion => ({
-  question: "How does this door open?",
-  answer: "Slides sideways",
+  question: "door",
+  answer: "sliding",
+  label: "Slides sideways",
   tags: { door: "sliding" },
   people: 2,
   day: "2026-10-14",
@@ -63,8 +64,8 @@ describe("review page words (handback-copy §2)", () => {
     expect(whoLine({ people: 1, day: "2026-10-14" })).toBe("1 person, 14 Oct");
     expect(currentLine(sug())).toBe("On OSM now: not set");
     expect(currentLine(sug({ current: { door: "hinged" } }))).toBe("On OSM now: door=hinged");
-    expect(reportText({ kind: "moved", people: 1, day: "2026-10-14", meters: 13.6 })).toBe("It's moved about 14 m");
-    expect(reportText({ kind: "cant_tell", people: 1, day: "2026-10-14" })).toBe("Can't tell");
+    expect(reportText({ outcome: "moved", label: "It's moved", people: 1, day: "2026-10-14" })).toBe("It's moved");
+    expect(reportText({ outcome: "no_door", label: "", people: 1, day: "2026-10-14" })).toBe("no_door");
   });
 
   it("filters: 2 people agree is a filter on open places, done is the server's", () => {
@@ -77,7 +78,7 @@ describe("review page words (handback-copy §2)", () => {
   });
 
   it("labels places that aren't a tag change as Needs a look", () => {
-    const look = place({ suggestions: [], reports: [{ kind: "not_here", people: 1, day: "2026-10-14" }] });
+    const look = place({ suggestions: [], reports: [{ outcome: "not_here", label: "It's not here", people: 1, day: "2026-10-14" }] });
     expect(needsLook(look)).toBe(true);
     expect(stateLabel(look)).toBe("Needs a look");
     expect(stateLabel(place())).toBeUndefined();
@@ -123,7 +124,7 @@ describe("review page API and sign-in", () => {
     await startSignIn();
     const authorize = new URL(assign.mock.calls.at(-1)?.[0] ?? "");
     expect(authorize.searchParams.get("client_id")).toBe("street-tally-review");
-    expect(authorize.searchParams.get("scope")).toBe("tasks:read tasks:write");
+    expect(authorize.searchParams.get("scope")).toBe("tasks:read");
     const html = await (await fetch(authorize)).text();
     const decide = [...html.matchAll(/href="([^"]+&as=(\w+))"/g)].find((m) => m[2] === "plain")?.[1] ?? "";
     const back = await fetch(new URL(decide.replaceAll("&amp;", "&"), mock.url), { redirect: "manual" });
@@ -147,7 +148,7 @@ describe("review page API and sign-in", () => {
   });
 
   it("needs a sign-in to mark", async () => {
-    await expect(mark(T, 201, "skip", true, "x".repeat(43))).rejects.toEqual(new MarkError(401));
+    await expect(mark(T, 201, "skip", true, "x".repeat(43))).rejects.toEqual(new MarkError(401, "sign_in_required"));
   });
 
   it("signs in read-only, skips for this mapper and marks a visit for everyone", async () => {
@@ -163,5 +164,6 @@ describe("review page API and sign-in", () => {
     expect("page" in anyone && anyone.page.places.find((p) => p.id === 202)?.state).toBe("needs_visit");
     expect((await mark(T, 201, "skip", false, await accessToken())).skipped).toBe(false);
     expect((await mark(T, 202, "needs-visit", false, await accessToken())).state).toBe("open");
+    await expect(mark(T, 204, "needs-visit", true, await accessToken())).rejects.toEqual(new MarkError(409, "done"));
   });
 });

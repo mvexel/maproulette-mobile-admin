@@ -16,17 +16,17 @@ test("shows the evidence per place, with no Accept and nothing that uploads", as
 
   const granary = page.getByRole("article", { name: "Granary Live" });
   await expect(granary.locator(".evidence li")).toHaveText([
-    "How does this door open?Slides sideways door=sliding2 people, 14 Oct · On OSM now: not set",
-    "Does it open by itself?Yes, when you walk up automatic_door=motion2 people, 14 Oct · On OSM now: not set",
+    "Slides sideways door=sliding2 people, 14 Oct · On OSM now: not set",
+    "Yes, when you walk up automatic_door=motion2 people, 14 Oct · On OSM now: not set",
   ]);
   await expect(granary.locator(".actions > *")).toHaveText(["Open in JOSM", "Open in iD", "Skip", "Needs a visit"]);
   await expect(granary.getByRole("link", { name: "Open in iD" })).toHaveAttribute("href", /\/edit\?editor=id&node=9001$/);
   await expect(page.getByRole("button", { name: /accept|upload|publish/i })).toHaveCount(0);
 
-  await expect(page.getByRole("article", { name: "Entrance B" }).locator(".report")).toHaveText("Can't tell · 1 person, 14 Oct");
+  await expect(page.getByRole("article", { name: "Entrance B" }).locator(".report")).toHaveText("There's no door · 1 person, 14 Oct");
   const moved = page.locator(".place").nth(2);
   await expect(moved.locator(".chip")).toHaveText("Needs a look");
-  await expect(moved.locator(".report")).toHaveText("It's moved about 14 m · 1 person, 14 Oct");
+  await expect(moved.locator(".report")).toHaveText("It's moved · 1 person, 14 Oct");
   const hall = page.getByRole("article", { name: "Woodbine Food Hall" });
   await expect(hall.locator(".chip")).toHaveText("On the map");
   await expect(hall.getByRole("button", { name: "Skip" })).toHaveCount(0);

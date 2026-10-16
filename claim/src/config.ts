@@ -7,7 +7,7 @@ export interface ClaimConfig {
   mapStyle: string;
   /** The OpenStreetMap website the backend edits, for "See your edits". */
   osmWeb: string;
-  /** The review page's public OAuth client: `tasks:read tasks:write`, no OSM scope (handback-copy §2). */
+  /** The review page's public OAuth client: `tasks:read` only, no OSM scope (handback-copy §2). */
   reviewClientId: string;
 }
 

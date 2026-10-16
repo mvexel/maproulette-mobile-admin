@@ -45,6 +45,9 @@ function message(title: string, body: string) {
   $("msgBody").textContent = body;
 }
 
+/** The live page's label rule; the review API sends null for a missing name or ref. */
+const nameOf = (p: ReviewPlace) => label({ name: p.name ?? undefined, ref: p.ref ?? undefined }, n);
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -100,6 +103,8 @@ async function setMark(p: ReviewPlace, what: "skip" | "needs-visit", on: boolean
     if (e instanceof SignInError || (e instanceof MarkError && e.status === 401)) {
       note.textContent = "Your sign-in has ended. Sign in again to mark places.";
       renderAccount();
+    } else if (e instanceof MarkError && e.status === 409 && e.code === "done") {
+      note.textContent = "OpenStreetMap already has this. It shows as done after the next check.";
     } else note.textContent = "That didn't save. Try again.";
   }
 }
@@ -116,7 +121,7 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
   row.id = `place-${p.id}`;
   row.classList.toggle("selected", p.id === selected);
   const head = el("div", "head");
-  const h = el("h2", "", label(p, n));
+  const h = el("h2", "", nameOf(p));
   h.id = `place-${p.id}-title`;
   row.setAttribute("aria-labelledby", h.id);
   head.append(h);
@@ -128,9 +133,8 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
   const ev = el("ul", "evidence");
   for (const s of p.suggestions) {
     const li = el("li");
-    li.append(el("div", "q", s.question));
     const a = el("div", "a");
-    a.append(el("b", "", s.answer), " ", el("code", "", tagText(s.tags)));
+    a.append(el("b", "", s.label), " ", el("code", "", tagText(s.tags)));
     li.append(a, el("div", "meta", `${whoLine(s)} · ${currentLine(s)}`));
     ev.append(li);
   }
@@ -179,8 +183,7 @@ function renderPlaces(p: ReviewPage) {
 }
 
 /**
- * Map markers: one focusable button per place, plus a ring at the reported spot for "moved"
- * answers. HTML markers like the live page, so the map needs no worker.
+ * Map markers: one focusable button per place, plus a ring at any spot a report gave. HTML markers like the live page, so the map needs no worker.
  */
 const markers: maplibregl.Marker[] = [];
 function renderMap(p: ReviewPage) {
@@ -190,16 +193,16 @@ function renderMap(p: ReviewPage) {
     const b = el("button", `pin ${x.state === "open" && needsLook(x) ? "look" : x.state}`);
     b.type = "button";
     b.classList.toggle("selected", x.id === selected);
-    b.setAttribute("aria-label", `${label(x, n)}${stateLabel(x) ? `, ${stateLabel(x)}` : ""}`);
+    b.setAttribute("aria-label", `${nameOf(x)}${stateLabel(x) ? `, ${stateLabel(x)}` : ""}`);
     b.onclick = () => {
       select(x.id, false);
       document.getElementById(`place-${x.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
     markers.push(new maplibregl.Marker({ element: b }).setLngLat([x.lon, x.lat]).addTo(map));
     for (const r of x.reports) {
-      if (r.kind !== "moved" || r.lon === undefined || r.lat === undefined) continue;
+      if (r.lon === undefined || r.lat === undefined) continue;
       const spot = el("span", "spot");
-      spot.title = `${label(x, n)}: reported spot`;
+      spot.title = `${nameOf(x)}: reported spot`;
       markers.push(new maplibregl.Marker({ element: spot }).setLngLat([r.lon, r.lat]).addTo(map));
     }
   }
