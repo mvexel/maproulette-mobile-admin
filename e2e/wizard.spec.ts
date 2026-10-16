@@ -219,7 +219,7 @@ test("says when saving is off, and offers to turn an off project on after publis
   await page.getByRole("button", { name: "Publish", exact: true }).click();
 
   const status = page.getByRole("status").first();
-  await expect(status).toHaveText("Published, but project “SLC test” is off, so the campaign isn't in the app yet. Turn project on");
+  await expect(status).toHaveText("Published, but the project “SLC test” is off, so the campaign isn't in the app yet. Turn project on");
   await status.getByRole("button", { name: "Turn project on" }).click();
   await page.getByRole("dialog", { name: "Turn on project “SLC test”?" }).getByRole("button", { name: "Turn on" }).click();
   await expect(page.getByRole("status").first()).toHaveText("Your campaign is live. Anyone with the link can join.");

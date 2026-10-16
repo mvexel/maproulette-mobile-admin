@@ -697,7 +697,7 @@ function SharePanel({
         </p>
       ) : (
         <p className="warning" role="status">
-          Published, but project “{projectName}” is off, so the campaign isn't in the app yet.{" "}
+          Published, but the project “{projectName}” is off, so the campaign isn't in the app yet.{" "}
           {project && (
             <button type="button" onClick={() => setToggling(true)}>
               Turn project on
