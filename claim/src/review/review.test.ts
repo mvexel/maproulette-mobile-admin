@@ -3,7 +3,7 @@ import { MOCK_LIVE_TOKENS, type MockBackend, startMockBackend } from "../../../m
 import { configure } from "../config";
 import { fetchReview, MarkError, mark, type ReviewPage, type ReviewPlace, type Suggestion, tokenFrom } from "./api";
 import { accessToken, completeSignIn, displayName, signedIn, signOut, startSignIn } from "./session";
-import { changesetComment, countsLine, currentLine, idUrl, josmUrl, needsLook, reportText, shown, shortDay, stateLabel, whoLine } from "./words";
+import { changesetComment, countsLine, dayRange, currentLine, idUrl, josmUrl, needsLook, reportText, shown, shortDay, stateLabel, whoLine } from "./words";
 
 const SITE = "https://site.test";
 const T = MOCK_LIVE_TOKENS.live;
@@ -99,8 +99,10 @@ describe("review page words (handback-copy §2)", () => {
   it("suggests a changeset comment with the survey days and hashtags", () => {
     const p = page({ places: [place(), place({ suggestions: [sug({ day: "2026-10-13" })] })] });
     expect(changesetComment(p)).toBe(
-      "From a Street Tally survey for Woodbine entrance doors, 13 Oct to 14 Oct. Checked by me. #StreetTally #StreetTallyWoodbine",
+      "From a Street Tally survey for Woodbine entrance doors, 13–14 Oct. Checked by me. #StreetTally #StreetTallyWoodbine",
     );
+    expect(dayRange("2026-10-14", "2026-10-14")).toBe("14 Oct");
+    expect(dayRange("2026-09-30", "2026-10-02")).toBe("30 Sept–2 Oct");
     expect(changesetComment(page({ campaign: { name: "x", hashtags: [], changesetComment: "Server's own" } }))).toBe("Server's own");
   });
 });

@@ -69,7 +69,7 @@ function renderAccount() {
     const b = el("button", "signin", "Sign in with OpenStreetMap");
     b.type = "button";
     b.onclick = () => void startSignIn();
-    box.replaceChildren(b, el("span", "hint", "To skip or mark places. Read-only: it can't edit the map."));
+    box.replaceChildren(b, el("span", "hint", "Only needed to skip or mark places. It can't change the map."));
   }
 }
 
@@ -140,6 +140,7 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
   }
   for (const r of p.reports) ev.append(el("li", "report", `${reportText(r)} · ${whoLine(r)}`));
   row.append(ev);
+  if (needsLook(p) && p.state === "open") row.append(el("p", "hint", "Not a tag change. Look at it on the ground or on imagery first."));
 
   const note = el("p", "note");
   note.setAttribute("role", "status");
@@ -159,7 +160,6 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
     );
   }
   row.append(actions, note);
-  if (needsLook(p) && p.state === "open") row.append(el("p", "hint", "Not a tag change. Look at it on the ground or on imagery first."));
   return row;
 }
 

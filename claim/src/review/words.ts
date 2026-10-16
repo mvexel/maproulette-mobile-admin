@@ -71,11 +71,18 @@ export function josmUrl(p: ReviewPlace): string {
 /** iD selects the object only: it can't pre-fill tags from a link. */
 export const idUrl = (p: ReviewPlace, osmWeb: string) => `${osmWeb}/edit?editor=id&${p.osm.type}=${p.osm.id}`;
 
+/** "14 Oct", "13–14 Oct", or "30 Sep–2 Oct" across months. */
+export function dayRange(first: string, last: string): string {
+  if (first.slice(0, 10) === last.slice(0, 10)) return shortDay(first);
+  const [a, b] = [shortDay(first), shortDay(last)];
+  return first.slice(0, 7) === last.slice(0, 7) ? `${a.split(" ")[0]}–${b}` : `${a}–${b}`;
+}
+
 /** The suggested changeset comment; the server's when it sends one. */
 export function changesetComment(p: ReviewPage): string {
   if (p.campaign.changesetComment) return p.campaign.changesetComment;
   const days = [...new Set(p.places.flatMap((x) => x.suggestions.map((s) => s.day.slice(0, 10))))].sort();
-  const when = days.length ? `, ${days.length === 1 ? shortDay(days[0]) : `${shortDay(days[0])} to ${shortDay(days[days.length - 1])}`}` : "";
+  const when = days.length ? `, ${dayRange(days[0], days[days.length - 1])}` : "";
   const tags = ["#StreetTally", ...p.campaign.hashtags.filter((h) => h !== "#StreetTally")].join(" ");
   return `From a Street Tally survey for ${p.campaign.name}${when}. Checked by me. ${tags}`;
 }

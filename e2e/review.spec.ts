@@ -27,12 +27,14 @@ test("shows the evidence per place, with no Accept and nothing that uploads", as
   const moved = page.locator(".place").nth(2);
   await expect(moved.locator(".chip")).toHaveText("Needs a look");
   await expect(moved.locator(".report")).toHaveText("It's moved · 1 person, 14 Oct");
+  // The hint sits under the report, above the buttons.
+  await expect(moved.locator(".evidence + .hint")).toHaveText("Not a tag change. Look at it on the ground or on imagery first.");
   const hall = page.getByRole("article", { name: "Woodbine Food Hall" });
   await expect(hall.locator(".chip")).toHaveText("On the map");
   await expect(hall.getByRole("button", { name: "Skip" })).toHaveCount(0);
 
   await expect(page.locator("#comment")).toHaveText(
-    "From a Street Tally survey for Woodbine entrance doors, 13 Oct to 14 Oct. Checked by me. #StreetTally #StreetTallyWoodbine",
+    "From a Street Tally survey for Woodbine entrance doors, 13–14 Oct. Checked by me. #StreetTally #StreetTallyWoodbine",
   );
   await page.screenshot({ path: "test-results/review-page.png", fullPage: true });
 
