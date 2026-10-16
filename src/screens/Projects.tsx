@@ -214,21 +214,24 @@ export function ProjectPicker({ value, onChange }: { value?: number; onChange: (
           </button>
         </fieldset>
       )}
-      <details className="advanced">
-        <summary>Advanced: enter a project ID</summary>
-        <p className="hint">For a project the list can't show. Project IDs differ between backends.</p>
-        <label>
-          Project ID on this backend
-          <input inputMode="numeric" value={rawId} onChange={(e) => setRawId(e.target.value)} />
-        </label>
-        <button
-          type="button"
-          disabled={!/^[1-9][0-9]{0,15}$/.test(rawId)}
-          onClick={() => onChange(Number(rawId))}
-        >
-          Use this ID
-        </button>
-      </details>
+      {/* Organizers can only use their own projects, which the list shows. */}
+      {role() === "admin" && (
+        <details className="advanced">
+          <summary>Advanced: enter a project ID</summary>
+          <p className="hint">For a project the list can't show. Project IDs differ between backends.</p>
+          <label>
+            Project ID on this backend
+            <input inputMode="numeric" value={rawId} onChange={(e) => setRawId(e.target.value)} />
+          </label>
+          <button
+            type="button"
+            disabled={!/^[1-9][0-9]{0,15}$/.test(rawId)}
+            onClick={() => onChange(Number(rawId))}
+          >
+            Use this ID
+          </button>
+        </details>
+      )}
       {toggling && selected && (
         <ProjectToggle
           project={selected}

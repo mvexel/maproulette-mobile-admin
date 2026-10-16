@@ -87,15 +87,18 @@ test("shows an organizer their campaigns and Help only", async ({ page }) => {
   await expect(page.getByRole("navigation").getByRole("link")).toHaveText(["Campaigns", "Help"]);
   await expect(page.getByText("SLC Bus Stops")).toBeVisible();
   await expect(page.getByText("Street Tally test: 1300 S 900 E bus stops")).toHaveCount(0);
+  await expect(page.getByTestId("writes-pill")).not.toHaveAttribute("href");
   await page.goto("/clients");
-  await expect(page.getByText("Page not found.")).toBeVisible();
+  await expect(page.getByText("This page is for the Street Tally team. Your campaigns are under Campaigns.")).toBeVisible();
   // Organizers create with the wizard; the survey builder and stock Publish write through stock
   // routes, which organizer grants can't.
   await page.goto("/new");
   await expect(page.getByRole("heading", { name: "New campaign" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Advanced: build from a survey file" })).toHaveCount(0);
   await page.goto("/new/advanced");
-  await expect(page.getByText("Page not found.")).toBeVisible();
+  await expect(page.getByText("This page is for the Street Tally team.", { exact: false })).toBeVisible();
+  await page.goto("/campaigns/3");
+  await expect(page.getByText("No campaign 3 in the projects you organize.")).toBeVisible();
   await page.goto("/campaigns/9");
   await expect(page.getByText("Draft: not in the app yet.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);

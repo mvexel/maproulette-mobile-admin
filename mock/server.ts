@@ -455,8 +455,14 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let reviewSkips = new Map<number, Set<number>>();
   // Confirm queues (H1b) by campaign: the queue challenge and how many runs made it.
   let queues = new Map<number, { queueChallengeId: number; runs: number }>();
-  /** The organizer list (backend evolution 145): user id -> who added them, and their project roles. */
-  let organizers = new Map<number, { grantedBy: number; createdAt: string; projects: Map<number, "admin" | "write"> }>();
+  /** The organizer list (backend evolution 145): user id -> who added them. */
+  let organizers = new Map<number, { grantedBy: number; createdAt: string }>();
+  /** Upstream project grants, kept apart from the list as on the backend: user id -> project id -> role. */
+  let projectRoles = new Map<number, Map<number, "admin" | "write">>();
+  const rolesOf = (userId: number) => projectRoles.get(userId) ?? new Map<number, "admin" | "write">();
+  /** The backend's 409: this change would leave the project without an administrator. */
+  const lastAdmin = (userId: number, pid: number) =>
+    rolesOf(userId).get(pid) === "admin" && ![...projectRoles].some(([u, r]) => u !== userId && r.get(pid) === "admin");
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string; scope: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; scope: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -575,7 +581,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         createdAt: new Date(Date.UTC(2026, 9, 1) + i * 60_000).toISOString(),
       });
     }
-    organizers = new Map([[USERS.organizer.id, { grantedBy: USERS.super.id, createdAt: "2026-10-16T12:00:00Z", projects: new Map([[2, "write" as const]]) }]]);
+    organizers = new Map([[USERS.organizer.id, { grantedBy: USERS.super.id, createdAt: "2026-10-16T12:00:00Z" }]]);
+    projectRoles = new Map<number, Map<number, "admin" | "write">>([
+      [USERS.super.id, new Map<number, "admin" | "write">([[1, "admin"], [2, "admin"]])],
+      [USERS.organizer.id, new Map<number, "admin" | "write">([[2, "write"]])],
+    ]);
     interactions = new Map();
     codes = new Map();
     families = new Map();
@@ -845,6 +855,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
           return problem(res, 400, "invalid_grant");
         }
         if (f.has("scope") && f.get("scope") !== fam.scope) return problem(res, 400, "invalid_scope");
+        // Re-checked at every refresh, as the backend does: off the list, no new token.
+        if (fam.scope === ORGANIZE_SCOPE && !organizers.has(fam.userId)) return problem(res, 400, "invalid_grant");
         stats.refreshes++;
         return send(res, 200, issue(familyId));
       }
@@ -958,7 +970,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       const c = campaigns.find((x) => x.id === Number(cm[1]));
       if (!c) return problem(res, 404, "not_found");
       // Upstream's project check, for an organizer: Write or better on the campaign's project.
-      if (organizing && !organizers.get(b.user.id)!.projects.has(c.projectId)) return problem(res, 403, "forbidden");
+      if (organizing && !rolesOf(b.user.id).has(c.projectId)) return problem(res, 403, "forbidden");
       if (req.method === "PUT") {
         const v = JSON.parse((await readBody(req)) || "{}") as { enabled?: boolean; tags?: string[] };
         if (typeof v.enabled === "boolean") c.enabled = v.enabled;
@@ -984,7 +996,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!b) return problem(res, 401, "invalid_token");
       if (b.family.scope === ORGANIZE_SCOPE) {
         if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
-        return organize(req, res, path, q, b.user, new Set(organizers.get(b.user.id)!.projects.keys()));
+        return organize(req, res, path, q, b.user, new Set(rolesOf(b.user.id).keys()));
       }
       if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
       if (!b.user.superUser) return problem(res, 403, "admin_required");
@@ -1000,7 +1012,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
         // While the write switch is off only super-users' admin grants write.
         if (req.method !== "GET" && !writePolicy) return problem(res, 403, "mobile_writes_disabled");
-        const own = organizers.get(b.user.id)!.projects;
+        const own = rolesOf(b.user.id);
         const cid = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\//.exec(path);
         const pid = /^\/api\/v2\/mobile-admin\/projects\/([0-9]+)\//.exec(path);
         const projectId = cid ? campaigns.find((c) => c.id === Number(cid[1]))?.projectId : pid ? Number(pid[1]) : undefined;
@@ -1354,7 +1366,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       name: u.displayName,
       grantedBy: o.grantedBy,
       createdAt: o.createdAt,
-      projects: [...o.projects]
+      projects: [...rolesOf(userId)]
         .map(([id, role]) => ({ id, name: projects.get(id)!.name, displayName: projects.get(id)!.displayName, role }))
         .sort((a, b) => a.name.localeCompare(b.name)),
     };
@@ -1484,7 +1496,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       }
       const pid = Number(om[2]);
       if (!projects.has(pid)) return problem(res, 404, "project_not_found");
-      o.projects.delete(pid);
+      if (lastAdmin(id, pid)) return problem(res, 409, "last_project_admin");
+      rolesOf(id).delete(pid);
       record(user.id, "organizer.project.remove", `user:${id}`, undefined, { projectId: pid });
       return send(res, 200, organizerJson(id));
     }
@@ -1541,9 +1554,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!person) return problem(res, 404, "user_not_found");
       const pid = v.projectId as number;
       if (!projects.has(pid)) return problem(res, 404, "project_not_found");
-      const o = organizers.get(person.id) ?? { grantedBy: user.id, createdAt: new Date().toISOString(), projects: new Map() };
-      o.projects.set(pid, v.role as "write" | "admin");
-      organizers.set(person.id, o);
+      if (v.role === "write" && lastAdmin(person.id, pid)) return problem(res, 409, "last_project_admin");
+      projectRoles.set(person.id, rolesOf(person.id).set(pid, v.role as "write" | "admin"));
+      if (!organizers.has(person.id)) organizers.set(person.id, { grantedBy: user.id, createdAt: new Date().toISOString() });
       record(user.id, "organizer.add", `user:${person.id}`, undefined, { projectId: pid, role: v.role, name: person.displayName });
       return send(res, 200, organizerJson(person.id));
     }

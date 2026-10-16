@@ -19,7 +19,7 @@ export function NotSetUp() {
         you.
       </p>
       <p className="hint">
-        No session was created on <code data-testid="backend">{config().backend}</code>.
+        Server: <code data-testid="backend">{config().backend}</code>
       </p>
       {/* OpenStreetMap ignores prompt=login for this kind of sign-in and keeps you signed in, so
           signing in again would pick the same account: sign out there first. Its logout page only

@@ -155,7 +155,10 @@ export function CampaignPage({ id }: { id: number }) {
       <section>
         <h2>Campaign {id}</h2>
         <p>
-          No choice campaign {id} on this backend. <Link to="/">Back to Campaigns</Link>
+          {role() === "organizer"
+            ? `No campaign ${id} in the projects you organize.`
+            : `No choice campaign ${id} on this backend.`}{" "}
+          <Link to="/">Back to Campaigns</Link>
         </p>
       </section>
     );
