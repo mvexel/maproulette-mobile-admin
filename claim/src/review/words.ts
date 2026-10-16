@@ -18,9 +18,9 @@ export function shortDay(isoDay: string): string {
   return new Date(`${isoDay.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-export const tagText = (tags: Record<string, string>) =>
+export const tagText = (tags: Record<string, string | null>) =>
   Object.entries(tags)
-    .map(([k, v]) => `${k}=${v}`)
+    .map(([k, v]) => (v === null ? `remove ${k}` : `${k}=${v}`))
     .join(" · ");
 
 /** "2 people, 14 Oct". */
@@ -63,7 +63,8 @@ export function stateLabel(p: ReviewPlace): string | undefined {
  */
 export function josmUrl(p: ReviewPlace): string {
   const q = new URLSearchParams({ new_layer: "false", objects: `${p.osm.type === "way" ? "w" : "n"}${p.osm.id}` });
-  const tags = p.suggestions.flatMap((s) => Object.entries(s.tags).map(([k, v]) => `${k}=${v}`));
+  const tags = p.suggestions.flatMap((s) => Object.entries(s.tags).map(([k, v]) => `${k}=${v ?? ""}`));
+  // JOSM removes a tag given an empty value.
   if (tags.length) q.set("addtags", tags.join("|"));
   return `http://127.0.0.1:8111/load_object?${q}`;
 }

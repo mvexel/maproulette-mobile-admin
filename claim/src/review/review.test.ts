@@ -3,7 +3,7 @@ import { MOCK_LIVE_TOKENS, type MockBackend, startMockBackend } from "../../../m
 import { configure } from "../config";
 import { fetchReview, MarkError, mark, type ReviewPage, type ReviewPlace, type Suggestion, tokenFrom } from "./api";
 import { accessToken, completeSignIn, displayName, signedIn, signOut, startSignIn } from "./session";
-import { changesetComment, countsLine, dayRange, currentLine, idUrl, josmUrl, needsLook, reportText, shown, shortDay, stateLabel, whoLine } from "./words";
+import { changesetComment, countsLine, currentLine, dayRange, idUrl, josmUrl, needsLook, reportText, shortDay, shown, stateLabel, tagText, whoLine } from "./words";
 
 const SITE = "https://site.test";
 const T = MOCK_LIVE_TOKENS.live;
@@ -87,11 +87,12 @@ describe("review page words (handback-copy §2)", () => {
   });
 
   it("opens JOSM with the suggested tags and iD on the object only", () => {
-    const p = place({ suggestions: [sug(), sug({ tags: { automatic_door: "motion" } })] });
+    const p = place({ suggestions: [sug(), sug({ tags: { automatic_door: "motion", fixme: null } })] });
     const j = new URL(josmUrl(p));
     expect(`${j.origin}${j.pathname}`).toBe("http://127.0.0.1:8111/load_object");
     expect(j.searchParams.get("objects")).toBe("n42");
-    expect(j.searchParams.get("addtags")).toBe("door=sliding|automatic_door=motion");
+    expect(j.searchParams.get("addtags")).toBe("door=sliding|automatic_door=motion|fixme=");
+    expect(tagText({ automatic_door: "motion", fixme: null })).toBe("automatic_door=motion · remove fixme");
     expect(new URL(josmUrl(place({ osm: { type: "way", id: 7 }, suggestions: [] }))).searchParams.has("addtags")).toBe(false);
     expect(idUrl(place({ osm: { type: "way", id: 7 } }), "https://www.openstreetmap.org")).toBe("https://www.openstreetmap.org/edit?editor=id&way=7");
   });

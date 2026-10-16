@@ -8,8 +8,8 @@ export interface Suggestion {
   /** The question as the campaign asks it, shown above the answer. */
   prompt?: string;
   label: string;
-  /** The tags the answer sets, e.g. { door: "sliding" }. */
-  tags: Record<string, string>;
+  /** The tags the answer sets, e.g. { door: "sliding" }; null removes the key. */
+  tags: Record<string, string | null>;
   people: number;
   /** The UTC day of the most recent of these answers (YYYY-MM-DD): no times. */
   day: string;
