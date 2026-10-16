@@ -405,3 +405,6 @@ progress { width: 100%; max-width: 30rem; height: .8rem; accent-color: var(--suc
 }
 button.link { min-height: 0; padding: 0; border: 0; background: none; color: var(--link); text-decoration: underline; cursor: pointer; }
 button.link:hover:not(:disabled) { background: none; color: var(--link-hover); }
+/* Organizers (D8) */
+.organizer-form { max-width: 34rem; margin-bottom: 1.5rem; }
+button.link { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer; }

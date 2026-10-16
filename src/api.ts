@@ -187,6 +187,16 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "Not found. It may have been removed; reload the list.", detail: [] };
     case "admin_required":
       return { message: "Your account is no longer a MapRoulette super-user.", detail: [] };
+    case "organizer_required":
+      return { message: "Your account is no longer set up to run campaigns.", detail: [] };
+    case "organizer_forbidden":
+      return { message: "This campaign or project isn't one of yours.", detail: [] };
+    case "user_not_found":
+      return { message: "No one with that OpenStreetMap username has signed in to MapRoulette yet. Ask them to sign in once, then try again.", detail: [] };
+    case "project_not_found":
+      return { message: "That project doesn't exist any more. Reload the list.", detail: [] };
+    case "last_project_admin":
+      return { message: "They are this project's only administrator, so they can't be removed from it.", detail: [] };
     case "write_prerequisites_missing":
       return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:
@@ -370,3 +380,32 @@ export const updateLivePage = (challengeId: number, change: LivePageChange) =>
 /** A new token: the old link stops working. */
 export const rotateLivePage = (challengeId: number) =>
   api<LivePage>(`/api/v2/mobile-admin/challenges/${challengeId}/live/rotate`, { method: "POST" });
+
+/** A campaign organizer and the projects they run (D8, backend docs/mobile-admin-api.md "Organizers"). */
+export interface Organizer {
+  userId: number;
+  osmId: number;
+  name: string;
+  grantedBy: number;
+  createdAt: string;
+  projects: { id: number; name: string; displayName: string | null; role: OrganizerRole }[];
+}
+
+export type OrganizerRole = "write" | "admin";
+
+export const listOrganizers = () =>
+  api<{ organizers: Organizer[] }>("/api/v2/mobile-admin/organizers").then((r) => r.organizers);
+
+/** Gives the person the role on the project and puts them on the organizer list. */
+export const addOrganizer = (osmUsername: string, projectId: number, role: OrganizerRole) =>
+  api<Organizer>("/api/v2/mobile-admin/organizers", {
+    method: "POST",
+    body: JSON.stringify({ osmUsername, projectId, role }),
+  });
+
+/** Off the organizer list; their project roles stay. */
+export const removeOrganizer = (userId: number) =>
+  api<void>(`/api/v2/mobile-admin/organizers/${userId}`, { method: "DELETE" });
+
+export const removeOrganizerProject = (userId: number, projectId: number) =>
+  api<Organizer>(`/api/v2/mobile-admin/organizers/${userId}/projects/${projectId}`, { method: "DELETE" });

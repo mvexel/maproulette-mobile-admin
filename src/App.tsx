@@ -1,36 +1,49 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { describeError, type Me, me } from "./api";
-import { hasSession, onAuthChange, signOut } from "./auth";
+import { hasSession, onAuthChange, type Role, role, signOut } from "./auth";
 import { navigate, usePath } from "./router";
 import { Audit } from "./screens/Audit";
 import { Callback } from "./screens/Callback";
 import { CampaignList, CampaignPage } from "./screens/Campaigns";
 import { Clients } from "./screens/Clients";
 import { EnvironmentBadge, WritesPill } from "./screens/Environment";
+import { Help } from "./screens/Help";
+import { Organizers } from "./screens/Organizers";
 import { SignIn } from "./screens/SignIn";
 import { SurveyBuilder } from "./screens/SurveyBuilder";
 import { Wizard } from "./screens/Wizard";
 import { WritePolicy } from "./screens/WritePolicy";
 
-const SCREENS: Record<string, { title: string; render: () => React.ReactNode }> = {
-  "/": { title: "Campaigns", render: () => <CampaignList /> },
-  "/new": { title: "New campaign", render: () => <Wizard /> },
-  "/writes": { title: "Task writes", render: () => <WritePolicy /> },
-  "/clients": { title: "Clients", render: () => <Clients /> },
-  "/audit": { title: "Audit log", render: () => <Audit /> },
+interface Screen {
+  title: string;
+  render: () => React.ReactNode;
+  /** Who may open it; in the nav for these roles unless `nav` says otherwise. */
+  roles: Role[];
+  nav?: Role[];
+}
+
+// Organizers see Campaigns and Help (organizer-admin.md §2); New campaign is on Campaigns.
+const SCREENS: Record<string, Screen> = {
+  "/": { title: "Campaigns", render: () => <CampaignList />, roles: ["admin", "organizer"] },
+  "/new": { title: "New campaign", render: () => <Wizard />, roles: ["admin", "organizer"], nav: ["admin"] },
+  "/writes": { title: "Task writes", render: () => <WritePolicy />, roles: ["admin"] },
+  "/clients": { title: "Clients", render: () => <Clients />, roles: ["admin"] },
+  "/organizers": { title: "Organizers", render: () => <Organizers />, roles: ["admin"] },
+  "/audit": { title: "Audit log", render: () => <Audit />, roles: ["admin"] },
+  "/help": { title: "Help", render: () => <Help />, roles: ["organizer"] },
 };
 
 /** Old addresses, kept working: the survey builder and challenge import are New campaign's advanced path. */
 const MOVED: Record<string, string> = { "/surveys": "/new/advanced", "/challenges": "/new/advanced" };
 
 /** The screen for a path, and which nav entry it belongs to. */
-function route(path: string): { nav: string; node: React.ReactNode } | undefined {
+function route(path: string, as: Role): { nav: string; node: React.ReactNode } | undefined {
   const m = /^\/campaigns\/([1-9][0-9]{0,15})$/.exec(path);
   if (m) return { nav: "/", node: <CampaignPage key={m[1]} id={Number(m[1])} /> };
   // The survey builder: the advanced path under New campaign.
   if (path === "/new/advanced") return { nav: "/new", node: <SurveyBuilder /> };
   const screen = SCREENS[path];
-  return screen && { nav: path, node: screen.render() };
+  return screen?.roles.includes(as) ? { nav: path, node: screen.render() } : undefined;
 }
 
 export function App() {
@@ -43,25 +56,28 @@ export function App() {
   if (path === "/callback") return <Callback />;
   if (!signedIn) return <SignIn />;
 
-  const screen = route(MOVED[path] ?? path);
+  const as = role();
+  const screen = route(MOVED[path] ?? path, as);
   return (
     <>
       <header>
         <strong>Street Tally admin</strong>
         <nav>
-          {Object.entries(SCREENS).map(([to, s]) => (
-            <a
-              key={to}
-              href={to}
-              aria-current={to === screen?.nav ? "page" : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(to);
-              }}
-            >
-              {s.title}
-            </a>
-          ))}
+          {Object.entries(SCREENS)
+            .filter(([, s]) => (s.nav ?? s.roles).includes(as))
+            .map(([to, s]) => (
+              <a
+                key={to}
+                href={to}
+                aria-current={to === screen?.nav ? "page" : undefined}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(to);
+                }}
+              >
+                {s.title}
+              </a>
+            ))}
         </nav>
         <Identity />
         <button type="button" onClick={() => void signOut()}>

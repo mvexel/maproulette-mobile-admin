@@ -9,6 +9,7 @@ import {
   type Project,
   setProjectEnabled,
 } from "../api";
+import { role } from "../auth";
 import { config } from "../config";
 
 const envName = () => config().environment?.toUpperCase() ?? config().backend;
@@ -171,9 +172,12 @@ export function ProjectPicker({ value, onChange }: { value?: number; onChange: (
             {value !== undefined && projects && !selected && <option value={value}>Project {value} (entered by ID)</option>}
           </select>
         </label>
-        <button type="button" onClick={() => setCreating(!creating)} aria-expanded={creating}>
-          New project
-        </button>
+        {/* Only super-users create projects; organizers pick from their own. */}
+        {role() === "admin" && (
+          <button type="button" onClick={() => setCreating(!creating)} aria-expanded={creating}>
+            New project
+          </button>
+        )}
       </div>
       {error && (
         <p className="error" role="alert">

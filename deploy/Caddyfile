@@ -43,7 +43,7 @@
 	# fonts and sprites, and runs its worker from a blob: URL.
 	@claim path /claim /claim/*
 	handle @claim {
-		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		try_files {path} /claim/index.html
 		file_server
 	}
@@ -51,7 +51,7 @@
 	# The live progress page (BACKLOG #12): link-only, so no indexing and no referrer. It's the claim
 	# build's second page and needs the same map sources.
 	handle /live/* {
-		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		header X-Robots-Tag "noindex, nofollow"
 		header Referrer-Policy "no-referrer"
 		rewrite * /claim/live.html
@@ -61,7 +61,7 @@
 	# The review page for local mappers (handback-copy §2, SPRINT 3 H2): link-only like /live, with the
 	# same token. It may also talk to JOSM's remote control on the mapper's own computer.
 	handle /review/* {
-		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org http://127.0.0.1:8111; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org http://127.0.0.1:8111; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		header X-Robots-Tag "noindex, nofollow"
 		header Referrer-Policy "no-referrer"
 		rewrite * /claim/review.html

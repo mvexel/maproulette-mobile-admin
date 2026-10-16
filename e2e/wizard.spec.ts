@@ -167,3 +167,25 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
   await expect(page).toHaveURL("/campaigns/101");
   await expect(page.locator(".status-line")).toContainText("Listed in the app");
 });
+
+test("an organizer starts the wizard from Campaigns and the campaign lands in their project", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
+  await page.getByRole("link", { name: /Sign in as mock-organizer/ }).click();
+  await expect(page).toHaveURL(/scope=mobile%3Aorganize/);
+  await page.getByRole("link", { name: /Sign in as mock-organizer/ }).click();
+  await page.getByRole("button", { name: "New campaign" }).click();
+  await expect(page).toHaveURL("/new");
+  await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByRole("button", { name: "Next: what to check" }).click();
+  await page.getByRole("list", { name: "Question sets" }).getByRole("button", { name: /^Crossings/ }).click();
+  await page.getByRole("button", { name: "Next: check the list" }).click();
+  await page.getByRole("button", { name: "Next: words" }).click();
+  await page.getByRole("button", { name: "Next: save and share" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Your campaign is live. Anyone with the link can join.");
+  await page.getByRole("link", { name: "Open the campaign page" }).click();
+  await expect(page).toHaveURL("/campaigns/101");
+  await expect(page.getByRole("heading", { level: 2, name: /^Crossings around Woodbine Food Hall/ })).toBeVisible();
+});

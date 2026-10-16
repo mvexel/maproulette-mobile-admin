@@ -369,13 +369,18 @@ const LANDING_CAMPAIGNS: Record<number, { name: string; blurb?: string; descript
 const USERS: Record<string, User> = {
   super: { id: 7, osmId: 70007, displayName: "mock-superuser", superUser: true },
   plain: { id: 8, osmId: 80008, displayName: "mock-mapper", superUser: false },
+  // On the organizer list for project 2 (Street Tally pilots) after every reset.
+  organizer: { id: 9, osmId: 90009, displayName: "mock-organizer", superUser: false },
 };
 
 const ADMIN_SCOPE = "mobile:admin";
+/** D8: organizers' grant; any client that may hold mobile:admin may also be granted it. */
+const ORGANIZE_SCOPE = "mobile:organize";
 // As MobileScopes.clientScopeSets, in its order (backend docs/mobile-admin-api.md, scope-sets).
 const SCOPE_SETS = [
   "tasks:read",
   ADMIN_SCOPE,
+  ORGANIZE_SCOPE,
   "tasks:read tasks:write",
   "tasks:read guest",
   "tasks:read tasks:write tasks:edit",
@@ -450,8 +455,10 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let reviewSkips = new Map<number, Set<number>>();
   // Confirm queues (H1b) by campaign: the queue challenge and how many runs made it.
   let queues = new Map<number, { queueChallengeId: number; runs: number }>();
-  let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
-  let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
+  /** The organizer list (backend evolution 145): user id -> who added them, and their project roles. */
+  let organizers = new Map<number, { grantedBy: number; createdAt: string; projects: Map<number, "admin" | "write"> }>();
+  let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string; scope: string }>();
+  let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; scope: string; expires: number }>();
   let families = new Map<string, Family>();
   let refreshIndex = new Map<string, string>(); // refresh token -> family id
   let accessTokens = new Map<string, { family: string; expires: number }>();
@@ -568,6 +575,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         createdAt: new Date(Date.UTC(2026, 9, 1) + i * 60_000).toISOString(),
       });
     }
+    organizers = new Map([[USERS.organizer.id, { grantedBy: USERS.super.id, createdAt: "2026-10-16T12:00:00Z", projects: new Map([[2, "write" as const]]) }]]);
     interactions = new Map();
     codes = new Map();
     families = new Map();
@@ -641,7 +649,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     new Set(v).size === v.length;
   const parseScopes = (v: unknown): string[] | undefined => {
     if (!Array.isArray(v) || !v.every((s) => typeof s === "string")) return undefined;
-    const order = ["tasks:read", "tasks:write", "tasks:edit", "osm:tagfix", ADMIN_SCOPE, "guest"];
+    const order = ["tasks:read", "tasks:write", "tasks:edit", "osm:tagfix", ADMIN_SCOPE, ORGANIZE_SCOPE, "guest"];
     if (new Set(v).size !== v.length) return undefined;
     const sorted = [...v].sort((a, b) => order.indexOf(a) - order.indexOf(b));
     return SCOPE_SETS.includes(sorted.join(" ")) ? sorted : undefined;
@@ -758,14 +766,17 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       )
         return problem(res, 400, "invalid_request");
       // `guest` is a client capability, never part of a grant.
-      if (q.get("scope") !== client.scopes.filter((s) => s !== "guest").join(" ")) return problem(res, 400, "invalid_scope");
+      const scope = client.scopes.filter((s) => s !== "guest").join(" ");
+      const organize = scope === ADMIN_SCOPE && q.get("scope") === ORGANIZE_SCOPE;
+      if (q.get("scope") !== scope && !organize) return problem(res, 400, "invalid_scope");
       const tx = token();
-      interactions.set(tx, { clientId: client.id, redirectUri, state: q.get("state")!, challenge: q.get("code_challenge")! });
+      interactions.set(tx, { clientId: client.id, redirectUri, state: q.get("state")!, challenge: q.get("code_challenge")!, scope: q.get("scope")! });
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
       res.end(`<!doctype html><title>Mock sign-in</title><h1>Mock MapRoulette sign-in</h1>
 <p>Client <code>${client.id}</code> asks for <code>${client.scopes.join(" ")}</code>. This mock replaces the OSM login and consent.</p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=super">Sign in as ${USERS.super.displayName} (super-user)</a></p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=plain">Sign in as ${USERS.plain.displayName} (not a super-user)</a></p>
+<p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=organizer">Sign in as ${USERS.organizer.displayName} (an organizer)</a></p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=cancel">Cancel</a></p>`);
       return;
     }
@@ -779,14 +790,20 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       const user = USERS[q.get("as") ?? ""];
       if (!i || !user) return problem(res, 400, "invalid_request");
       interactions.delete(q.get("tx")!);
-      if (!user.superUser && clients.get(i.clientId)?.scopes.includes(ADMIN_SCOPE))
+      if (i.scope === ADMIN_SCOPE && !user.superUser)
         return appRedirect(res, i.redirectUri, {
           error: "access_denied",
           error_description: "MapRoulette super-user required",
           state: i.state,
         });
+      if (i.scope === ORGANIZE_SCOPE && !organizers.has(user.id))
+        return appRedirect(res, i.redirectUri, {
+          error: "access_denied",
+          error_description: "MapRoulette organizer required",
+          state: i.state,
+        });
       const code = token();
-      codes.set(code, { userId: user.id, clientId: i.clientId, redirectUri: i.redirectUri, challenge: i.challenge, expires: Date.now() + 120_000 });
+      codes.set(code, { userId: user.id, clientId: i.clientId, redirectUri: i.redirectUri, challenge: i.challenge, scope: i.scope, expires: Date.now() + 120_000 });
       return appRedirect(res, i.redirectUri, { code, state: i.state });
     }
 
@@ -807,7 +824,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         )
           return problem(res, 400, "invalid_grant");
         const familyId = token();
-        families.set(familyId, { userId: code.userId, clientId: client.id, scope: client.scopes.join(" "), revoked: false, refresh: "", used: new Set() });
+        families.set(familyId, { userId: code.userId, clientId: client.id, scope: code.scope, revoked: false, refresh: "", used: new Set() });
         stats.authorizationCodes++;
         return send(res, 200, issue(familyId));
       }
@@ -930,9 +947,12 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     if (cm && (req.method === "GET" || req.method === "PUT")) {
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
-      if (b.family.scope !== ADMIN_SCOPE || !b.user.superUser) return problem(res, 403, "insufficient_scope");
+      const organizing = b.family.scope === ORGANIZE_SCOPE && organizers.has(b.user.id);
+      if (!(b.family.scope === ADMIN_SCOPE && b.user.superUser) && !organizing) return problem(res, 403, "insufficient_scope");
       const c = campaigns.find((x) => x.id === Number(cm[1]));
       if (!c) return problem(res, 404, "not_found");
+      // Upstream's project check, for an organizer: Write or better on the campaign's project.
+      if (organizing && !organizers.get(b.user.id)!.projects.has(c.projectId)) return problem(res, 403, "forbidden");
       if (req.method === "PUT") {
         const v = JSON.parse((await readBody(req)) || "{}") as { enabled?: boolean; tags?: string[] };
         if (typeof v.enabled === "boolean") c.enabled = v.enabled;
@@ -950,21 +970,35 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, term.includes("nowhere") ? [] : MOCK_PLACES.filter((p) => term.split(/\s+/).some((w) => w && p.display_name.toLowerCase().includes(w))));
     }
 
-    // The campaign wizard's endpoints (design/wizard/wizard-api-draft.md). An admin grant reaches
-    // them until the organizer role (piece 1) adds mobile:organize.
+    // The campaign wizard's endpoints (design/wizard/wizard-api-draft.md): super-users and listed
+    // organizers.
     if (path.startsWith("/api/v2/mobile-organize/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
+      if (b.family.scope === ORGANIZE_SCOPE) {
+        if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
+        return organize(req, res, path, q, b.user, [...organizers.get(b.user.id)!.projects.keys()][0]);
+      }
       if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
       if (!b.user.superUser) return problem(res, 403, "admin_required");
-      return organize(req, res, path, q, b.user);
+      return organize(req, res, path, q, b.user, 2);
     }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
+      if (b.family.scope === ORGANIZE_SCOPE) {
+        if (!organizerRoute(req.method ?? "", path)) return problem(res, 403, "insufficient_scope");
+        if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
+        const own = organizers.get(b.user.id)!.projects;
+        const cid = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\//.exec(path);
+        const pid = /^\/api\/v2\/mobile-admin\/projects\/([0-9]+)\//.exec(path);
+        const projectId = cid ? campaigns.find((c) => c.id === Number(cid[1]))?.projectId : pid ? Number(pid[1]) : undefined;
+        if ((cid || pid) && (projectId === undefined || !own.has(projectId))) return problem(res, 403, "organizer_forbidden");
+        return admin(req, res, path, q, b.user, b.family, own);
+      }
       if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
       if (!b.user.superUser) return problem(res, 403, "admin_required");
       return admin(req, res, path, q, b.user, b.family);
@@ -1185,8 +1219,15 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   // --- campaign wizard (design/wizard/wizard-api-draft.md) ------------------------------------------
 
-  async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User) {
-    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") return createCampaign(req, res, user);
+  /**
+   * `project`: where a created campaign goes. The draft API has no project field yet; the mock
+   * uses the organizer's first project, or Street Tally pilots for a super-user.
+   */
+  async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, project: number | undefined) {
+    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") {
+      if (project === undefined) return problem(res, 403, "organizer_forbidden");
+      return createCampaign(req, res, user, project);
+    }
     const pub = /^\/api\/v2\/mobile-organize\/campaigns\/([0-9]+)\/publish$/.exec(path);
     if (pub && req.method === "POST") {
       const c = campaigns.find((x) => x.id === Number(pub[1]));
@@ -1229,7 +1270,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
    * The wizard's create (wizard-api-draft.md §4): a draft challenge in the pilots project. Like the real
    * one, it trusts no client list: the task count comes from the area, less what was left out.
    */
-  async function createCampaign(req: IncomingMessage, res: ServerResponse, user: User) {
+  async function createCampaign(req: IncomingMessage, res: ServerResponse, user: User, projectId: number) {
     let b: { set?: unknown; version?: unknown; area?: { lat?: unknown; lon?: unknown; radius?: unknown; place?: unknown }; leaveOut?: unknown; name?: unknown; description?: unknown; eventDate?: unknown };
     try {
       b = JSON.parse((await readBody(req)) || "{}");
@@ -1262,7 +1303,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     campaigns.push({
       id,
       name,
-      projectId: 2,
+      projectId,
       enabled: false,
       published: false,
       total: tasks,
@@ -1278,7 +1319,42 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     return send(res, 201, { id, tasks });
   }
 
-  async function admin(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, family: Family) {
+  /** MobileOrganizeRoutes: the campaign part of the admin API. */
+  const organizerRoute = (method: string, path: string) => {
+    const challenge = "^/api/v2/mobile-admin/challenges/[0-9]+";
+    if (method === "GET")
+      return ["/api/v2/mobile-admin/campaigns", "/api/v2/mobile-admin/projects", "/api/v2/mobile-admin/write-policy"].includes(path) ||
+        new RegExp(`${challenge}/(live|results|queue/export)$`).test(path);
+    if (method === "PUT") return /^\/api\/v2\/mobile-admin\/projects\/[0-9]+\/enabled$/.test(path) || new RegExp(`${challenge}/live$`).test(path);
+    if (method === "POST") return new RegExp(`${challenge}/(live/rotate|queue)$`).test(path);
+    return false;
+  };
+
+  const organizerJson = (userId: number) => {
+    const o = organizers.get(userId)!;
+    const u = Object.values(USERS).find((x) => x.id === userId)!;
+    return {
+      userId,
+      osmId: u.osmId,
+      name: u.displayName,
+      grantedBy: o.grantedBy,
+      createdAt: o.createdAt,
+      projects: [...o.projects]
+        .map(([id, role]) => ({ id, name: projects.get(id)!.name, displayName: projects.get(id)!.displayName, role }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  };
+
+  async function admin(
+    req: IncomingMessage,
+    res: ServerResponse,
+    path: string,
+    q: URLSearchParams,
+    user: User,
+    family: Family,
+    /** An organizer's projects; undefined for a super-user. */
+    own?: Map<number, string>,
+  ) {
     const results = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/results$/.exec(path);
     if (results && req.method === "GET") {
       const format = q.get("format") ?? "csv";
@@ -1369,10 +1445,34 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, { items: newest.slice(page * limit, page * limit + limit), page, limit, total: audit.length });
     }
 
+    const visible = (projectId: number) => !own || own.has(projectId);
     if (path === "/api/v2/mobile-admin/projects" && req.method === "GET")
-      return send(res, 200, { projects: [...projects.values()].sort((a, b) => a.name.localeCompare(b.name)).map(projectJson) });
+      return send(res, 200, {
+        projects: [...projects.values()].filter((p) => visible(p.id)).sort((a, b) => a.name.localeCompare(b.name)).map(projectJson),
+      });
     if (path === "/api/v2/mobile-admin/campaigns" && req.method === "GET")
-      return send(res, 200, { campaigns: campaigns.map(campaignJson) });
+      return send(res, 200, { campaigns: campaigns.filter((c) => visible(c.projectId)).map(campaignJson) });
+    if (path === "/api/v2/mobile-admin/organizers" && req.method === "GET")
+      return send(res, 200, {
+        organizers: [...organizers.keys()].map(organizerJson).sort((a, b) => a.name.localeCompare(b.name)),
+      });
+    const om = /^\/api\/v2\/mobile-admin\/organizers\/([0-9]+)(?:\/projects\/([0-9]+))?$/.exec(path);
+    if (om && req.method === "DELETE") {
+      const id = Number(om[1]);
+      const o = organizers.get(id);
+      if (!o) return problem(res, 404, "not_found");
+      if (!om[2]) {
+        const before = organizerJson(id);
+        organizers.delete(id);
+        record(user.id, "organizer.remove", `user:${id}`, before, undefined);
+        return send(res, 204);
+      }
+      const pid = Number(om[2]);
+      if (!projects.has(pid)) return problem(res, 404, "project_not_found");
+      o.projects.delete(pid);
+      record(user.id, "organizer.project.remove", `user:${id}`, undefined, { projectId: pid });
+      return send(res, 200, organizerJson(id));
+    }
 
     let body: unknown;
     try {
@@ -1412,6 +1512,25 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       livePages.set(liveId, p);
       record(user.id, before ? "live.update" : "live.create", `challenge:${liveId}`, undefined, liveAudit(p));
       return send(res, 200, p);
+    }
+
+    if (path === "/api/v2/mobile-admin/organizers" && req.method === "POST") {
+      const v = checkFields(body, ["osmUsername", "projectId", "role"]);
+      if (Array.isArray(v)) return problem(res, 400, "invalid_request", v);
+      const errors: string[] = [];
+      if (typeof v.osmUsername !== "string" || !validName(v.osmUsername)) errors.push("osmUsername must be an OSM username");
+      if (typeof v.projectId !== "number" || !Number.isInteger(v.projectId) || v.projectId < 1) errors.push("projectId is required");
+      if (v.role !== "write" && v.role !== "admin") errors.push("role must be write or admin");
+      if (errors.length) return problem(res, 400, "invalid_request", errors);
+      const person = Object.values(USERS).find((u) => u.displayName.toLowerCase() === (v.osmUsername as string).toLowerCase());
+      if (!person) return problem(res, 404, "user_not_found");
+      const pid = v.projectId as number;
+      if (!projects.has(pid)) return problem(res, 404, "project_not_found");
+      const o = organizers.get(person.id) ?? { grantedBy: user.id, createdAt: new Date().toISOString(), projects: new Map() };
+      o.projects.set(pid, v.role as "write" | "admin");
+      organizers.set(person.id, o);
+      record(user.id, "organizer.add", `user:${person.id}`, undefined, { projectId: pid, role: v.role, name: person.displayName });
+      return send(res, 200, organizerJson(person.id));
     }
 
     if (path === "/api/v2/mobile-admin/projects" && req.method === "POST") {
