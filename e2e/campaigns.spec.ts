@@ -144,7 +144,7 @@ test("a campaign's confirm queue is checked and downloaded for maproulette.org",
 
   await queue.getByRole("button", { name: "Check answers and update the queue" }).click();
   await expect(queue.locator(".queue-summary")).toHaveText(
-    "2 suggestions added · 1 already on the map · 1 place changed on the map since the survey · 1 question where people gave different answers.",
+    "2 suggestions added · 1 already on the map · 1 place changed on OSM since the survey · 1 question where people gave different answers.",
   );
   await queue.getByRole("button", { name: "Check answers and update the queue" }).click();
   await expect(queue.locator(".queue-summary")).toHaveText(

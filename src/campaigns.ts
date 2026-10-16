@@ -62,8 +62,8 @@ export function queueSummary(r: QueueReport): string {
     `${count(r.queued, "suggestion")} added`,
     r.alreadyQueued > 0 && `${r.alreadyQueued} already in the queue`,
     r.done > 0 && `${r.done} already on the map`,
-    r.stale > 0 && `${count(r.stale, "place")} changed on the map since the survey`,
-    r.gone > 0 && `${count(r.gone, "place")} deleted from the map`,
+    r.stale > 0 && `${count(r.stale, "place")} changed on OSM since the survey`,
+    r.gone > 0 && `${count(r.gone, "place")} deleted from OSM`,
     r.disagree > 0 && `${count(r.disagree, "question")} where people gave different answers`,
   ].filter(Boolean);
   return `${parts.join(" · ")}.`;

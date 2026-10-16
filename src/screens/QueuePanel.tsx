@@ -52,8 +52,9 @@ export function QueuePanel({ challenge }: { challenge: number }) {
     <div className="panel queue-panel">
       <h3>Confirm queue</h3>
       <p className="hint">
-        Answers that everyone agreed on, for a mapper to confirm and add to OpenStreetMap on maproulette.org. Each place is checked on
-        OpenStreetMap first; places that changed since the survey are left out. Nothing is written to OpenStreetMap from here.
+        Survey answers for a mapper to confirm and add to OpenStreetMap on maproulette.org. Each place is checked on OpenStreetMap first.
+        Places that changed since the survey, and questions where people gave different answers, are left out. Nothing is written to
+        OpenStreetMap from here.
       </p>
       <ErrorMessage error={error} />
       <p>
