@@ -855,7 +855,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     if (cm && (req.method === "GET" || req.method === "PUT")) {
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
-      const organizing = b.family.scope === ORGANIZE_SCOPE && organizers.has(b.user.id);
+      // Organizer grants reach stock routes for GETs only (MobileOrganizeRoutes).
+      const organizing = b.family.scope === ORGANIZE_SCOPE && organizers.has(b.user.id) && req.method === "GET";
       if (!(b.family.scope === ADMIN_SCOPE && b.user.superUser) && !organizing) return problem(res, 403, "insufficient_scope");
       const c = campaigns.find((x) => x.id === Number(cm[1]));
       if (!c) return problem(res, 404, "not_found");
@@ -879,6 +880,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (b.family.scope === ORGANIZE_SCOPE) {
         if (!organizerRoute(req.method ?? "", path)) return problem(res, 403, "insufficient_scope");
         if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
+        // While the write switch is off only super-users' admin grants write.
+        if (req.method !== "GET" && !writePolicy) return problem(res, 403, "mobile_writes_disabled");
         const own = organizers.get(b.user.id)!.projects;
         const cid = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\//.exec(path);
         const pid = /^\/api\/v2\/mobile-admin\/projects\/([0-9]+)\//.exec(path);

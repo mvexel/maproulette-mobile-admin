@@ -89,8 +89,13 @@ test("shows an organizer their campaigns and Help only", async ({ page }) => {
   await expect(page.getByText("Street Tally test: 1300 S 900 E bus stops")).toHaveCount(0);
   await page.goto("/clients");
   await expect(page.getByText("Page not found.")).toBeVisible();
+  // Creating and publishing write through stock routes; organizers get them with the wizard.
+  await expect(page.getByRole("button", { name: "New campaign" })).toHaveCount(0);
   await page.goto("/new");
-  await expect(page.getByRole("button", { name: "New project" })).toHaveCount(0);
+  await expect(page.getByText("Page not found.")).toBeVisible();
+  await page.goto("/campaigns/9");
+  await expect(page.getByText("Draft: not in the app yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);
 });
 
 test("adds and removes an organizer", async ({ page }) => {

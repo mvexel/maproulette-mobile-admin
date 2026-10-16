@@ -21,10 +21,11 @@ interface Screen {
   nav?: Role[];
 }
 
-// Organizers see Campaigns and Help (organizer-admin.md §2); New campaign is on Campaigns.
+// Organizers see Campaigns and Help (organizer-admin.md §2). New campaign and Publish write through
+// stock routes, which organizer grants can't, so they wait for the campaign wizard.
 const SCREENS: Record<string, Screen> = {
   "/": { title: "Campaigns", render: () => <CampaignList />, roles: ["admin", "organizer"] },
-  "/new": { title: "New campaign", render: () => <SurveyBuilder />, roles: ["admin", "organizer"], nav: ["admin"] },
+  "/new": { title: "New campaign", render: () => <SurveyBuilder />, roles: ["admin"] },
   "/writes": { title: "Task writes", render: () => <WritePolicy />, roles: ["admin"] },
   "/clients": { title: "Clients", render: () => <Clients />, roles: ["admin"] },
   "/organizers": { title: "Organizers", render: () => <Organizers />, roles: ["admin"] },
