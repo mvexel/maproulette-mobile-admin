@@ -95,11 +95,13 @@ describe("review page words (handback-copy §2)", () => {
     expect(stateHint(place({ state: "stale" }))).toMatch(/^OpenStreetMap changed here/);
     // A held-back place opens in JOSM without tags, so nothing goes in unchecked.
     expect(new URL(josmUrl(place({ state: "disagree" }))).searchParams.has("addtags")).toBe(false);
-    // Keys people answered differently stay out; agreed keys go in once (Tess, R-8 on dev 212).
+    // Any split answer means no pre-fill at all (Tess, R-8 on dev 212); agreed keys alone go in once.
     const split = place({
       suggestions: [sug({ tags: { armrest: "yes", colour: "brown" } }), sug({ tags: { armrest: "no", colour: "brown" } }), sug({ tags: { armrest: "yes" } })],
     });
-    expect(new URL(josmUrl(split)).searchParams.get("addtags")).toBe("colour=brown");
+    expect(new URL(josmUrl(split)).searchParams.has("addtags")).toBe(false);
+    const same = place({ suggestions: [sug({ tags: { armrest: "yes" } }), sug({ tags: { armrest: "yes", colour: "brown" } })] });
+    expect(new URL(josmUrl(same)).searchParams.get("addtags")).toBe("armrest=yes|colour=brown");
   });
 
   it("opens JOSM with the suggested tags and iD on the object only", () => {

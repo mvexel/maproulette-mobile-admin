@@ -87,11 +87,12 @@ export const prefill = (p: ReviewPlace) => p.state === "open" || p.state === "do
  */
 export function josmUrl(p: ReviewPlace): string {
   const q = new URLSearchParams({ new_layer: "false", objects: `${p.osm.type === "way" ? "w" : "n"}${p.osm.id}` });
-  // A key people answered differently is left out: JOSM would keep whichever came last.
+  // If people answered any key differently, nothing is pre-filled: JOSM would keep whichever came last (Ada, 10-16).
   const values = new Map<string, Set<string>>();
   for (const s of prefill(p) ? p.suggestions : []) for (const [k, v] of Object.entries(s.tags)) values.set(k, (values.get(k) ?? new Set()).add(v ?? ""));
   // JOSM removes a tag given an empty value.
-  const tags = [...values].filter(([, vs]) => vs.size === 1).map(([k, vs]) => `${k}=${[...vs][0]}`);
+  const split = [...values.values()].some((vs) => vs.size > 1);
+  const tags = split ? [] : [...values].map(([k, vs]) => `${k}=${[...vs][0]}`);
   if (tags.length) q.set("addtags", tags.join("|"));
   return `http://127.0.0.1:8111/load_object?${q}`;
 }
