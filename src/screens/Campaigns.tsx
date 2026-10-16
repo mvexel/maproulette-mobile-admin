@@ -14,6 +14,7 @@ import { config } from "../config";
 import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { LivePanel } from "./LivePanel";
+import { QueuePanel } from "./QueuePanel";
 import { ProjectToggle } from "./Projects";
 import { PublishSheet } from "./PublishSheet";
 import { Reports } from "./Reports";
@@ -254,6 +255,8 @@ export function CampaignPage({ id }: { id: number }) {
       <LivePanel challenge={c.id} />
 
       <Reports challenge={c.id} />
+
+      <QueuePanel challenge={c.id} />
 
       <div className="panel">
         <h3>Export</h3>
