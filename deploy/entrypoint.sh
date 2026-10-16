@@ -32,8 +32,12 @@ printf '{"backend":"%s","clientId":"%s"%s%s}\n' "$BACKEND_ORIGIN" "$CLIENT_ID" "
 CLAIM_CLIENT_ID="${CLAIM_CLIENT_ID:-maproulette-claim}"
 echo "$CLAIM_CLIENT_ID" | grep -Eq '^[A-Za-z0-9._-]{1,100}$' ||
 	{ echo "CLAIM_CLIENT_ID must be 1 to 100 of A-Z a-z 0-9 . _ -" >&2; exit 1; }
-printf '{"backend":"%s","clientId":"%s","mapStyle":"https://tiles.openfreemap.org/styles/positron","osmWeb":"%s"}\n' \
-	"$BACKEND_ORIGIN" "$CLAIM_CLIENT_ID" "$OSM_WEB" > /srv/street/claim/config.json
+# The review page's client (handback-copy §2): tasks:read tasks:write, no OSM scope.
+REVIEW_CLIENT_ID="${REVIEW_CLIENT_ID:-street-tally-review}"
+echo "$REVIEW_CLIENT_ID" | grep -Eq '^[A-Za-z0-9._-]{1,100}$' ||
+	{ echo "REVIEW_CLIENT_ID must be 1 to 100 of A-Z a-z 0-9 . _ -" >&2; exit 1; }
+printf '{"backend":"%s","clientId":"%s","mapStyle":"https://tiles.openfreemap.org/styles/positron","osmWeb":"%s","reviewClientId":"%s"}\n' \
+	"$BACKEND_ORIGIN" "$CLAIM_CLIENT_ID" "$OSM_WEB" "$REVIEW_CLIENT_ID" > /srv/street/claim/config.json
 # The participant site. INSTALL_URL is where "Install the beta" goes (the public TestFlight link).
 INSTALL_URL="${INSTALL_URL:-}"
 [ -z "$INSTALL_URL" ] || echo "$INSTALL_URL" | grep -Eq '^https://[A-Za-z0-9./_-]+$' ||

@@ -42,6 +42,7 @@ function participantSite(): Plugin {
         clientId: process.env.CLAIM_CLIENT_ID ?? "maproulette-claim",
         mapStyle: process.env.CLAIM_MAP_STYLE ?? "",
         osmWeb: process.env.CLAIM_OSM_WEB ?? "https://master.apis.dev.openstreetmap.org",
+        reviewClientId: process.env.REVIEW_CLIENT_ID ?? "street-tally-review",
       });
     if (backend && path === "/config.json")
       return json(res, { backend, installUrl: process.env.SITE_INSTALL_URL ?? "", appScheme: "mrchoice", androidInstallUrl: process.env.SITE_ANDROID_INSTALL_URL ?? "", androidVersion: process.env.SITE_ANDROID_VERSION ?? "" });
@@ -56,6 +57,11 @@ function participantSite(): Plugin {
     // The live progress page (BACKLOG #12): /live/<token> is the claim build's live.html.
     if (/^\/live\/[A-Za-z0-9_-]+\/?$/.test(path)) {
       req.url = "/claim/live.html";
+      return next();
+    }
+    // The review page for local mappers (handback-copy §2): /review/<token> and its sign-in callback.
+    if (/^\/review\/[A-Za-z0-9_-]+\/?$/.test(path)) {
+      req.url = "/claim/review.html";
       return next();
     }
     if (path.startsWith("/claim/")) return next();
@@ -89,7 +95,13 @@ export default defineConfig({
   build: {
     outDir: "../dist-street/claim",
     emptyOutDir: true,
-    // The claim page, and the live progress page served at /live/<token> (deploy/Caddyfile).
-    rollupOptions: { input: { claim: resolve(import.meta.dirname, "claim/index.html"), live: resolve(import.meta.dirname, "claim/live.html") } },
+    // The claim page, the live progress page (/live/<token>) and the review page (/review/<token>), deploy/Caddyfile.
+    rollupOptions: {
+      input: {
+        claim: resolve(import.meta.dirname, "claim/index.html"),
+        live: resolve(import.meta.dirname, "claim/live.html"),
+        review: resolve(import.meta.dirname, "claim/review.html"),
+      },
+    },
   },
 });

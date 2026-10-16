@@ -20,6 +20,7 @@ services:
       # OpenStreetMap site the backend edits, the beta install link, and the app IDs for
       # universal links (leave both empty to serve no apple-app-site-association file).
       CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      REVIEW_CLIENT_ID: ${REVIEW_CLIENT_ID:-street-tally-review}
       OSM_WEB: ${OSM_WEB:-https://master.apis.dev.openstreetmap.org}
       INSTALL_URL: ${INSTALL_URL:-}
       ANDROID_INSTALL_URL: ${ANDROID_INSTALL_URL:-}

@@ -14,6 +14,7 @@ services:
       # the OpenStreetMap site this deployment edits (stage and prod use openstreetmap.org), the
       # install links and the app IDs for universal links. Empty values keep the image defaults.
       CLAIM_CLIENT_ID: ${CLAIM_CLIENT_ID:-maproulette-claim}
+      REVIEW_CLIENT_ID: ${REVIEW_CLIENT_ID:-street-tally-review}
       OSM_WEB: ${OSM_WEB:-https://www.openstreetmap.org}
       INSTALL_URL: ${INSTALL_URL:-}
       ANDROID_INSTALL_URL: ${ANDROID_INSTALL_URL:-}

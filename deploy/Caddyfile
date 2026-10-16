@@ -57,6 +57,16 @@
 		file_server
 	}
 
+	# The review page for local mappers (handback-copy §2, SPRINT 3 H2): link-only like /live, with the
+	# same token. It may also talk to JOSM's remote control on the mapper's own computer.
+	handle /review/* {
+		header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://tiles.openfreemap.org http://127.0.0.1:8111; img-src 'self' data: blob: https://tiles.openfreemap.org; worker-src blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		header X-Robots-Tag "noindex, nofollow"
+		header Referrer-Policy "no-referrer"
+		rewrite * /claim/review.html
+		file_server
+	}
+
 	# Campaign landing page, shown when a campaign link opens without the app installed.
 	handle /challenge/* {
 		rewrite * /challenge.html

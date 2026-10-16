@@ -106,6 +106,63 @@ function livePage(mode: "live" | "ended") {
   };
 }
 
+/** `GET /api/v2/review/:token` (Scala's H1a, handback-copy §2), on the live page's token. No guest ids, days only. */
+function reviewPlaces() {
+  return [
+    {
+      id: 201,
+      osm: { type: "node", id: 9001 },
+      lon: -111.9068,
+      lat: 40.7538,
+      name: "Granary Live",
+      state: "open",
+      suggestions: [
+        { question: "How does this door open?", answer: "Slides sideways", tags: { door: "sliding" }, people: 2, day: "2026-10-14", current: { door: null } },
+        { question: "Does it open by itself?", answer: "Yes, when you walk up", tags: { automatic_door: "motion" }, people: 2, day: "2026-10-14", current: { automatic_door: null } },
+      ],
+      reports: [],
+    },
+    {
+      id: 202,
+      osm: { type: "node", id: 9002 },
+      lon: -111.9071,
+      lat: 40.7536,
+      ref: "B",
+      state: "open",
+      suggestions: [{ question: "How does this door open?", answer: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-14", current: { door: null } }],
+      reports: [{ kind: "cant_tell", people: 1, day: "2026-10-14" }],
+    },
+    {
+      id: 203,
+      osm: { type: "node", id: 9003 },
+      lon: -111.9064,
+      lat: 40.7533,
+      state: "open",
+      suggestions: [],
+      reports: [{ kind: "moved", people: 1, day: "2026-10-14", meters: 14, lon: -111.90625, lat: 40.75338 }],
+    },
+    {
+      id: 204,
+      osm: { type: "way", id: 7001 },
+      lon: -111.9075,
+      lat: 40.7541,
+      name: "Woodbine Food Hall",
+      state: "done",
+      suggestions: [{ question: "How does this door open?", answer: "Revolves", tags: { door: "revolving" }, people: 3, day: "2026-10-13", current: { door: "revolving" } }],
+      reports: [],
+    },
+    {
+      id: 205,
+      osm: { type: "node", id: 9005 },
+      lon: -111.906,
+      lat: 40.7529,
+      state: "open",
+      suggestions: [],
+      reports: [{ kind: "not_here", people: 1, day: "2026-10-13" }],
+    },
+  ];
+}
+
 interface PendingTask {
   taskId: number;
   lat: number;
@@ -268,6 +325,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let campaigns: MockCampaign[] = [];
   /** Live progress pages by challenge id (backend docs/mobile-admin-api.md, "Live progress page"). */
   let livePages = new Map<number, MockLivePage>();
+  /** The review page's marks: Needs a visit for everyone, Skip per mapper (user id). */
+  let reviewVisits = new Set<number>();
+  let reviewSkips = new Map<number, Set<number>>();
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -353,10 +413,19 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         redirectUris: [`${claimOrigin}/claim/callback`],
         scopes: ["tasks:read", "tasks:write", "osm:tagfix"],
       });
+    if (claimOrigin)
+      seedClient({
+        id: "street-tally-review",
+        name: "Street Tally review page",
+        redirectUris: [`${claimOrigin}/review/callback`],
+        scopes: ["tasks:read", "tasks:write"],
+      });
     seedGuests();
     audit = [];
     writePolicy = false;
     livePages = new Map();
+    reviewVisits = new Set();
+    reviewSkips = new Map();
     projects = new Map([
       [1, { id: 1, name: "SLC test", displayName: null, enabled: false }],
       [2, { id: 2, name: "Street Tally pilots", displayName: "Street Tally pilots", enabled: true }],
@@ -488,6 +557,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     /^\/api\/v2\/mobile-claim(\/preview|\/delete|\/stop-reminders|\/[0-9]+|\/[0-9]+\/retry)?$/.test(path) ||
     // The live progress page's public read (BACKLOG #12).
     /^\/api\/v2\/live\/[A-Za-z0-9_-]{43}$/.test(path) ||
+    // The review page (handback-copy §2): the read and the two marks.
+    /^\/api\/v2\/review\/[A-Za-z0-9_-]{43}(\/places\/[0-9]+\/(skip|needs-visit))?$/.test(path) ||
     // The campaign landing page reads the public challenge (name, blurb); §3.11 CORS.
     /^\/api\/v2\/challenge\/[0-9]+$/.test(path);
 
@@ -663,6 +734,53 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         return send(res, 200, { ...page, answersShown: made.showAnswers, ...(made.endedAt ? { endedAt: made.endedAt } : {}) }, headers);
       }
       return send(res, 404, { error: live[1] === MOCK_LIVE_TOKENS.off ? "turned_off" : "not_found" }, headers);
+    }
+
+    // The review page (H1a): public read by the live token; marks need a bearer.
+    const review = /^\/api\/v2\/review\/([A-Za-z0-9_-]{43})(?:\/places\/([0-9]+)\/(skip|needs-visit))?$/.exec(path);
+    if (review) {
+      const headers = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
+      if (review[1] !== MOCK_LIVE_TOKENS.live) return send(res, 404, { error: review[1] === MOCK_LIVE_TOKENS.off ? "turned_off" : "not_found" }, headers);
+      const b = req.headers.authorization ? bearer(req) : undefined;
+      if (req.headers.authorization && !b) return problem(res, 401, "invalid_token");
+      const mine = b ? (reviewSkips.get(b.user.id) ?? new Set<number>()) : new Set<number>();
+      const view = () =>
+        reviewPlaces().map((p) => ({
+          ...p,
+          state: p.state === "done" ? "done" : reviewVisits.has(p.id) || p.id === 205 ? "needs_visit" : "open",
+          ...(b ? { skipped: mine.has(p.id) } : {}),
+        }));
+      if (!review[2] && req.method === "GET") {
+        const places = view();
+        return send(
+          res,
+          200,
+          {
+            campaign: { name: "Woodbine entrance doors", hashtags: ["#StreetTallyWoodbine"], match: { entrance: "main" } },
+            counts: {
+              toReview: places.filter((p) => p.state === "open").reduce((n, p) => n + p.suggestions.length, 0),
+              added: places.filter((p) => p.state === "done").length,
+              needsVisit: places.filter((p) => p.state === "needs_visit").length,
+            },
+            places,
+          },
+          headers,
+        );
+      }
+      if (review[2] && (req.method === "PUT" || req.method === "DELETE")) {
+        if (!b) return problem(res, 401, "invalid_token");
+        const id = Number(review[2]);
+        if (!reviewPlaces().some((p) => p.id === id)) return problem(res, 404, "not_found");
+        const on = req.method === "PUT";
+        if (review[3] === "skip") {
+          if (on) mine.add(id);
+          else mine.delete(id);
+          reviewSkips.set(b.user.id, mine);
+        } else if (on) reviewVisits.add(id);
+        else reviewVisits.delete(id);
+        return send(res, 200, view().find((p) => p.id === id), headers);
+      }
+      return problem(res, 405, "method_not_allowed");
     }
 
     // The campaign landing page reads the public challenge (name, description) without a token.
