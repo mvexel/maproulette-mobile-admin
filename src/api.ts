@@ -187,6 +187,22 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "Not found. It may have been removed; reload the list.", detail: [] };
     case "admin_required":
       return { message: "Your account is no longer a MapRoulette super-user.", detail: [] };
+    case "organizer_required":
+      return { message: "You're no longer an organizer on this server. Sign out and ask us to add you again.", detail: [] };
+    case "organizer_forbidden":
+    case "forbidden":
+      return { message: "This belongs to a project you don't organize.", detail: [] };
+    case "insufficient_scope":
+      return { message: "Only super-users can do this.", detail: [] };
+    case "user_not_found":
+      return { message: "No MapRoulette account has that OpenStreetMap username. They need to sign in to MapRoulette once first.", detail: [] };
+    case "project_not_found":
+      return { message: "That project doesn't exist on this server any more. Reload the list.", detail: [] };
+    case "last_project_admin":
+      return {
+        message: "They're the project's last administrator, so MapRoulette won't remove them. Make someone else an administrator of the project first.",
+        detail: [],
+      };
     case "write_prerequisites_missing":
       return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:
@@ -217,6 +233,24 @@ export interface Campaign {
   project: { id: number; name: string; displayName: string | null; enabled: boolean };
   tasks: { total: number; checked: number; needsLook: number };
 }
+
+export interface Organizer {
+  userId: number;
+  osmId: number;
+  name: string;
+  /** The user id of the super-user who added them. */
+  grantedBy: number;
+  createdAt: string;
+  /** Their projects with Write or better, Home project left out. */
+  projects: { id: number; name: string; displayName: string | null; role: "admin" | "write" }[];
+}
+
+export const listOrganizers = () => api<{ organizers: Organizer[] }>("/api/v2/mobile-admin/organizers").then((r) => r.organizers);
+export const addOrganizer = (osmUsername: string, projectId: number, role: "write" | "admin") =>
+  api<Organizer>("/api/v2/mobile-admin/organizers", { method: "POST", body: JSON.stringify({ osmUsername, projectId, role }) });
+export const removeOrganizer = (userId: number) => api<void>(`/api/v2/mobile-admin/organizers/${userId}`, { method: "DELETE" });
+export const removeOrganizerProject = (userId: number, projectId: number) =>
+  api<Organizer>(`/api/v2/mobile-admin/organizers/${userId}/projects/${projectId}`, { method: "DELETE" });
 
 export const listProjects = () =>
   api<{ projects: Project[] }>("/api/v2/mobile-admin/projects").then((r) => r.projects);

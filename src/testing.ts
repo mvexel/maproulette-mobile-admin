@@ -43,8 +43,15 @@ export function reset(mock: MockBackend) {
 }
 
 /** Plays the browser: authorize, pick a user on the mock page, follow the redirect back. */
-export async function browserSignIn(mock: MockBackend, as: "super" | "plain"): Promise<URLSearchParams> {
+export async function browserSignIn(mock: MockBackend, as: MockUser): Promise<URLSearchParams> {
   await startSignIn();
+  return followAuthorize(mock, as);
+}
+
+type MockUser = "super" | "plain" | "organizer";
+
+/** Follows the last authorize URL the app navigated to, signing in as `as` on the mock page. */
+export async function followAuthorize(mock: MockBackend, as: MockUser): Promise<URLSearchParams> {
   const authorize = assign.mock.calls.at(-1)?.[0];
   if (!authorize) throw new Error("startSignIn did not navigate");
   const page = await fetch(authorize);
@@ -61,4 +68,10 @@ export async function browserSignIn(mock: MockBackend, as: "super" | "plain"): P
 
 export async function signIn(mock: MockBackend) {
   await completeSignIn(await browserSignIn(mock, "super"));
+}
+
+/** Signs in as the mock organizer: refused mobile:admin, then granted mobile:organize. */
+export async function signInOrganizer(mock: MockBackend) {
+  if ((await completeSignIn(await browserSignIn(mock, "organizer"))) !== "retrying") throw new Error("expected a retry");
+  await completeSignIn(await followAuthorize(mock, "organizer"));
 }

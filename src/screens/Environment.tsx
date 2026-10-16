@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getWritePolicy, onWritePolicyChange } from "../api";
+import { role } from "../auth";
 import { config } from "../config";
 import { navigate } from "../router";
 
@@ -26,6 +27,13 @@ export function WritesPill() {
     return () => { current = false; off(); };
   }, []);
   if (enabled === undefined) return null;
+  // Organizers can read the switch but not change it, so for them it's a label, not a link.
+  if (role() === "organizer")
+    return (
+      <span className={`writes-pill ${enabled ? "on" : "off"}`} data-testid="writes-pill" title="Task writes for this backend. Super-users turn them on and off.">
+        {enabled ? "Writes on" : "Writes off"}
+      </span>
+    );
   return (
     <a
       href="/writes"

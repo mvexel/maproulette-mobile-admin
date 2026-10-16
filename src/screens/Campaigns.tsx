@@ -9,14 +9,15 @@ import {
   onWritePolicyChange,
   publishSurveyChallenge,
 } from "../api";
-import { appLink, appState, type AppState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
+import { role } from "../auth";
+import { type AppState, appLink, appState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
 import { config } from "../config";
 import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { LivePanel } from "./LivePanel";
-import { QueuePanel } from "./QueuePanel";
 import { ProjectToggle } from "./Projects";
 import { PublishSheet } from "./PublishSheet";
+import { QueuePanel } from "./QueuePanel";
 import { Reports } from "./Reports";
 import { ShareLine } from "./Share";
 
@@ -154,7 +155,8 @@ export function CampaignPage({ id }: { id: number }) {
       <section>
         <h2>Campaign {id}</h2>
         <p>
-          No choice campaign {id} on this backend. <Link to="/">Back to Campaigns</Link>
+          {role() === "organizer" ? `No campaign ${id} in the projects you organize.` : `No choice campaign ${id} on this backend.`}{" "}
+          <Link to="/">Back to Campaigns</Link>
         </p>
       </section>
     );

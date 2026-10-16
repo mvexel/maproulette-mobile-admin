@@ -9,6 +9,7 @@ import {
   type Project,
   setProjectEnabled,
 } from "../api";
+import { role } from "../auth";
 import { config } from "../config";
 
 const envName = () => config().environment?.toUpperCase() ?? config().backend;
@@ -128,6 +129,7 @@ export function ProjectPicker({ value, onChange }: { value?: number; onChange: (
   const [busy, setBusy] = useState(false);
   const [rawId, setRawId] = useState("");
   const selected = projects?.find((p) => p.id === value);
+  const admin = role() === "admin";
 
   async function create() {
     setBusy(true);
@@ -171,9 +173,12 @@ export function ProjectPicker({ value, onChange }: { value?: number; onChange: (
             {value !== undefined && projects && !selected && <option value={value}>Project {value} (entered by ID)</option>}
           </select>
         </label>
-        <button type="button" onClick={() => setCreating(!creating)} aria-expanded={creating}>
-          New project
-        </button>
+        {/* Organizers run the projects they were given; creating projects stays with super-users. */}
+        {admin && (
+          <button type="button" onClick={() => setCreating(!creating)} aria-expanded={creating}>
+            New project
+          </button>
+        )}
       </div>
       {error && (
         <p className="error" role="alert">
@@ -210,6 +215,7 @@ export function ProjectPicker({ value, onChange }: { value?: number; onChange: (
           </button>
         </fieldset>
       )}
+{admin && (
       <details className="advanced">
         <summary>Advanced: enter a project ID</summary>
         <p className="hint">For a project the list can't show. Project IDs differ between backends.</p>
@@ -225,6 +231,7 @@ export function ProjectPicker({ value, onChange }: { value?: number; onChange: (
           Use this ID
         </button>
       </details>
+)}
       {toggling && selected && (
         <ProjectToggle
           project={selected}

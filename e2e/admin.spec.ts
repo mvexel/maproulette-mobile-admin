@@ -65,9 +65,14 @@ test("refreshes after a reload and after a 401", async ({ page, request }) => {
   expect(s.replays).toBe(0);
 });
 
-test("explains that a non-super-user cannot sign in", async ({ page, request }) => {
+test("explains that an account that is neither a super-user nor an organizer isn't set up", async ({ page, request }) => {
   await signIn(page, "mock-mapper");
-  await expect(page.getByRole("heading", { name: "Not a super-user" })).toBeVisible();
+  // Refused mobile:admin, the app asks again for mobile:organize.
+  await expect(page).toHaveURL(/scope=mobile%3Aorganize/);
+  await page.getByRole("link", { name: /Sign in as mock-mapper/ }).click();
+  await expect(page.getByRole("heading", { name: "Not set up yet" })).toBeVisible();
+  await expect(page.getByText("Your account isn't set up to run campaigns yet.")).toBeVisible();
+  await page.screenshot({ path: "test-results/not-set-up.png", fullPage: true });
   await expect(page.getByTestId("backend")).toHaveText(MOCK);
   expect((await stats(request)).authorizationCodes).toBe(0);
   await page.goto("/");

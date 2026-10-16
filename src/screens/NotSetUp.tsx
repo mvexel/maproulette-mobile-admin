@@ -2,19 +2,22 @@ import { useState } from "react";
 import { startSignIn } from "../auth";
 import { config } from "../config";
 
-/** Shown when the backend answers the sign-in with access_denied: not a MapRoulette super-user. */
-export function NotSuperUser() {
+/**
+ * Shown when the backend refuses both grants: the account is neither a super-user nor on the
+ * organizer list (design/organizer-admin.md §4.1).
+ */
+export function NotSetUp() {
   const [busy, setBusy] = useState(false);
   return (
     <main className="center">
-      <h1>Not a super-user</h1>
+      <h1>Not set up yet</h1>
+      <p>Your account isn't set up to run campaigns yet.</p>
       <p>
-        The OpenStreetMap account you signed in with is not a MapRoulette super-user on{" "}
-        <code data-testid="backend">{config().backend}</code>. No session was created.
+        <a href="mailto:martijn@osm.lol?subject=Run%20campaigns%20on%20Street%20Tally">Ask us to add you</a>, and tell us
+        your OpenStreetMap username and the group you organize for.
       </p>
       <p className="hint">
-        Ask an administrator of that MapRoulette deployment to make your account a super-user, or sign
-        in with another OpenStreetMap account.
+        Server: <code data-testid="backend">{config().backend}</code>. You're not signed in.
       </p>
       {/* OpenStreetMap ignores prompt=login for this kind of sign-in and keeps you signed in, so
           signing in again would pick the same account: sign out there first. Its logout page only

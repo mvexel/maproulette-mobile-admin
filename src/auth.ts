@@ -1,20 +1,35 @@
 import { config } from "./config";
 import { challengeFor, randomString } from "./pkce";
 
-const SCOPE = "mobile:admin";
+/**
+ * Super-users sign in with mobile:admin. Organizers who aren't super-users get access_denied for
+ * it, so the app asks again for mobile:organize (backend docs/mobile-oauth.md, "Organizer scope").
+ */
+const ADMIN = "mobile:admin";
+const ORGANIZE = "mobile:organize";
+type Scope = typeof ADMIN | typeof ORGANIZE;
 const PENDING_KEY = "mrma.pending";
 const REFRESH_KEY = "mrma.refresh";
+const SCOPE_KEY = "mrma.scope";
 
 /** A sign-in or session problem, with a user-facing message. */
 export class AuthError extends Error {}
 
-/** The backend refused the sign-in because the account is not a MapRoulette super-user. */
-export class NotSuperUserError extends AuthError {}
+/** The account is neither a MapRoulette super-user nor on the organizer list. */
+export class NotSetUpError extends AuthError {}
+
+/** What the signed-in account may do: everything, or its own projects' campaigns. */
+export type Role = "admin" | "organizer";
+
+export function role(): Role {
+  return sessionStorage.getItem(SCOPE_KEY) === ORGANIZE ? "organizer" : "admin";
+}
 
 interface TokenResponse {
   access_token: string;
   refresh_token: string;
   expires_in: number;
+  scope?: string;
 }
 
 // The access token lives in memory only; the refresh token in sessionStorage, so it survives a
@@ -38,15 +53,15 @@ export function hasSession(): boolean {
 
 const redirectUri = () => `${location.origin}/callback`;
 
-export async function startSignIn(): Promise<void> {
+export async function startSignIn(scope: Scope = ADMIN): Promise<void> {
   const verifier = randomString(48); // 64 characters; RFC 7636 allows 43 to 128
   const state = randomString(32);
-  sessionStorage.setItem(PENDING_KEY, JSON.stringify({ verifier, state }));
+  sessionStorage.setItem(PENDING_KEY, JSON.stringify({ verifier, state, scope }));
   const q = new URLSearchParams({
     response_type: "code",
     client_id: config().clientId,
     redirect_uri: redirectUri(),
-    scope: SCOPE,
+    scope,
     state,
     code_challenge: await challengeFor(verifier),
     code_challenge_method: "S256",
@@ -54,24 +69,35 @@ export async function startSignIn(): Promise<void> {
   location.assign(`${config().backend}/oauth/mobile/authorize?${q}`);
 }
 
-/** Handles the /callback redirect. Throws AuthError with a user-facing message. */
-export async function completeSignIn(params: URLSearchParams): Promise<void> {
+/**
+ * Handles the /callback redirect. Throws AuthError with a user-facing message. Returns "retrying"
+ * when it has sent the browser back to ask for the organizer grant instead.
+ */
+export async function completeSignIn(params: URLSearchParams): Promise<"signed-in" | "retrying"> {
   const pending = sessionStorage.getItem(PENDING_KEY);
   sessionStorage.removeItem(PENDING_KEY);
-  const { verifier, state } = pending
-    ? (JSON.parse(pending) as { verifier: string; state: string })
-    : { verifier: undefined, state: undefined };
+  const { verifier, state, scope } = pending
+    ? (JSON.parse(pending) as { verifier: string; state: string; scope?: Scope })
+    : { verifier: undefined, state: undefined, scope: undefined };
   if (!state) throw new AuthError("Sign-in was not started in this tab. Please try again.");
   if (params.get("state") !== state) throw new AuthError("Sign-in state mismatch. Please try again.");
   const err = params.get("error");
-  if (err === "access_denied" && /super-user/i.test(params.get("error_description") ?? "")) {
-    throw new NotSuperUserError("This account is not a MapRoulette super-user.");
+  const why = params.get("error_description") ?? "";
+  if (err === "access_denied" && /super-user/i.test(why) && scope !== ORGANIZE) {
+    await startSignIn(ORGANIZE);
+    return "retrying";
+  }
+  if (err === "access_denied" && /organizer|super-user/i.test(why)) {
+    throw new NotSetUpError("This account isn't set up to run campaigns.");
   }
   if (err === "access_denied") throw new AuthError("Sign-in was cancelled.");
   if (err) throw new AuthError(`Sign-in failed: ${params.get("error_description") ?? err}`);
   const code = params.get("code");
   if (!code || !verifier) throw new AuthError("Sign-in returned no code. Please try again.");
-  store(await tokenRequest({ grant_type: "authorization_code", code, code_verifier: verifier, redirect_uri: redirectUri() }));
+  const t = await tokenRequest({ grant_type: "authorization_code", code, code_verifier: verifier, redirect_uri: redirectUri() });
+  sessionStorage.setItem(SCOPE_KEY, t.scope ?? scope ?? ADMIN);
+  store(t);
+  return "signed-in";
 }
 
 const TOKEN_ERRORS: Record<string, string> = {
@@ -101,6 +127,7 @@ function store(t: TokenResponse) {
 export function clearSession() {
   access = undefined;
   sessionStorage.removeItem(REFRESH_KEY);
+  sessionStorage.removeItem(SCOPE_KEY);
   notify();
 }
 
