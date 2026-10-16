@@ -126,6 +126,19 @@ test("gives an app client the guest scope for deferred sign-up", async ({ page }
   await expect(row(page, "org.example.guests")).not.toContainText("osm:tagfix guest");
 });
 
+test("offers the scope sets the backend lists, including tasks:edit", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("button", { name: "Add client" }).click();
+  const form = page.getByRole("form", { name: "New client" });
+  await form.getByLabel("ID", { exact: true }).fill("org.example.editor");
+  await form.getByLabel("Name").fill("Editor");
+  await form.getByLabel("Redirect URIs").fill("org.example.editor:/oauth");
+  await form.getByLabel("Scopes").selectOption("tasks:read tasks:write tasks:edit");
+  await form.getByRole("button", { name: "Create" }).click();
+  await expect(page.getByRole("status")).toHaveText("Created org.example.editor.");
+  await expect(row(page, "org.example.editor")).toContainText("tasks:read tasks:write tasks:edit");
+});
+
 test("shows validation errors and duplicates", async ({ page }) => {
   await signIn(page);
   await page.getByRole("button", { name: "Add client" }).click();
