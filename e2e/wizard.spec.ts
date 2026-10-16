@@ -117,7 +117,7 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
 
   // The first save finds the set moved on: back to step 2, words kept.
   let first = true;
-  await page.route(`${MOCK}/api/v2/mobile-organize/campaigns`, async (route) => {
+  await page.route(`${MOCK}/api/v2/mobile-admin/wizard/campaigns`, async (route) => {
     if (!first) return route.fallback();
     first = false;
     await route.fulfill({
@@ -136,7 +136,7 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
   await page.getByRole("button", { name: "Next: words" }).click();
   await expect(page.getByLabel("Name")).toHaveValue("Woodbine entrance doors");
 
-  const create = page.waitForRequest((r) => r.url().endsWith("/api/v2/mobile-organize/campaigns") && r.method() === "POST");
+  const create = page.waitForRequest((r) => r.url().endsWith("/api/v2/mobile-admin/wizard/campaigns") && r.method() === "POST");
   await page.getByRole("button", { name: "Next: save and share" }).click();
   expect((await create).postDataJSON()).toMatchObject({
     projectId: 2,

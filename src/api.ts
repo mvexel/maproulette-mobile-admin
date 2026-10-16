@@ -199,6 +199,8 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "They are this project's only administrator, so they must stay its administrator.", detail: [] };
     case "mobile_writes_disabled":
       return { message: "Saving is off on this server, so you can't make changes now. Ask the Street Tally team to turn it on.", detail: [] };
+    case "area_too_big":
+      return { message: "That area has more than 2,000 places to check. Make it smaller.", detail: [] };
     case "osm_unavailable":
       return { message: "OpenStreetMap data isn't reachable right now. Try again in a few minutes.", detail: [] };
     case "write_prerequisites_missing":

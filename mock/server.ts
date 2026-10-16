@@ -682,7 +682,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   const oauthPaths = ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"];
   const adminPaths = (path: string) =>
     path.startsWith("/api/v2/mobile-admin/") ||
-    path.startsWith("/api/v2/mobile-organize/") ||
+    path.startsWith("/api/v2/mobile-admin/wizard/") ||
     // The wizard's place search (Nominatim's shape), so tests need no network.
     path === "/search" ||
     /^\/api\/v2\/challenge\/[0-9]+$/.test(path) ||
@@ -978,7 +978,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
     // The campaign wizard's endpoints (design/wizard/wizard-api-draft.md): super-users and listed
     // organizers.
-    if (path.startsWith("/api/v2/mobile-organize/")) {
+    if (path.startsWith("/api/v2/mobile-admin/wizard/")) {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
@@ -1230,11 +1230,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   /** `own`: an organizer's projects; undefined for a super-user, who may use any project. */
   async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, own: Set<number> | undefined) {
     // Scala's wizard backend: create and publish are writes, refused while saving is off (#47's rule).
-    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") {
+    if (path === "/api/v2/mobile-admin/wizard/campaigns" && req.method === "POST") {
       if (!writePolicy) return problem(res, 403, "mobile_writes_disabled");
       return createCampaign(req, res, user, own);
     }
-    const pub = /^\/api\/v2\/mobile-organize\/campaigns\/([0-9]+)\/publish$/.exec(path);
+    const pub = /^\/api\/v2\/mobile-admin\/wizard\/campaigns\/([0-9]+)\/publish$/.exec(path);
     if (pub && req.method === "POST") {
       const c = campaigns.find((x) => x.id === Number(pub[1]));
       if (!c) return problem(res, 404, "not_found");
@@ -1246,13 +1246,13 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       // Publish doesn't turn the project on: that would list its other campaigns too.
       return send(res, 200, { id: c.id, published: true, listed: projects.get(c.projectId)?.enabled ?? false });
     }
-    if (path === "/api/v2/mobile-organize/question-sets") return send(res, 200, { sets: QUESTION_SETS });
+    if (path === "/api/v2/mobile-admin/wizard/question-sets") return send(res, 200, { sets: QUESTION_SETS });
     const area = wizardArea(q);
-    if (path === "/api/v2/mobile-organize/counts") {
+    if (path === "/api/v2/mobile-admin/wizard/counts") {
       if (!area) return problem(res, 400, "invalid_request", ["lat, lon and radius (200-3000 m)"]);
       return send(res, 200, { counts: QUESTION_SETS.map((s) => wizardCount(s.id, s.version, area)) });
     }
-    const fm = /^\/api\/v2\/mobile-organize\/question-sets\/([a-z-]+)\/features$/.exec(path);
+    const fm = /^\/api\/v2\/mobile-admin\/wizard\/question-sets\/([a-z-]+)\/features$/.exec(path);
     if (fm) {
       const s = QUESTION_SETS.find((x) => x.id === fm[1]);
       if (!s) return problem(res, 404, "not_found");
@@ -1311,6 +1311,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     // The mock's feature ids run node/9100+i (see the features route); every set is nodes only.
     const inArea = new Set(Array.from({ length: open }, (_, i) => `node/${9100 + i}`));
     const tasks = open - new Set(leaveOut.filter((id) => inArea.has(id))).size;
+    if (open > 2000) return problem(res, 422, "area_too_big");
     if (tasks <= 0) return problem(res, 422, "nothing_to_check");
     const id = Math.max(100, ...campaigns.map((x) => x.id)) + 1;
     const tag = `#StreetTally${String(b.area?.place).replace(/[^A-Za-z0-9 ]/g, "").replace(/(?:^|\s+)(\w)/g, (_, ch: string) => ch.toUpperCase())}`.slice(0, 40);

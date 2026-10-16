@@ -45,7 +45,7 @@ export interface SetFeatures {
   open: OpenFeature[];
 }
 
-const ORGANIZE = "/api/v2/mobile-organize";
+const ORGANIZE = "/api/v2/mobile-admin/wizard";
 const areaQuery = (a: Area) => new URLSearchParams({ lat: a.lat.toFixed(6), lon: a.lon.toFixed(6), radius: String(Math.round(a.radius)) });
 
 export const questionSets = async () => (await api<{ sets: QuestionSet[] }>(`${ORGANIZE}/question-sets`)).sets;
