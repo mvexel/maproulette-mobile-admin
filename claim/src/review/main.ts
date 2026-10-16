@@ -1,5 +1,6 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "../maplibre-worker";
 import { config, loadConfig } from "../config";
 import { label, type Noun, noun } from "../live/words";
 import { fetchReview, MarkError, mark, type ReviewPage, type ReviewPlace, tokenFrom } from "./api";
@@ -194,7 +195,7 @@ function renderPlaces(p: ReviewPage) {
 }
 
 /**
- * Map markers: one focusable button per place, plus a ring at any spot a report gave. HTML markers like the live page, so the map needs no worker.
+ * Map markers: one focusable button per place, plus a ring at any spot a report gave. HTML markers like the live page, so each pin is a real button.
  */
 const markers: maplibregl.Marker[] = [];
 function renderMap(p: ReviewPage) {

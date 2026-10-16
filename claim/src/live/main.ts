@@ -1,5 +1,6 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "../maplibre-worker";
 import { config, loadConfig } from "../config";
 import { fetchLive, type LivePage, type LiveStop, tokenFrom } from "./api";
 import "./live.css";
