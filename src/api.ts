@@ -69,6 +69,9 @@ export type ClientInput = Pick<Client, "id" | "name" | "redirectUris" | "scopes"
 export type ClientResult = ClientInput & { revokedGrantFamilies?: number };
 
 export const listClients = () => api<{ clients: Client[] }>("/api/v2/mobile-admin/clients").then((r) => r.clients);
+/** Every scope set a client may hold, from the backend's scope rules. */
+export const listScopeSets = () =>
+  api<{ scopeSets: string[][] }>("/api/v2/mobile-admin/scope-sets").then((r) => r.scopeSets);
 export const createClient = (c: ClientInput) =>
   api<ClientResult>("/api/v2/mobile-admin/clients", { method: "POST", body: JSON.stringify(c) });
 export const updateClient = (id: string, patch: Partial<Omit<ClientInput, "id">>, revokeGrants = false) =>

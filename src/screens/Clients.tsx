@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { type Client, createClient, listClients, updateClient } from "../api";
+import { type Client, createClient, listClients, listScopeSets, updateClient } from "../api";
 import { config } from "../config";
 import { ErrorMessage } from "./ErrorMessage";
-
-const SCOPE_SETS = [
-  ["tasks:read"],
-  ["tasks:read", "tasks:write"],
-  ["tasks:read", "tasks:write", "osm:tagfix"],
-  // `guest` lets the app register guests (deferred sign-up); the backend allows it on app clients.
-  ["tasks:read", "tasks:write", "osm:tagfix", "guest"],
-  ["mobile:admin"],
-];
 
 export function Clients() {
   const [clients, setClients] = useState<Client[]>();
@@ -197,9 +188,19 @@ function ClientForm({
   const [id, setId] = useState(client?.id ?? "");
   const [name, setName] = useState(client?.name ?? "");
   const [redirects, setRedirects] = useState(client?.redirectUris.join("\n") ?? "");
-  const [scopes, setScopes] = useState(client?.scopes.join(" ") ?? SCOPE_SETS[0].join(" "));
+  const [scopes, setScopes] = useState(client?.scopes.join(" ") ?? "tasks:read");
+  // The backend lists the scope sets a client may hold, so its rules live in one place.
+  const [scopeSets, setScopeSets] = useState<string[]>();
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    listScopeSets()
+      .then((sets) => setScopeSets(sets.map((s) => s.join(" "))))
+      .catch((e: unknown) => setError(e));
+  }, []);
+  // The current value stays selectable while loading, and if the backend no longer lists it.
+  const scopeOptions = scopeSets?.includes(scopes) ? scopeSets : [scopes, ...(scopeSets ?? [])];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,10 +251,10 @@ function ClientForm({
       </label>
       <label>
         Scopes
-        <select value={scopes} onChange={(e) => setScopes(e.target.value)}>
-          {SCOPE_SETS.map((s) => (
-            <option key={s.join(" ")} value={s.join(" ")}>
-              {s.join(" ")}
+        <select value={scopes} onChange={(e) => setScopes(e.target.value)} disabled={!scopeSets}>
+          {scopeOptions.map((s) => (
+            <option key={s} value={s}>
+              {s}
             </option>
           ))}
         </select>

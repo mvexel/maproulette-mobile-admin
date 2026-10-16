@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { MockBackend } from "../mock/server.ts";
 import { RESULTS_CHALLENGE_ID, RESULTS_CSV } from "../mock/server.ts";
-import { ApiError, createClient, describeError, fetchChallengeResults, idEditorUrl, listReports, stopLabel, getWritePolicy, listAudit, listClients, setWritePolicy, updateClient } from "./api";
+import { ApiError, createClient, describeError, fetchChallengeResults, idEditorUrl, listReports, stopLabel, getWritePolicy, listAudit, listClients, listScopeSets, setWritePolicy, updateClient } from "./api";
 import { shortDateTime } from "./format";
 import { reset, setUp, signIn } from "./testing";
 
@@ -34,6 +34,14 @@ describe("clients", () => {
       "maproulette-mobile-admin",
     ]);
     expect(clients[0]).toMatchObject({ source: "config", createdBy: null, enabled: true });
+  });
+
+  it("lists the scope sets a client may hold, and accepts each of them", async () => {
+    const sets = await listScopeSets();
+    expect(sets).toContainEqual(["tasks:read", "tasks:write", "tasks:edit"]);
+    expect(sets).toContainEqual(["mobile:admin"]);
+    for (const [i, scopes] of sets.entries())
+      expect((await createClient({ ...newClient, id: `org.example.app${i}`, scopes })).scopes).toEqual(scopes);
   });
 
   it("creates a client and records it in the audit log", async () => {

@@ -14,6 +14,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Clients screen: the scope choices come from the backend (`GET /api/v2/mobile-admin/scope-sets`)
+  instead of a fixed list, so it offers every set the backend allows, including `tasks:edit`
+  (desktop editors) and `tasks:read guest`. The mock serves the route.
+
 - Live page panel on a campaign's page: create the live progress page, turn it on or off, show each
   place's answers, count people from an event start, end live mode, copy the link (with a QR code),
   and replace the link. The mock serves the three admin live routes.
