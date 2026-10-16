@@ -70,7 +70,7 @@ test("goes from a place to drafted words with no tags or files", async ({ page }
   await page.getByText("Details for mappers").click();
   await expect(page.locator("dd code").first()).toHaveText("#StreetTallySaltLakeCityLibrary");
   await expect(page.locator("dd code").nth(1)).toHaveText(
-    "From a Street Tally survey for Library doors. Checked by me. #StreetTally #StreetTallySaltLakeCityLibrary",
+    "From a Street Tally survey for Library doors, 10 November 2026. Checked by me. #StreetTally #StreetTallySaltLakeCityLibrary",
   );
   await expect(page.getByRole("button", { name: /Publish and share/ })).toBeDisabled();
   await page.screenshot({ path: "test-results/wizard-words.png", fullPage: true });

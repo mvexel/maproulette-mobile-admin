@@ -477,7 +477,7 @@ function WordsStep({
   save: () => Promise<void>;
 }) {
   const tag = hashtag(place);
-  const comment = changesetComment(words.name, tag);
+  const comment = changesetComment(words.name, tag, words.eventDate || undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   async function submit(e: React.FormEvent) {
@@ -584,7 +584,7 @@ function PublishStep({ set, place, words, campaign }: { set: QuestionSet; place:
           label="Try it on your phone first"
           url={`${link}?preview=1`}
           file={`campaign-${campaign.id}-preview-qr.png`}
-          warning="Preview mode isn't in the app yet. Until it is, this opens the campaign normally and answers are saved."
+          warning="Preview mode isn't in the app yet. Until it is, this opens the campaign normally, and anything you answer is saved and goes to the mappers."
         />
         {error && (
           <p className="error" role="alert">
@@ -697,7 +697,7 @@ function TableCard({ set, place, words, link }: { set: QuestionSet; place: strin
         </li>
       </ol>
       <p className="saved">
-        <b>No OpenStreetMap account needed.</b> Your answers count right away, and local mappers add them to the map.
+        <b>No OpenStreetMap account needed.</b> Your answers count right away, and local mappers add them to the map. Already on OpenStreetMap? Sign in and your answers go straight on the map.
       </p>
       <footer>
         <span>{words.eventDate ? `${eventDay(words.eventDate)} · ${place}` : place}</span>

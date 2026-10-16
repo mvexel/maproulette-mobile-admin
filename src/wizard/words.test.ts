@@ -54,6 +54,9 @@ describe("wizard words", () => {
     expect(changesetComment("Entrance doors around Woodbine", "#StreetTallyWoodbine")).toBe(
       "From a Street Tally survey for Entrance doors around Woodbine. Checked by me. #StreetTally #StreetTallyWoodbine",
     );
+    expect(changesetComment("Woodbine doors", "#StreetTallyWoodbine", "2026-11-10")).toBe(
+      "From a Street Tally survey for Woodbine doors, 10 November 2026. Checked by me. #StreetTally #StreetTallyWoodbine",
+    );
     expect(inviteText(doors, "Woodbine Food Hall", "https://x.test/c/1", "2026-11-10")).toBe(
       "Join us at Woodbine Food Hall on 10 November 2026 to check entrances for Street Tally. No account needed, just your phone: https://x.test/c/1",
     );

@@ -70,7 +70,8 @@ export function hashtag(place: string): string {
 }
 
 /** The changeset comment mappers use when they add the answers (the review page suggests the same shape). */
-export const changesetComment = (name: string, tag: string) => `From a Street Tally survey for ${name}. Checked by me. #StreetTally ${tag}`;
+export const changesetComment = (name: string, tag: string, isoDay?: string) =>
+  `From a Street Tally survey for ${name}${isoDay ? `, ${eventDay(isoDay)}` : ""}. Checked by me. #StreetTally ${tag}`;
 
 /** "10 November 2026"; the date only, never a time. */
 export function eventDay(isoDay: string): string {
