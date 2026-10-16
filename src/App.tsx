@@ -22,7 +22,9 @@ interface Screen {
   nav?: Role[];
 }
 
-// Organizers see Campaigns and Help (organizer-admin.md §2); New campaign is on Campaigns.
+// Organizers see Campaigns and Help (organizer-admin.md §2), and start the wizard from Campaigns.
+// The survey builder (/new/advanced) and stock Publish write through stock routes, which organizer
+// grants can't, so they stay with super-users.
 const SCREENS: Record<string, Screen> = {
   "/": { title: "Campaigns", render: () => <CampaignList />, roles: ["admin", "organizer"] },
   "/new": { title: "New campaign", render: () => <Wizard />, roles: ["admin", "organizer"], nav: ["admin"] },
@@ -41,7 +43,7 @@ function route(path: string, as: Role): { nav: string; node: React.ReactNode } |
   const m = /^\/campaigns\/([1-9][0-9]{0,15})$/.exec(path);
   if (m) return { nav: "/", node: <CampaignPage key={m[1]} id={Number(m[1])} /> };
   // The survey builder: the advanced path under New campaign.
-  if (path === "/new/advanced") return { nav: "/new", node: <SurveyBuilder /> };
+  if (path === "/new/advanced") return as === "admin" ? { nav: "/new", node: <SurveyBuilder /> } : undefined;
   const screen = SCREENS[path];
   return screen?.roles.includes(as) ? { nav: path, node: screen.render() } : undefined;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiError, describeError, type Project } from "../api";
+import { role } from "../auth";
 import { webLink } from "../campaigns";
 import { config } from "../config";
 import { navigate } from "../router";
@@ -81,6 +82,7 @@ export function Wizard() {
     <section className="wizard">
       <div className="wizard-head">
         <h2>New campaign</h2>
+        {role() === "admin" && (
         <a
           href="/new/advanced"
           onClick={(e) => {
@@ -90,6 +92,7 @@ export function Wizard() {
         >
           Advanced: build from a survey file
         </a>
+        )}
       </div>
       <ol className="stepper">
         {STEPS.map((label, i) => {

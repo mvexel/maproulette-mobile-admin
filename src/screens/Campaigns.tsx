@@ -9,14 +9,15 @@ import {
   onWritePolicyChange,
   publishSurveyChallenge,
 } from "../api";
-import { appLink, appState, type AppState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
+import { role } from "../auth";
+import { type AppState, appLink, appState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
 import { config } from "../config";
 import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { LivePanel } from "./LivePanel";
-import { QueuePanel } from "./QueuePanel";
 import { ProjectToggle } from "./Projects";
 import { PublishSheet } from "./PublishSheet";
+import { QueuePanel } from "./QueuePanel";
 import { Reports } from "./Reports";
 import { ShareLine } from "./Share";
 
@@ -162,6 +163,8 @@ export function CampaignPage({ id }: { id: number }) {
   const state = appState(c);
   const env = config().environment?.toUpperCase();
   const writesOff = state === "listed" && writes === false;
+  // Publishing writes through a stock route; organizers publish from the campaign wizard instead.
+  const canPublish = role() === "admin";
   const QR_WARNING: Partial<Record<AppState, string>> = {
     draft: "Not in the app yet. This code won't work until you publish.",
     "not-published": "Hidden from the app. This code won't work until you publish.",
@@ -214,17 +217,21 @@ export function CampaignPage({ id }: { id: number }) {
         {state === "not-published" && (
           <p>
             Hidden from the app: not published yet.{" "}
-            <button type="button" className="primary" onClick={() => setSheet("publish")} disabled={!challenge}>
-              Publish
-            </button>
+            {canPublish && (
+              <button type="button" className="primary" onClick={() => setSheet("publish")} disabled={!challenge}>
+                Publish
+              </button>
+            )}
           </p>
         )}
         {state === "draft" && (
           <p>
             Draft: not in the app yet.{" "}
-            <button type="button" className="primary" onClick={() => setSheet("publish")} disabled={!challenge}>
-              Publish
-            </button>
+            {canPublish && (
+              <button type="button" className="primary" onClick={() => setSheet("publish")} disabled={!challenge}>
+                Publish
+              </button>
+            )}
           </p>
         )}
       </div>

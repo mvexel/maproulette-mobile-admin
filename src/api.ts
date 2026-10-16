@@ -196,7 +196,9 @@ export function describeError(e: unknown): { message: string; detail: string[] }
     case "project_not_found":
       return { message: "That project doesn't exist any more. Reload the list.", detail: [] };
     case "last_project_admin":
-      return { message: "They are this project's only administrator, so they can't be removed from it.", detail: [] };
+      return { message: "They are this project's only administrator, so they must stay its administrator.", detail: [] };
+    case "mobile_writes_disabled":
+      return { message: "Saving is off on this server, so you can't make changes now. Ask the Street Tally team to turn it on.", detail: [] };
     case "write_prerequisites_missing":
       return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:
