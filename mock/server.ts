@@ -195,12 +195,17 @@ const USERS: Record<string, User> = {
 };
 
 const ADMIN_SCOPE = "mobile:admin";
+// As MobileScopes.clientScopeSets, in its order (backend docs/mobile-admin-api.md, scope-sets).
 const SCOPE_SETS = [
   "tasks:read",
-  "tasks:read tasks:write",
-  "tasks:read tasks:write osm:tagfix",
-  "tasks:read tasks:write osm:tagfix guest",
   ADMIN_SCOPE,
+  "tasks:read tasks:write",
+  "tasks:read guest",
+  "tasks:read tasks:write tasks:edit",
+  "tasks:read tasks:write osm:tagfix",
+  "tasks:read tasks:write guest",
+  "tasks:read tasks:write tasks:edit guest",
+  "tasks:read tasks:write osm:tagfix guest",
 ];
 const token = () => randomBytes(32).toString("base64url"); // 43 characters, like the backend
 const s256 = (verifier: string) => createHash("sha256").update(verifier).digest("base64url");
@@ -427,7 +432,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   const redirectError =
     "redirectUris: 1 to 10 distinct URIs, each https://host/... or a reverse-domain custom scheme (com.example.app:/path), without query or fragment";
   const scopesError =
-    'scopes: ["tasks:read"], ["tasks:read","tasks:write"], ["tasks:read","tasks:write","osm:tagfix"] or ["mobile:admin"]; app scopes may add "guest"';
+    'scopes: ["tasks:read"], ["tasks:read","tasks:write"], ["tasks:read","tasks:write","osm:tagfix"], ["tasks:read","tasks:write","tasks:edit"] or ["mobile:admin"]; app scopes may add "guest"';
 
   const validName = (v: unknown) =>
     typeof v === "string" && v.trim() !== "" && v.trim() === v && v.length <= 200 && !/\p{Cc}/u.test(v);
@@ -444,7 +449,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     new Set(v).size === v.length;
   const parseScopes = (v: unknown): string[] | undefined => {
     if (!Array.isArray(v) || !v.every((s) => typeof s === "string")) return undefined;
-    const order = ["tasks:read", "tasks:write", "osm:tagfix", ADMIN_SCOPE, "guest"];
+    const order = ["tasks:read", "tasks:write", "tasks:edit", "osm:tagfix", ADMIN_SCOPE, "guest"];
     if (new Set(v).size !== v.length) return undefined;
     const sorted = [...v].sort((a, b) => order.indexOf(a) - order.indexOf(b));
     return SCOPE_SETS.includes(sorted.join(" ")) ? sorted : undefined;
@@ -945,6 +950,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       record(user.id, "live.rotate", `challenge:${liveId}`, undefined, liveAudit(p));
       return send(res, 200, p);
     }
+    if (path === "/api/v2/mobile-admin/scope-sets" && req.method === "GET")
+      return send(res, 200, { scopeSets: SCOPE_SETS.map((s) => s.split(" ")) });
     if (path === "/api/v2/mobile-admin/clients" && req.method === "GET")
       return send(res, 200, { clients: [...clients.values()].sort((a, b) => a.id.localeCompare(b.id)).map(listJson) });
 

@@ -6,7 +6,12 @@ export interface Config {
   clientId: string;
   /** Which deployment the backend is. Unknown when neither set nor recognisable from the host. */
   environment?: Environment;
+  /** The OpenStreetMap site the backend signs in with, as an origin. */
+  osmWeb: string;
 }
+
+const OSM = "https://www.openstreetmap.org";
+const OSM_DEV = "https://master.apis.dev.openstreetmap.org";
 
 const ENVIRONMENTS: readonly string[] = ["dev", "stage", "prod"];
 
@@ -31,8 +36,13 @@ export function configure(raw: Partial<Config>): Config {
   if (!raw.backend || !raw.clientId) throw new Error("config.json needs backend and clientId");
   if (raw.environment !== undefined && !ENVIRONMENTS.includes(raw.environment))
     throw new Error("config.json environment must be dev, stage or prod");
+  if (raw.osmWeb !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?$/.test(raw.osmWeb))
+    throw new Error("config.json osmWeb must be an origin like https://www.openstreetmap.org");
   const backend = raw.backend.replace(/\/+$/, "");
-  current = { backend, clientId: raw.clientId, environment: raw.environment ?? inferEnvironment(backend) };
+  const environment = raw.environment ?? inferEnvironment(backend);
+  // Dev signs in with the OSM dev server; stage and prod with openstreetmap.org.
+  const osmWeb = raw.osmWeb ?? (environment === "dev" ? OSM_DEV : OSM);
+  current = { backend, clientId: raw.clientId, environment, osmWeb };
   return current;
 }
 
