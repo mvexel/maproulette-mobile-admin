@@ -32,6 +32,9 @@ test("goes from a place to drafted words with no tags or files", async ({ page }
   await expect(page.getByTestId("area")).toHaveText("400 m around Salt Lake City Library");
   await page.getByRole("button", { name: "10 min" }).click();
   await expect(page.getByText("You can change this later.")).toBeVisible();
+  // A super-user runs both projects, so step 1 asks which one.
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeDisabled();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
   await page.getByRole("button", { name: "Next: what to check" }).click();
 
   // Step 2: cards sorted by count; nothing to check is disabled; a timed-out count can still be picked.
@@ -102,6 +105,7 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
   await expect(page.getByRole("link", { name: "Nominatim" })).toHaveAttribute("href", "https://nominatim.org/");
   await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
   await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
   await page.getByRole("button", { name: "Next: what to check" }).click();
   await page.getByRole("list", { name: "Question sets" }).getByRole("button", { name: /^Entrance doors/ }).click();
   await page.getByRole("button", { name: "Next: check the list" }).click();
@@ -133,6 +137,7 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
   const create = page.waitForRequest((r) => r.url().endsWith("/api/v2/mobile-organize/campaigns") && r.method() === "POST");
   await page.getByRole("button", { name: "Next: save and share" }).click();
   expect((await create).postDataJSON()).toMatchObject({
+    projectId: 2,
     set: "entrance-doors",
     version: 3,
     area: { radius: 800, place: "Woodbine Food Hall" },
@@ -178,6 +183,8 @@ test("an organizer starts the wizard from Campaigns and the campaign lands in th
   await expect(page).toHaveURL("/new");
   await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
   await page.getByRole("button", { name: "Search" }).click();
+  // One project: picked for them, no question.
+  await expect(page.getByLabel("Which project is it for?")).toHaveCount(0);
   await page.getByRole("button", { name: "Next: what to check" }).click();
   await page.getByRole("list", { name: "Question sets" }).getByRole("button", { name: /^Crossings/ }).click();
   await page.getByRole("button", { name: "Next: check the list" }).click();

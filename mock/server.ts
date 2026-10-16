@@ -978,11 +978,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!b) return problem(res, 401, "invalid_token");
       if (b.family.scope === ORGANIZE_SCOPE) {
         if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
-        return organize(req, res, path, q, b.user, [...organizers.get(b.user.id)!.projects.keys()][0]);
+        return organize(req, res, path, q, b.user, new Set(organizers.get(b.user.id)!.projects.keys()));
       }
       if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
       if (!b.user.superUser) return problem(res, 403, "admin_required");
-      return organize(req, res, path, q, b.user, 2);
+      return organize(req, res, path, q, b.user, undefined);
     }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
@@ -1219,15 +1219,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   // --- campaign wizard (design/wizard/wizard-api-draft.md) ------------------------------------------
 
-  /**
-   * `project`: where a created campaign goes. The draft API has no project field yet; the mock
-   * uses the organizer's first project, or Street Tally pilots for a super-user.
-   */
-  async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, project: number | undefined) {
-    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") {
-      if (project === undefined) return problem(res, 403, "organizer_forbidden");
-      return createCampaign(req, res, user, project);
-    }
+  /** `own`: an organizer's projects; undefined for a super-user, who may use any project. */
+  async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, own: Set<number> | undefined) {
+    if (path === "/api/v2/mobile-organize/campaigns" && req.method === "POST") return createCampaign(req, res, user, own);
     const pub = /^\/api\/v2\/mobile-organize\/campaigns\/([0-9]+)\/publish$/.exec(path);
     if (pub && req.method === "POST") {
       const c = campaigns.find((x) => x.id === Number(pub[1]));
@@ -1270,8 +1264,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
    * The wizard's create (wizard-api-draft.md §4): a draft challenge in the pilots project. Like the real
    * one, it trusts no client list: the task count comes from the area, less what was left out.
    */
-  async function createCampaign(req: IncomingMessage, res: ServerResponse, user: User, projectId: number) {
-    let b: { set?: unknown; version?: unknown; area?: { lat?: unknown; lon?: unknown; radius?: unknown; place?: unknown }; leaveOut?: unknown; name?: unknown; description?: unknown; eventDate?: unknown };
+  async function createCampaign(req: IncomingMessage, res: ServerResponse, user: User, own: Set<number> | undefined) {
+    let b: {
+      projectId?: unknown; set?: unknown; version?: unknown; area?: { lat?: unknown; lon?: unknown; radius?: unknown; place?: unknown }; leaveOut?: unknown; name?: unknown; description?: unknown; eventDate?: unknown };
     try {
       b = JSON.parse((await readBody(req)) || "{}");
     } catch {
@@ -1281,7 +1276,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     const area = wizardArea(new URLSearchParams({ lat: String(b.area?.lat), lon: String(b.area?.lon), radius: String(b.area?.radius) }));
     const leaveOut = Array.isArray(b.leaveOut) && b.leaveOut.every((x) => typeof x === "string" && /^(node|way)\/[0-9]+$/.test(x)) ? (b.leaveOut as string[]) : undefined;
     const name = typeof b.name === "string" ? b.name.trim() : "";
+    const projectId = typeof b.projectId === "number" && Number.isInteger(b.projectId) ? b.projectId : undefined;
     const bad = [
+      projectId === undefined && "projectId is required",
       !s && "set is not a question set",
       !area && "area needs lat, lon and radius (200-3000 m)",
       typeof b.area?.place !== "string" && "area.place is required",
@@ -1290,7 +1287,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       typeof b.description !== "string" && "description is required",
       b.eventDate !== undefined && !(typeof b.eventDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.eventDate)) && "eventDate is YYYY-MM-DD",
     ].filter((x): x is string => !!x);
-    if (bad.length || !s || !area || !leaveOut) return problem(res, 400, "invalid_request", bad);
+    if (bad.length || !s || !area || !leaveOut || projectId === undefined) return problem(res, 400, "invalid_request", bad);
+    // can(Campaigns(projectId)): the caller's own project, or any project for a super-user.
+    if (own ? !own.has(projectId) : !projects.has(projectId)) return problem(res, 403, "organizer_forbidden");
     if (b.version !== s.version) return problem(res, 409, "set_changed", [`${s.id} is at version ${s.version}`]);
     const c = wizardCount(s.id, s.version, area);
     const open = "unavailable" in c ? 0 : c.open;

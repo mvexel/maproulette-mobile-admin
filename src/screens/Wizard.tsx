@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, describeError } from "../api";
+import { ApiError, describeError, type Project } from "../api";
 import { webLink } from "../campaigns";
 import { config } from "../config";
 import { navigate } from "../router";
@@ -37,6 +37,7 @@ import {
   RADIUS_MAX,
   RADIUS_MIN,
 } from "../wizard/words";
+import { useProjects } from "./Projects";
 import { QrSvg, ShareLine } from "./Share";
 
 /**
@@ -65,6 +66,10 @@ export function Wizard() {
   // The saved draft; once it exists the earlier steps are closed.
   const [created, setCreated] = useState<CreatedCampaign>();
   const [setChanged, setSetChanged] = useState<QuestionSet>();
+  // Where the campaign goes: picked for you with one project, asked on step 1 with several.
+  const { projects, error: projectsError } = useProjects();
+  const [chosenProject, setChosenProject] = useState<number>();
+  const projectId = projects?.length === 1 ? projects[0].id : chosenProject;
   const area = useMemo<Area | undefined>(() => place && { lat: place.lat, lon: place.lon, radius }, [place, radius]);
   const reached: Step = !place ? 1 : !set ? 2 : !words ? 3 : 4;
 
@@ -109,6 +114,10 @@ export function Wizard() {
             setWords(undefined);
           }}
           onRadius={setRadius}
+          projects={projects}
+          projectsError={projectsError}
+          projectId={projectId}
+          onProject={setChosenProject}
           next={() => setStep(2)}
         />
       )}
@@ -146,7 +155,7 @@ export function Wizard() {
           }}
         />
       )}
-      {step === 4 && set && place && area && words && (
+      {step === 4 && set && place && area && words && projectId !== undefined && (
         <WordsStep
           set={set}
           place={place.name}
@@ -156,6 +165,7 @@ export function Wizard() {
           save={async () => {
             try {
               const c = await createCampaign({
+                projectId,
                 set: set.id,
                 version: set.version,
                 area: { ...area, place: place.name },
@@ -188,12 +198,20 @@ function Where({
   radius,
   onPlace,
   onRadius,
+  projects,
+  projectsError,
+  projectId,
+  onProject,
   next,
 }: {
   place?: Place;
   radius: number;
   onPlace: (p: Place) => void;
   onRadius: (m: number) => void;
+  projects?: Project[];
+  projectsError?: string;
+  projectId?: number;
+  onProject: (id: number | undefined) => void;
   next: () => void;
 }) {
   const [q, setQ] = useState(place?.name ?? "");
@@ -247,6 +265,25 @@ function Where({
           ))}
         </ul>
       )}
+      {projectsError && <p className="error">{projectsError}</p>}
+      {projects?.length === 0 && (
+        <p className="warning" role="alert">
+          You don't have a project to run campaigns in yet. <a href="mailto:martijn@osm.lol?subject=A%20Street%20Tally%20project">Ask us to add one</a>.
+        </p>
+      )}
+      {projects && projects.length > 1 && (
+        <label className="project-choice">
+          Which project is it for?
+          <select value={projectId ?? ""} onChange={(e) => onProject(e.target.value ? Number(e.target.value) : undefined)}>
+            <option value="">Pick a project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.displayName || p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {place && (
         <>
           <fieldset className="chips">
@@ -291,7 +328,7 @@ function Where({
           )}
           <p className="hint">You can change this later.</p>
           <div className="actions">
-            <button type="button" className="primary" onClick={next}>
+            <button type="button" className="primary" disabled={projectId === undefined} onClick={next}>
               Next: what to check
             </button>
           </div>

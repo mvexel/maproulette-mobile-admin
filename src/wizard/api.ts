@@ -54,6 +54,8 @@ export const setFeatures = (set: string, a: Area) => api<SetFeatures>(`${ORGANIZ
 
 /** What the admin sends to create a campaign. The server re-queries the features and drops `leaveOut`. */
 export interface NewCampaign {
+  /** The project it goes in; the server checks the caller may run campaigns there. */
+  projectId: number;
   set: string;
   version: number;
   area: Area & { place: string };

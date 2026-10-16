@@ -408,3 +408,4 @@ button.link:hover:not(:disabled) { background: none; color: var(--link-hover); }
 /* Organizers (D8) */
 .organizer-form { max-width: 34rem; margin-bottom: 1.5rem; }
 button.link { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer; }
+.wizard .project-choice { display: grid; gap: .3rem; max-width: 24rem; margin: .8rem 0; font-weight: 600; }
