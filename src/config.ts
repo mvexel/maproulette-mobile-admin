@@ -8,10 +8,18 @@ export interface Config {
   environment?: Environment;
   /** The OpenStreetMap site the backend signs in with, as an origin. */
   osmWeb: string;
+  /** The participant site (live and review pages, campaign links) for this backend, as an origin. */
+  participantSite: string;
 }
 
 const OSM = "https://www.openstreetmap.org";
 const OSM_DEV = "https://master.apis.dev.openstreetmap.org";
+
+const SITE: Record<Environment, string> = {
+  dev: "https://streettally.mr-dev.osm.lol",
+  stage: "https://streettally.mr-stage.osm.lol",
+  prod: "https://streettally.osm.lol",
+};
 
 const ENVIRONMENTS: readonly string[] = ["dev", "stage", "prod"];
 
@@ -38,11 +46,15 @@ export function configure(raw: Partial<Config>): Config {
     throw new Error("config.json environment must be dev, stage or prod");
   if (raw.osmWeb !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?$/.test(raw.osmWeb))
     throw new Error("config.json osmWeb must be an origin like https://www.openstreetmap.org");
+  if (raw.participantSite !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(:[0-9]+)?$/.test(raw.participantSite))
+    throw new Error("config.json participantSite must be an origin like https://streettally.osm.lol");
   const backend = raw.backend.replace(/\/+$/, "");
   const environment = raw.environment ?? inferEnvironment(backend);
   // Dev signs in with the OSM dev server; stage and prod with openstreetmap.org.
   const osmWeb = raw.osmWeb ?? (environment === "dev" ? OSM_DEV : OSM);
-  current = { backend, clientId: raw.clientId, environment, osmWeb };
+  // Each environment has its own participant site; an unknown backend links to prod's.
+  const participantSite = raw.participantSite ?? SITE[environment ?? "prod"];
+  current = { backend, clientId: raw.clientId, environment, osmWeb, participantSite };
   return current;
 }
 
@@ -51,6 +63,11 @@ export async function loadConfig(): Promise<Config> {
   const res = await fetch("/config.json", { cache: "no-store" });
   if (!res.ok) throw new Error(`config.json: HTTP ${res.status}`);
   return configure((await res.json()) as Partial<Config>);
+}
+
+/** The participant site's origin; prod's until the configuration is loaded. */
+export function participantSite(): string {
+  return current?.participantSite ?? SITE.prod;
 }
 
 export function config(): Config {

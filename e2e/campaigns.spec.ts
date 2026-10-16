@@ -84,7 +84,7 @@ test("a campaign's live page is created, set up, ended and given a new link", as
   await live.getByRole("button", { name: "Create live page" }).click();
   await expect(live.locator(".live-status")).toHaveText("On. The page updates every 30 seconds.");
   const link = live.locator(".share-line code");
-  await expect(link).toHaveText(/^https:\/\/streettally\.osm\.lol\/live\/[A-Za-z0-9_-]{43}$/);
+  await expect(link).toHaveText(/^https:\/\/streettally\.mr-dev\.osm\.lol\/live\/[A-Za-z0-9_-]{43}$/);
   const first = (await link.textContent())!.split("/live/")[1];
   const pub = (token: string) => request.get(`${MOCK}/api/v2/live/${token}`);
   expect((await (await pub(first)).json()).answersShown).toBe(false);

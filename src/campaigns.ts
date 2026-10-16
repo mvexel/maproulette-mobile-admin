@@ -1,4 +1,5 @@
 import type { Campaign } from "./api";
+import { participantSite } from "./config";
 
 /** Where a campaign stands in the app (design pass §2). */
 export type AppState = "listed" | "project-off" | "turned-off" | "not-published" | "draft";
@@ -49,9 +50,9 @@ export function relativeTime(iso: string, now = Date.now()): string {
 /** The app's custom-scheme link; opens the campaign in an installed app. */
 export const appLink = (id: number) => `mrchoice://challenge/${id}`;
 /** The universal link; opens the app only once the App Store build exists. */
-export const webLink = (id: number) => `https://streettally.osm.lol/challenge/${id}`;
+export const webLink = (id: number) => `${participantSite()}/challenge/${id}`;
 /** The campaign's live progress page on the participant site. */
-export const liveLink = (token: string) => `https://streettally.osm.lol/live/${token}`;
+export const liveLink = (token: string) => `${participantSite()}/live/${token}`;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 

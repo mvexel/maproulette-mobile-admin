@@ -33,4 +33,15 @@ describe("environment", () => {
     );
     expect(() => configure({ backend: "https://mr-api.osm.lol", clientId: "c", osmWeb: "https://evil.example/x" })).toThrow("osmWeb");
   });
+
+  it("links each environment's own participant site, or the configured one", () => {
+    expect(configure({ backend: "https://mr-api.osm.lol", clientId: "c" }).participantSite).toBe("https://streettally.mr-dev.osm.lol");
+    expect(configure({ backend: "https://mr-stage.osm.lol", clientId: "c" }).participantSite).toBe("https://streettally.mr-stage.osm.lol");
+    expect(configure({ backend: "https://mr-prod.osm.lol", clientId: "c" }).participantSite).toBe("https://streettally.osm.lol");
+    expect(configure({ backend: "https://maproulette.org", clientId: "c" }).participantSite).toBe("https://streettally.osm.lol");
+    expect(
+      configure({ backend: "https://mr-api.osm.lol", clientId: "c", participantSite: "https://site.example" }).participantSite,
+    ).toBe("https://site.example");
+    expect(() => configure({ backend: "https://mr-api.osm.lol", clientId: "c", participantSite: "http://x" })).toThrow("participantSite");
+  });
 });
