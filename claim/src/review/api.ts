@@ -5,6 +5,8 @@ export interface Suggestion {
   /** The question and option ids; `label` is the answer as people saw it. */
   question: string;
   answer: string;
+  /** The question as the campaign asks it, shown above the answer. */
+  prompt?: string;
   label: string;
   /** The tags the answer sets, e.g. { door: "sliding" }. */
   tags: Record<string, string>;

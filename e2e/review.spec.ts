@@ -16,8 +16,8 @@ test("shows the evidence per place, with no Accept and nothing that uploads", as
 
   const granary = page.getByRole("article", { name: "Granary Live" });
   await expect(granary.locator(".evidence li")).toHaveText([
-    "Slides sideways door=sliding2 people, 14 Oct · On OSM now: not set",
-    "Yes, when you walk up automatic_door=motion2 people, 14 Oct · On OSM now: not set",
+    "How does this door open?Slides sideways door=sliding2 people, 14 Oct · On OSM now: not set",
+    "Does it open by itself?Yes, when you walk up automatic_door=motion2 people, 14 Oct · On OSM now: not set",
   ]);
   await expect(granary.locator(".actions > *")).toHaveText(["Open in JOSM", "Open in iD", "Skip", "Needs a visit"]);
   await expect(granary.getByRole("link", { name: "Open in iD" })).toHaveAttribute("href", /\/edit\?editor=id&node=9001$/);

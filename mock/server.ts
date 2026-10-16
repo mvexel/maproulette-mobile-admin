@@ -117,8 +117,8 @@ function reviewPlaces() {
       name: "Granary Live",
       state: "open",
       suggestions: [
-        { question: "door", answer: "sliding", label: "Slides sideways", tags: { door: "sliding" }, people: 2, day: "2026-10-14", current: { door: null } },
-        { question: "automatic_door", answer: "motion", label: "Yes, when you walk up", tags: { automatic_door: "motion" }, people: 2, day: "2026-10-14", current: { automatic_door: null } },
+        { question: "door", prompt: "How does this door open?", answer: "sliding", label: "Slides sideways", tags: { door: "sliding" }, people: 2, day: "2026-10-14", current: { door: null } },
+        { question: "automatic_door", prompt: "Does it open by itself?", answer: "motion", label: "Yes, when you walk up", tags: { automatic_door: "motion" }, people: 2, day: "2026-10-14", current: { automatic_door: null } },
       ],
       reports: [],
     },
@@ -129,7 +129,7 @@ function reviewPlaces() {
       lat: 40.7536,
       ref: "B",
       state: "open",
-      suggestions: [{ question: "door", answer: "hinged", label: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-14", current: { door: null } }],
+      suggestions: [{ question: "door", prompt: "How does this door open?", answer: "hinged", label: "Swings open", tags: { door: "hinged" }, people: 1, day: "2026-10-14", current: { door: null } }],
       reports: [{ outcome: "no_door", label: "There's no door", people: 1, day: "2026-10-14" }],
     },
     {
@@ -148,7 +148,7 @@ function reviewPlaces() {
       lat: 40.7541,
       name: "Woodbine Food Hall",
       state: "done",
-      suggestions: [{ question: "door", answer: "revolving", label: "Revolves", tags: { door: "revolving" }, people: 3, day: "2026-10-13", current: { door: "revolving" } }],
+      suggestions: [{ question: "door", prompt: "How does this door open?", answer: "revolving", label: "Revolves", tags: { door: "revolving" }, people: 3, day: "2026-10-13", current: { door: "revolving" } }],
       reports: [],
     },
     {

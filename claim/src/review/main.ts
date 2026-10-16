@@ -135,6 +135,7 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
     const li = el("li");
     const a = el("div", "a");
     a.append(el("b", "", s.label), " ", el("code", "", tagText(s.tags)));
+    if (s.prompt) li.append(el("div", "q", s.prompt));
     li.append(a, el("div", "meta", `${whoLine(s)} · ${currentLine(s)}`));
     ev.append(li);
   }
