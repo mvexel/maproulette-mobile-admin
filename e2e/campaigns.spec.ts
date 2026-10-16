@@ -84,7 +84,7 @@ test("a campaign's live page is created, set up, ended and given a new link", as
   await live.getByRole("button", { name: "Create live page" }).click();
   await expect(live.locator(".live-status")).toHaveText("On. The page updates every 30 seconds.");
   const link = live.locator(".share-line code");
-  await expect(link).toHaveText(/^https:\/\/streettally\.osm\.lol\/live\/[A-Za-z0-9_-]{43}$/);
+  await expect(link).toHaveText(/^https:\/\/streettally\.mr-dev\.osm\.lol\/live\/[A-Za-z0-9_-]{43}$/);
   const first = (await link.textContent())!.split("/live/")[1];
   const pub = (token: string) => request.get(`${MOCK}/api/v2/live/${token}`);
   expect((await (await pub(first)).json()).answersShown).toBe(false);
@@ -133,4 +133,29 @@ test("old addresses and unknown campaigns", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Challenges" }).first()).toBeVisible();
   await page.goto("/campaigns/12345");
   await expect(page.getByText("No choice campaign 12345 on this backend.")).toBeVisible();
+});
+
+test("a campaign's confirm queue is checked and downloaded for maproulette.org", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/campaigns/7");
+  const queue = page.locator(".panel", { has: page.getByRole("heading", { name: "Confirm queue" }) });
+  await queue.getByRole("button", { name: "Download for maproulette.org" }).click();
+  await expect(queue.locator(".queue-summary")).toHaveText("Nothing in the queue yet. Check the answers first.");
+
+  await queue.getByRole("button", { name: "Check answers and update the queue" }).click();
+  await expect(queue.locator(".queue-summary")).toHaveText(
+    "2 suggestions added · 1 already on the map · 1 place changed on OSM since the survey · 1 question where people gave different answers.",
+  );
+  await queue.getByRole("button", { name: "Check answers and update the queue" }).click();
+  await expect(queue.locator(".queue-summary")).toHaveText(
+    "0 suggestions added · 2 already in the queue · 1 question where people gave different answers.",
+  );
+
+  const download = page.waitForEvent("download");
+  await queue.getByRole("button", { name: "Download for maproulette.org" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("confirm-queue-7.geojson");
+  const lines = (await (await import("node:fs/promises")).readFile((await file.path())!, "utf8")).trim().split("\n");
+  expect(lines).toHaveLength(2);
+  expect(JSON.parse(lines[0]).cooperativeWork.operations[0].data.id).toBe("node/101");
 });

@@ -13,14 +13,11 @@ const MARK: Record<Check["kind"], string> = { pass: "✓", block: "✕", warning
 export function PublishSheet({
   projectId,
   input,
-  waiting = false,
   onPublish,
   onCancel,
 }: {
   projectId: number;
   input: Omit<PublishInput, "project" | "writesEnabled" | "environment">;
-  /** A check's input is still loading: hold the checks, and Publish, until it settles. */
-  waiting?: boolean;
   onPublish: () => Promise<void>;
   onCancel: () => void;
 }) {
@@ -41,7 +38,7 @@ export function PublishSheet({
       .catch(() => setWritesEnabled(undefined));
   }, [projectId]);
 
-  const loading = (project === undefined && !loadError) || waiting;
+  const loading = project === undefined && !loadError;
   const checks = loading
     ? []
     : publishChecks({

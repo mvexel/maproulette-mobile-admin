@@ -361,6 +361,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   /** The review page's marks: Needs a visit for everyone, Skip per mapper (user id). */
   let reviewVisits = new Set<number>();
   let reviewSkips = new Map<number, Set<number>>();
+  // Confirm queues (H1b) by campaign: the queue challenge and how many runs made it.
+  let queues = new Map<number, { queueChallengeId: number; runs: number }>();
   let interactions = new Map<string, { clientId: string; redirectUri: string; state: string; challenge: string }>();
   let codes = new Map<string, { userId: number; clientId: string; redirectUri: string; challenge: string; expires: number }>();
   let families = new Map<string, Family>();
@@ -459,6 +461,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     livePages = new Map();
     reviewVisits = new Set();
     reviewSkips = new Map();
+    queues = new Map();
     projects = new Map([
       [1, { id: 1, name: "SLC test", displayName: null, enabled: false }],
       [2, { id: 2, name: "Street Tally pilots", displayName: "Street Tally pilots", enabled: true }],
@@ -1091,6 +1094,47 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     }
     if (path === "/api/v2/mobile-admin/write-policy" && req.method === "GET")
       return send(res, 200, { enabled: writePolicy, managed: true });
+    const qp = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/queue(\/export)?$/.exec(path);
+    if (qp) {
+      const id = Number(qp[1]);
+      if (!campaigns.some((c) => c.id === id)) return problem(res, 404, "not_found");
+      if (!qp[2] && req.method === "POST") {
+        // First run: two agreed answers queued; later runs find them already queued.
+        const q = queues.get(id) ?? { queueChallengeId: 900 + id, runs: 0 };
+        q.runs += 1;
+        queues.set(id, q);
+        const report =
+          q.runs === 1
+            ? { queueChallengeId: q.queueChallengeId, queued: 2, alreadyQueued: 0, done: 1, stale: 1, gone: 0, disagree: 1 }
+            : { queueChallengeId: q.queueChallengeId, queued: 0, alreadyQueued: 2, done: 0, stale: 0, gone: 0, disagree: 1 };
+        record(user.id, "queue.generate", `challenge:${id}`, undefined, report);
+        return send(res, 200, report);
+      }
+      if (qp[2] && req.method === "GET") {
+        if (!queues.has(id)) return problem(res, 404, "no_queue");
+        const line = (node: number, tags: Record<string, string>) =>
+          JSON.stringify({
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [-111.9068, 40.7537] },
+                properties: { "@id": `node/${node}`, evidence: "2 people surveyed this on 14 Oct." },
+              },
+            ],
+            cooperativeWork: {
+              meta: { version: 2, type: 1 },
+              operations: [{ operationType: "modifyElement", data: { id: `node/${node}`, operations: [{ operation: "setTags", data: tags }] } }],
+            },
+          });
+        res.writeHead(200, {
+          "Content-Type": "application/geo+json-seq",
+          "Cache-Control": "no-store",
+          "Content-Disposition": `attachment; filename="confirm-queue-${id}.geojson"`,
+        });
+        return res.end(`${line(101, { door: "sliding" })}\n${line(102, { automatic_door: "motion" })}\n`);
+      }
+    }
     const lp = /^\/api\/v2\/mobile-admin\/challenges\/([0-9]+)\/live(\/rotate)?$/.exec(path);
     const liveId = Number(lp?.[1]);
     const liveExists = () => campaigns.some((c) => c.id === liveId);

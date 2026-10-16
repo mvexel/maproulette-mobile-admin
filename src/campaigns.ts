@@ -1,4 +1,5 @@
-import type { Campaign } from "./api";
+import type { Campaign, QueueReport } from "./api";
+import { participantSite } from "./config";
 
 /** Where a campaign stands in the app (design pass §2). */
 export type AppState = "listed" | "project-off" | "turned-off" | "not-published" | "draft";
@@ -49,9 +50,24 @@ export function relativeTime(iso: string, now = Date.now()): string {
 /** The app's custom-scheme link; opens the campaign in an installed app. */
 export const appLink = (id: number) => `mrchoice://challenge/${id}`;
 /** The universal link; opens the app only once the App Store build exists. */
-export const webLink = (id: number) => `https://streettally.osm.lol/challenge/${id}`;
+export const webLink = (id: number) => `${participantSite()}/challenge/${id}`;
 /** The campaign's live progress page on the participant site. */
-export const liveLink = (token: string) => `https://streettally.osm.lol/live/${token}`;
+export const liveLink = (token: string) => `${participantSite()}/live/${token}`;
+
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What a confirm queue run did, as one line; zero counts are left out. */
+export function queueSummary(r: QueueReport): string {
+  const parts = [
+    `${count(r.queued, "suggestion")} added`,
+    r.alreadyQueued > 0 && `${r.alreadyQueued} already in the queue`,
+    r.done > 0 && `${r.done} already on the map`,
+    r.stale > 0 && `${count(r.stale, "place")} changed on OSM since the survey`,
+    r.gone > 0 && `${count(r.gone, "place")} deleted from OSM`,
+    r.disagree > 0 && `${count(r.disagree, "question")} where people gave different answers`,
+  ].filter(Boolean);
+  return `${parts.join(" · ")}.`;
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
