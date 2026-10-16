@@ -1,4 +1,4 @@
-import { AuthError, accessToken, clearSession } from "./auth";
+import { AuthError, accessToken, clearSession, role } from "./auth";
 import { config } from "./config";
 
 /** An error response from the backend: `{"error": code, "detail"?: [...]}`. */
@@ -189,6 +189,10 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "Your account is no longer a MapRoulette super-user.", detail: [] };
     case "organizer_required":
       return { message: "Your account is no longer set up to run campaigns.", detail: [] };
+    case "insufficient_scope":
+      return role() === "organizer"
+        ? { message: "Only the Street Tally team can do this.", detail: [] }
+        : { message: `Request failed: ${e.message} (HTTP ${e.status})`, detail: [] };
     case "organizer_forbidden":
       return { message: "This campaign or project isn't one of yours.", detail: [] };
     case "user_not_found":
@@ -196,9 +200,9 @@ export function describeError(e: unknown): { message: string; detail: string[] }
     case "project_not_found":
       return { message: "That project doesn't exist any more. Reload the list.", detail: [] };
     case "last_project_admin":
-      return { message: "They are this project's only administrator, so they must stay its administrator.", detail: [] };
+      return { message: "They're this project's only administrator, so they can't be removed or changed to Write. Make someone else an administrator of the project first.", detail: [] };
     case "mobile_writes_disabled":
-      return { message: "Saving is off on this server, so you can't make changes now. Ask the Street Tally team to turn it on.", detail: [] };
+      return { message: "Saving is off on this server, so changes can't be saved right now. Ask the Street Tally team to turn it on.", detail: [] };
     case "write_prerequisites_missing":
       return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:

@@ -73,8 +73,23 @@ describe("organizers (D8)", () => {
     await removeOrganizer(9);
     expect((await listOrganizers()).map((o) => o.name)).toEqual(["mock-mapper"]);
 
+    // The super-user is project 1's only administrator: they can't become a Write organizer there.
+    const last = await failure(addOrganizer("mock-superuser", 1, "write"));
+    expect(last.code).toBe("last_project_admin");
+    expect(describeError(last).message).toMatch(/only administrator/);
+
     // The removed organizer's next request is refused.
     clearSession();
     await expect(signIn(mock, "organizer")).rejects.toThrow(/set up to run campaigns/);
+  });
+
+  it("keep their project roles when taken off the list", async () => {
+    await signIn(mock);
+    await removeOrganizer(9);
+    const back = await addOrganizer("mock-organizer", 1, "write");
+    expect(back.projects.map((p) => [p.id, p.role])).toEqual([
+      [1, "write"],
+      [2, "write"],
+    ]);
   });
 });

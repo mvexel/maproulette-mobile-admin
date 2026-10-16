@@ -41,7 +41,10 @@ function route(path: string, as: Role): { nav: string; node: React.ReactNode } |
   const m = /^\/campaigns\/([1-9][0-9]{0,15})$/.exec(path);
   if (m) return { nav: "/", node: <CampaignPage key={m[1]} id={Number(m[1])} /> };
   const screen = SCREENS[path];
-  return screen?.roles.includes(as) ? { nav: path, node: screen.render() } : undefined;
+  if (!screen) return undefined;
+  if (screen.roles.includes(as)) return { nav: path, node: screen.render() };
+  // A bookmarked team page, opened by an organizer.
+  return { nav: "", node: <p>This page is for the Street Tally team. Your campaigns are under Campaigns.</p> };
 }
 
 export function App() {
