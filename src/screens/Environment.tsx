@@ -1,3 +1,4 @@
+import { role } from "../auth";
 import { useEffect, useState } from "react";
 import { getWritePolicy, onWritePolicyChange } from "../api";
 import { config } from "../config";
@@ -26,6 +27,17 @@ export function WritesPill() {
     return () => { current = false; off(); };
   }, []);
   if (enabled === undefined) return null;
+  // Organizers can't open Task writes: a label for them.
+  if (role() === "organizer")
+    return (
+      <span
+        className={`writes-pill ${enabled ? "on" : "off"}`}
+        data-testid="writes-pill"
+        title="Task writes for this backend. The Street Tally team turns them on and off."
+      >
+        {enabled ? "Writes on" : "Writes off"}
+      </span>
+    );
   return (
     <a
       href="/writes"

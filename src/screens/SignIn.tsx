@@ -26,7 +26,7 @@ export function SignIn({ error }: { error?: string }) {
       >
         Sign in with OpenStreetMap
       </button>
-      <p className="hint">Only MapRoulette super-users can sign in.</p>
+      <p className="hint">For campaign organizers and the Street Tally team.</p>
     </main>
   );
 }

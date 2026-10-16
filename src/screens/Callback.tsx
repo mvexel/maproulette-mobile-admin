@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { completeSignIn, NotSuperUserError } from "../auth";
+import { completeSignIn, NotSetUpError } from "../auth";
 import { navigate } from "../router";
-import { NotSuperUser } from "./NotSuperUser";
+import { NotSetUp } from "./NotSetUp";
 import { SignIn } from "./SignIn";
 
 export function Callback() {
@@ -11,12 +11,13 @@ export function Callback() {
     if (started.current) return; // StrictMode double-invoke: a code can be used once
     started.current = true;
     completeSignIn(new URLSearchParams(location.search))
-      .then(() => navigate("/", true)) // keep the code out of history
+      // "retrying": already on the way back to the backend to ask for mobile:organize.
+      .then((done) => done === "signed-in" && navigate("/", true)) // keep the code out of history
       .catch((e: Error) => {
         history.replaceState(null, "", "/callback");
         setError(e);
       });
   }, []);
-  if (error instanceof NotSuperUserError) return <NotSuperUser />;
+  if (error instanceof NotSetUpError) return <NotSetUp />;
   return error ? <SignIn error={error.message} /> : <p className="center">Signing in…</p>;
 }

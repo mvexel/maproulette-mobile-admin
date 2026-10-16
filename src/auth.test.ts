@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockBackend } from "../mock/server.ts";
 import { listClients, me } from "./api";
-import { AuthError, accessToken, completeSignIn, hasSession, NotSuperUserError, signOut } from "./auth";
+import { AuthError, accessToken, completeSignIn, hasSession, NotSetUpError, role, signOut } from "./auth";
 import { config } from "./config";
 import { challengeFor } from "./pkce";
-import { APP_ORIGIN, assign, browserSignIn, reset, setUp, signIn } from "./testing";
+import { APP_ORIGIN, assign, browserSignIn, followAuthorize, reset, setUp, signIn } from "./testing";
 
 let mock: MockBackend;
 beforeAll(async () => {
@@ -62,10 +62,29 @@ describe("sign-in", () => {
     await expect(completeSignIn(params)).rejects.toThrow(/not started in this tab/);
   });
 
-  it("reports a non-super-user as NotSuperUserError, without a session", async () => {
-    const params = await browserSignIn(mock, "plain");
+  it("asks again for mobile:organize when the account is not a super-user", async () => {
+    const params = await browserSignIn(mock, "organizer");
     expect(params.get("error")).toBe("access_denied");
-    await expect(completeSignIn(params)).rejects.toBeInstanceOf(NotSuperUserError);
+    expect(await completeSignIn(params)).toBe("retrying");
+    expect(new URL(assign.mock.calls.at(-1)![0]).searchParams.get("scope")).toBe("mobile:organize");
+    expect(await completeSignIn(await followAuthorize(mock, "organizer"))).toBe("signed-in");
+    expect(role()).toBe("organizer");
+    expect((await me()).displayName).toBe("mock-organizer");
+  });
+
+  it("signs a super-user in as admin, and forgets the role on sign-out", async () => {
+    await signIn(mock);
+    expect(role()).toBe("admin");
+    expect(sessionStorage.getItem("mrma.scope")).toBe("mobile:admin");
+    await signOut();
+    expect(sessionStorage.getItem("mrma.scope")).toBeNull();
+  });
+
+  it("reports an account that is neither as NotSetUpError, without a session", async () => {
+    expect(await completeSignIn(await browserSignIn(mock, "plain"))).toBe("retrying");
+    const params = await followAuthorize(mock, "plain");
+    expect(params.get("error_description")).toMatch(/organizer required/);
+    await expect(completeSignIn(params)).rejects.toBeInstanceOf(NotSetUpError);
     expect(hasSession()).toBe(false);
     expect(mock.stats.authorizationCodes).toBe(0);
   });
@@ -75,7 +94,7 @@ describe("sign-in", () => {
     const denied = new URLSearchParams({ error: "access_denied", state: params.get("state") ?? "" });
     const err = await completeSignIn(denied).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AuthError);
-    expect(err).not.toBeInstanceOf(NotSuperUserError);
+    expect(err).not.toBeInstanceOf(NotSetUpError);
     expect((err as Error).message).toMatch(/cancelled/);
   });
 });

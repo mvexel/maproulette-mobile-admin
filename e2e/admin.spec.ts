@@ -13,13 +13,18 @@ test.beforeEach(async ({ request }) => {
   expect((await request.post(`${MOCK}/__mock/reset`)).status()).toBe(204);
 });
 
-async function signIn(page: Page, as: "mock-superuser" | "mock-mapper" = "mock-superuser") {
+async function signIn(page: Page, as: "mock-superuser" | "mock-mapper" | "mock-organizer" = "mock-superuser") {
   await page.goto("/");
   await expect(page.getByTestId("backend")).toHaveText(MOCK);
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await expect(page).toHaveURL(/127\.0\.0\.1:9300\/oauth\/mobile\/authorize\?/);
   await page.getByRole("link", { name: new RegExp(`Sign in as ${as}`) }).click();
   if (as === "mock-superuser") await page.getByRole("link", { name: "Clients" }).click();
+  else {
+    // Not a super-user: the app asks again for mobile:organize. The real OSM sign-in is remembered.
+    await expect(page).toHaveURL(/authorize\?.*scope=mobile%3Aorganize/);
+    await page.getByRole("link", { name: new RegExp(`Sign in as ${as}`) }).click();
+  }
 }
 
 const row = (page: Page, id: string) => page.getByTestId(`client-${id}`);
@@ -65,13 +70,49 @@ test("refreshes after a reload and after a 401", async ({ page, request }) => {
   expect(s.replays).toBe(0);
 });
 
-test("explains that a non-super-user cannot sign in", async ({ page, request }) => {
+test("explains that someone neither super-user nor organizer isn't set up", async ({ page, request }) => {
   await signIn(page, "mock-mapper");
-  await expect(page.getByRole("heading", { name: "Not a super-user" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Not set up yet" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "martijn@osm.lol" })).toBeVisible();
   await expect(page.getByTestId("backend")).toHaveText(MOCK);
   expect((await stats(request)).authorizationCodes).toBe(0);
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Sign in with OpenStreetMap" })).toBeVisible();
+});
+
+test("shows an organizer their campaigns and Help only", async ({ page }) => {
+  await signIn(page, "mock-organizer");
+  await expect(page).toHaveURL("/");
+  await expect(page.getByTestId("user")).toHaveText("mock-organizer");
+  await expect(page.getByRole("navigation").getByRole("link")).toHaveText(["Campaigns", "Help"]);
+  await expect(page.getByText("SLC Bus Stops")).toBeVisible();
+  await expect(page.getByText("Street Tally test: 1300 S 900 E bus stops")).toHaveCount(0);
+  await expect(page.getByTestId("writes-pill")).not.toHaveAttribute("href");
+  await page.goto("/clients");
+  await expect(page.getByText("This page is for the Street Tally team. Your campaigns are under Campaigns.")).toBeVisible();
+  // Creating and publishing write through stock routes; organizers get them with the wizard.
+  await expect(page.getByRole("button", { name: "New campaign" })).toHaveCount(0);
+  await page.goto("/new");
+  await expect(page.getByText("This page is for the Street Tally team.", { exact: false })).toBeVisible();
+  await page.goto("/campaigns/3");
+  await expect(page.getByText("No campaign 3 in the projects you organize.")).toBeVisible();
+  await page.goto("/campaigns/9");
+  await expect(page.getByText("Draft: not in the app yet.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);
+});
+
+test("adds and removes an organizer", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("link", { name: "Organizers" }).click();
+  await expect(page.getByTestId("organizer-9")).toContainText("Street Tally pilots");
+  await page.getByLabel("OpenStreetMap username").fill("mock-mapper");
+  await page.locator(".organizer-form select").first().selectOption({ label: "SLC test" });
+  await page.getByRole("button", { name: "Add organizer" }).click();
+  await expect(page.getByRole("status")).toHaveText("Added mock-mapper.");
+  await expect(page.getByTestId("organizer-8")).toContainText("SLC test (write)");
+  await page.getByTestId("organizer-8").getByRole("button", { name: "Remove organizer" }).click();
+  await expect(page.getByRole("status")).toContainText("can no longer run campaigns");
+  await expect(page.getByTestId("organizer-8")).toHaveCount(0);
 });
 
 test("creates, edits, disables and enables a client", async ({ page }) => {

@@ -305,3 +305,7 @@ progress { width: 100%; max-width: 30rem; height: .8rem; accent-color: var(--suc
   table.campaigns td[data-label="Campaign"] { display: block; padding-top: .7rem; font-weight: 650; }
   table.campaigns td[data-label="Campaign"]::before { content: none; }
 }
+
+/* Organizers (D8) */
+.organizer-form { max-width: 34rem; margin-bottom: 1.5rem; }
+button.link { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer; }
