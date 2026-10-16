@@ -134,3 +134,28 @@ test("old addresses and unknown campaigns", async ({ page }) => {
   await page.goto("/campaigns/12345");
   await expect(page.getByText("No choice campaign 12345 on this backend.")).toBeVisible();
 });
+
+test("a campaign's confirm queue is checked and downloaded for maproulette.org", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/campaigns/7");
+  const queue = page.locator(".panel", { has: page.getByRole("heading", { name: "Confirm queue" }) });
+  await queue.getByRole("button", { name: "Download for maproulette.org" }).click();
+  await expect(queue.locator(".queue-summary")).toHaveText("Nothing in the queue yet. Check the answers first.");
+
+  await queue.getByRole("button", { name: "Check answers and update the queue" }).click();
+  await expect(queue.locator(".queue-summary")).toHaveText(
+    "2 suggestions added · 1 already on the map · 1 place changed on the map since the survey · 1 question where people gave different answers.",
+  );
+  await queue.getByRole("button", { name: "Check answers and update the queue" }).click();
+  await expect(queue.locator(".queue-summary")).toHaveText(
+    "0 suggestions added · 2 already in the queue · 1 question where people gave different answers.",
+  );
+
+  const download = page.waitForEvent("download");
+  await queue.getByRole("button", { name: "Download for maproulette.org" }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("confirm-queue-7.geojson");
+  const lines = (await (await import("node:fs/promises")).readFile((await file.path())!, "utf8")).trim().split("\n");
+  expect(lines).toHaveLength(2);
+  expect(JSON.parse(lines[0]).cooperativeWork.operations[0].data.id).toBe("node/101");
+});

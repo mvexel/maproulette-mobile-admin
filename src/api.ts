@@ -250,6 +250,35 @@ export async function fetchChallengeResults(challengeId: number, format: Results
   return { blob: await res.blob(), filename: `challenge-${challengeId}-results.${format}` };
 }
 
+/** One run of the confirm queue (H1b; backend docs/mobile-admin-api.md, "Confirm queue"). */
+export interface QueueReport {
+  /** The tag-fix challenge the queue lives in; 0 while the campaign has none. */
+  queueChallengeId: number;
+  queued: number;
+  alreadyQueued: number;
+  done: number;
+  stale: number;
+  gone: number;
+  disagree: number;
+}
+
+/** Checks the campaign's agreed answers against OSM and queues the ones that still apply. */
+export const generateQueue = (challengeId: number) =>
+  api<QueueReport>(`/api/v2/mobile-admin/challenges/${challengeId}/queue`, { method: "POST" });
+
+/** The queue as line-by-line GeoJSON for maproulette.org, or undefined before the first run. */
+export async function fetchQueueExport(challengeId: number): Promise<{ blob: Blob; filename: string } | undefined> {
+  const res = await authorized(`/api/v2/mobile-admin/challenges/${challengeId}/queue/export`, {
+    headers: { Accept: "application/geo+json-seq" },
+  });
+  if (!res.ok) {
+    const error = errorFrom(res, await res.json().catch(() => undefined));
+    if (error.code === "no_queue") return undefined;
+    throw error;
+  }
+  return { blob: await res.blob(), filename: `confirm-queue-${challengeId}.geojson` };
+}
+
 /** A stop someone reported as not there or moved (the built-in outcomes). */
 export interface StopReport {
   taskId: number;

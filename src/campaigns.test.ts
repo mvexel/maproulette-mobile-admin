@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Campaign } from "./api";
-import { appState, fromLocalInput, liveLink, progressText, relativeTime, toLocalInput } from "./campaigns";
+import { appState, fromLocalInput, liveLink, progressText, queueSummary, relativeTime, toLocalInput } from "./campaigns";
 
 const project = { id: 1, name: "P", displayName: null, enabled: true };
 const c = (enabled: boolean, published: boolean, projectOn = true): Campaign => ({
@@ -21,6 +21,15 @@ describe("campaigns", () => {
     expect(appState(c(false, true))).toBe("turned-off");
     expect(appState(c(true, false))).toBe("not-published");
     expect(appState(c(false, false))).toBe("draft");
+  });
+
+  it("sums up a confirm queue run, leaving out zeros", () => {
+    const none = { queueChallengeId: 0, queued: 0, alreadyQueued: 0, done: 0, stale: 0, gone: 0, disagree: 0 };
+    expect(queueSummary(none)).toBe("0 suggestions added.");
+    expect(queueSummary({ ...none, queueChallengeId: 77, queued: 1, alreadyQueued: 3, done: 2, stale: 1, gone: 2, disagree: 1 })).toBe(
+      "1 suggestion added · 3 already in the queue · 2 already on the map · 1 place changed on the map since the survey · " +
+        "2 places deleted from the map · 1 question where people gave different answers.",
+    );
   });
 
   it("writes progress as the app does", () => {

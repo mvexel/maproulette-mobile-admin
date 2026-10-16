@@ -1,4 +1,4 @@
-import type { Campaign } from "./api";
+import type { Campaign, QueueReport } from "./api";
 import { participantSite } from "./config";
 
 /** Where a campaign stands in the app (design pass §2). */
@@ -53,6 +53,21 @@ export const appLink = (id: number) => `mrchoice://challenge/${id}`;
 export const webLink = (id: number) => `${participantSite()}/challenge/${id}`;
 /** The campaign's live progress page on the participant site. */
 export const liveLink = (token: string) => `${participantSite()}/live/${token}`;
+
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What a confirm queue run did, as one line; zero counts are left out. */
+export function queueSummary(r: QueueReport): string {
+  const parts = [
+    `${count(r.queued, "suggestion")} added`,
+    r.alreadyQueued > 0 && `${r.alreadyQueued} already in the queue`,
+    r.done > 0 && `${r.done} already on the map`,
+    r.stale > 0 && `${count(r.stale, "place")} changed on the map since the survey`,
+    r.gone > 0 && `${count(r.gone, "place")} deleted from the map`,
+    r.disagree > 0 && `${count(r.disagree, "question")} where people gave different answers`,
+  ].filter(Boolean);
+  return `${parts.join(" · ")}.`;
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
