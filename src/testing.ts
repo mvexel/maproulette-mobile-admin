@@ -42,9 +42,10 @@ export function reset(mock: MockBackend) {
   mock.reset();
 }
 
-/** Plays the browser: authorize, pick a user on the mock page, follow the redirect back. */
-export async function browserSignIn(mock: MockBackend, as: "super" | "plain"): Promise<URLSearchParams> {
-  await startSignIn();
+export type MockUser = "super" | "plain" | "organizer";
+
+/** Plays the browser on the last authorize URL the app went to: pick a user, follow the redirect back. */
+export async function followAuthorize(mock: MockBackend, as: MockUser): Promise<URLSearchParams> {
   const authorize = assign.mock.calls.at(-1)?.[0];
   if (!authorize) throw new Error("startSignIn did not navigate");
   const page = await fetch(authorize);
@@ -59,6 +60,14 @@ export async function browserSignIn(mock: MockBackend, as: "super" | "plain"): P
   return target.searchParams;
 }
 
-export async function signIn(mock: MockBackend) {
-  await completeSignIn(await browserSignIn(mock, "super"));
+/** Starts a sign-in and plays the browser once. */
+export async function browserSignIn(mock: MockBackend, as: MockUser): Promise<URLSearchParams> {
+  await startSignIn();
+  return followAuthorize(mock, as);
+}
+
+/** A full sign-in, including the organizer retry. */
+export async function signIn(mock: MockBackend, as: MockUser = "super") {
+  if ((await completeSignIn(await browserSignIn(mock, as))) === "retrying")
+    await completeSignIn(await followAuthorize(mock, as));
 }
