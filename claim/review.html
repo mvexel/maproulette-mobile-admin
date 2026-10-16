@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Review answers · Street Tally</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  </head>
+  <body class="review">
+    <header id="header" hidden>
+      <div class="who">
+        <img src="/icon.svg" alt="" />
+        <div>
+          <h1 class="c" id="campaign">Review answers</h1>
+          <div class="s" id="counts"></div>
+        </div>
+      </div>
+      <div class="account" id="account"></div>
+    </header>
+
+    <main id="stage" hidden>
+      <div class="side">
+        <div class="bar">
+          <fieldset class="filters">
+            <legend class="sr">Show</legend>
+            <button type="button" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-filter="agree" aria-pressed="false">2 people agree</button>
+            <button type="button" data-filter="visit" aria-pressed="false">Needs a visit</button>
+            <button type="button" data-filter="done" aria-pressed="false">Done</button>
+          </fieldset>
+          <p class="skipped" id="skipped" hidden></p>
+        </div>
+        <div class="places" id="places"></div>
+        <p class="empty" id="empty" hidden>Nothing here.</p>
+        <section class="comment" aria-labelledby="commentTitle">
+          <h2 id="commentTitle">Changeset comment</h2>
+          <p class="text" id="comment"></p>
+          <button type="button" id="copy">Copy</button>
+          <span class="copied" id="copied" role="status"></span>
+        </section>
+      </div>
+      <section id="map" aria-label="Map of the places"></section>
+    </main>
+
+    <div class="message" id="message">
+      <div>
+        <h1 id="msgTitle">Loading…</h1>
+        <p id="msgBody"></p>
+      </div>
+    </div>
+
+    <footer id="footer" hidden>
+      Nothing is uploaded from this page. You add what you agree with in your own editor, under your own account. Answers
+      come from Street Tally volunteers, shown without names or times. A place shows as done once OpenStreetMap has the tag,
+      whoever added it.
+    </footer>
+
+    <script type="module" src="/src/review/main.ts"></script>
+  </body>
+</html>

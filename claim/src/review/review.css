@@ -1,0 +1,433 @@
+/* The review page for local mappers (design/handback-copy.md §2), in the live page's brand tokens. */
+:root {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #14213d;
+  --text2: #4a5468;
+  --line: #dde1e7;
+  --navy: #14213d;
+  --on-navy: #f3f4f6;
+  --on-navy2: #c9ced8;
+  --accent: #f5a524;
+  --accent-text: #a84f00;
+  --done: #1f7a4d;
+  --visit: #a84f00;
+  --pin-edge: #ffffff;
+  --danger: #b42318;
+  --navy-ring: #14213d;
+  --code-bg: #eef0f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --card: #16213a;
+    --text: #f3f4f6;
+    --text2: #a7b0c0;
+    --line: #26324d;
+    --accent-text: #fbbf24;
+    --done: #34d399;
+    --visit: #fbbf24;
+    --pin-edge: #0b1220;
+    --danger: #f97066;
+    --navy-ring: #f3f4f6;
+    --code-bg: #0f1a30;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: hidden parts must stay hidden whatever their display. */
+  display: none !important;
+}
+body.review {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.review button {
+  font: inherit;
+}
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Header: the campaign, the counts, and the sign-in. */
+.review header {
+  background: var(--navy);
+  color: var(--on-navy);
+  padding: 14px 24px;
+  display: flex;
+  gap: 16px 24px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.who img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex: none;
+}
+.who .c {
+  margin: 0;
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
+}
+.who .s {
+  color: var(--on-navy2);
+  font-size: 15px;
+}
+.account {
+  display: flex;
+  align-items: center;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  font-size: 15px;
+  color: var(--on-navy2);
+}
+.account .signin {
+  background: var(--accent);
+  color: #14213d;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.account .hint {
+  font-size: 14px;
+}
+.account .link {
+  color: var(--on-navy);
+}
+
+/* Desktop: the list beside a sticky map. Phone: the map on top. */
+#stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
+  min-height: 0;
+}
+.list-mode #stage {
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
+}
+#map {
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 0px);
+  border-left: 1px solid var(--line);
+}
+.side {
+  padding: 16px 24px 24px;
+  min-width: 0;
+}
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg);
+  padding: 4px 0 10px;
+}
+.filters {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filters button {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.filters button[aria-pressed="true"] {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: var(--on-navy);
+  font-weight: 700;
+}
+.skipped {
+  margin: 8px 0 0;
+  color: var(--text2);
+  font-size: 15px;
+}
+.empty {
+  color: var(--text2);
+}
+
+/* One place. */
+.places {
+  display: grid;
+  gap: 12px;
+}
+.place {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.place.selected {
+  outline: 3px solid var(--navy-ring);
+  outline-offset: -1px;
+}
+.place .head {
+  display: flex;
+  align-items: center;
+  gap: 8px 10px;
+  flex-wrap: wrap;
+}
+.place h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+.place .where {
+  margin-left: auto;
+  background: none;
+  border: 0;
+  color: var(--accent-text);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+.chip {
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 10px;
+  border: 1.5px solid currentColor;
+}
+.chip.done {
+  color: var(--done);
+}
+.chip.needs_visit {
+  color: var(--visit);
+}
+.chip.look {
+  color: var(--accent-text);
+}
+.evidence {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.evidence .q {
+  color: var(--text2);
+  font-size: 14px;
+}
+.evidence code {
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.evidence .meta,
+.evidence .report {
+  color: var(--text2);
+  font-size: 14px;
+}
+.evidence .report::before {
+  content: "Reported: ";
+  font-weight: 700;
+}
+/* All four actions have equal weight and size (handback-copy §2). */
+.actions {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.review .act {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1.5px solid var(--navy-ring);
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.review .act:hover {
+  background: var(--code-bg);
+}
+.place .note:empty {
+  display: none;
+}
+.place .note {
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-size: 14px;
+}
+.place .hint {
+  margin: 8px 0 0;
+  color: var(--text2);
+  font-size: 14px;
+}
+
+/* Map markers, the live page's shapes: amber with a navy ring to review, green tick on the map,
+   an amber diamond for a look or a visit. A 44 px hit area around each. */
+.pin {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.pin::before {
+  content: "";
+}
+.pin.open::before {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 3px solid var(--navy);
+}
+.pin.done::before {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--pin-edge);
+  background: var(--done)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20'%3E%3Cpath d='M-4.5 0.2 L-1.2 3.5 L4.8 -3' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 100% no-repeat;
+}
+.pin.look::before,
+.pin.needs_visit::before {
+  width: 16px;
+  height: 16px;
+  transform: rotate(45deg);
+  background: var(--accent);
+  border: 2.5px solid var(--navy);
+}
+.pin.selected {
+  box-shadow: inset 0 0 0 3px var(--navy-ring);
+  border-radius: 50%;
+}
+.pin:focus-visible {
+  outline: 3px solid var(--navy-ring);
+  border-radius: 50%;
+}
+.spot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px dashed #14213d;
+}
+
+/* The suggested changeset comment, with a copy button. */
+.comment {
+  margin-top: 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.comment h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.comment .text {
+  margin: 0 0 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+#copy {
+  border: 1.5px solid var(--navy-ring);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.copied {
+  margin-left: 8px;
+  color: var(--text2);
+  font-size: 14px;
+}
+
+.review footer {
+  padding: 10px 24px;
+  font-size: 14px;
+  color: var(--text2);
+  border-top: 1px solid var(--line);
+}
+.message {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+}
+.message h1 {
+  font-size: 22px;
+}
+
+@media (max-width: 720px) {
+  .review header {
+    padding: 12px 16px;
+  }
+  #stage {
+    display: flex;
+    flex-direction: column;
+  }
+  #map {
+    position: relative;
+    order: -1;
+    height: 38vh;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .side {
+    padding: 12px 16px 20px;
+  }
+  .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

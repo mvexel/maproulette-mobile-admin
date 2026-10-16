@@ -7,6 +7,8 @@ export interface ClaimConfig {
   mapStyle: string;
   /** The OpenStreetMap website the backend edits, for "See your edits". */
   osmWeb: string;
+  /** The review page's public OAuth client: `tasks:read` only, no OSM scope (handback-copy §2). */
+  reviewClientId: string;
 }
 
 let current: ClaimConfig | undefined;
@@ -21,6 +23,7 @@ export function configure(raw: Partial<ClaimConfig>): ClaimConfig {
     clientId: raw.clientId,
     mapStyle: raw.mapStyle ?? "",
     osmWeb: origin(raw.osmWeb ?? "https://www.openstreetmap.org"),
+    reviewClientId: raw.reviewClientId ?? "street-tally-review",
   };
   return current;
 }

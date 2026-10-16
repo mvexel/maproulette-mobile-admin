@@ -1,5 +1,6 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "./maplibre-worker";
 import type { Preview } from "./api";
 
 /** Draws the stops as signal-color pins and fits the map to them. Tapping a pin shows its answers. */

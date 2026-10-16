@@ -49,6 +49,7 @@ APPLE_BUNDLE_ID = <bundle ID>
   instead of the app. With a free personal team, universal links may not work at all; the
   landing page's "Open the campaign" button (`mrchoice://`) still does.
 - `CLAIM_CLIENT_ID` defaults to `maproulette-claim`.
+- `REVIEW_CLIENT_ID` defaults to `street-tally-review`: the review page's public client, scopes `tasks:read` (no OSM scope), redirect URI `https://<site>/review/callback`. The backend needs that client registered before mappers can sign in on `/review/<token>`; reading the page works without it.
 
 The container refuses to start if any of these is malformed; `docker logs` says which one.
 
