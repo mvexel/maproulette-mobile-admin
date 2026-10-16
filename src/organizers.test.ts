@@ -4,11 +4,11 @@ import {
   type ApiError,
   addOrganizer,
   describeError,
+  getChallenge,
   getWritePolicy,
   listCampaigns,
   listClients,
   listOrganizers,
-  getChallenge,
   listProjects,
   publishSurveyChallenge,
   removeOrganizer,
@@ -45,7 +45,7 @@ describe("organizers (D8)", () => {
     expect((await getWritePolicy()).enabled).toBe(false);
     const off = await failure(setProjectEnabled(2, false));
     expect(off.code).toBe("mobile_writes_disabled");
-    expect(describeError(off).message).toMatch(/Saving is off/);
+    expect(describeError(off).message).toMatch(/Saving is off.*Ask the Street Tally team to turn it on\./);
     await turnWritesOn();
     expect((await setProjectEnabled(2, false)).enabled).toBe(false);
     const other = await failure(setProjectEnabled(1, true));

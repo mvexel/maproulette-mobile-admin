@@ -202,7 +202,11 @@ export function describeError(e: unknown): { message: string; detail: string[] }
     case "last_project_admin":
       return { message: "They're this project's only administrator, so they can't be removed or changed to Write. Make someone else an administrator of the project first.", detail: [] };
     case "mobile_writes_disabled":
-      return { message: "Saving is off on this server, so changes can't be saved right now. Ask the Street Tally team to turn it on.", detail: [] };
+      // Super-users are the Street Tally team, so they're told where the switch is.
+      return {
+        message: `Saving is off on this server, so changes can't be saved right now. ${role() === "admin" ? "Turn it on under Task writes." : "Ask the Street Tally team to turn it on."}`,
+        detail: [],
+      };
     case "area_too_big":
       return { message: "That area has more than 2,000 places to check. Make it smaller.", detail: [] };
     case "osm_unavailable":

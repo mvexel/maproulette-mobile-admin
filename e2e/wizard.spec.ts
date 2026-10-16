@@ -212,7 +212,7 @@ test("says when saving is off, and offers to turn an off project on after publis
   await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
   await page.getByRole("button", { name: "Next: save and share" }).click();
   await expect(page.getByRole("alert")).toHaveText(
-    "Saving is off on this server, so changes can't be saved right now. Ask the Street Tally team to turn it on.",
+    "Saving is off on this server, so changes can't be saved right now. Turn it on under Task writes.",
   );
   await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
   await page.getByRole("button", { name: "Next: save and share" }).click();
