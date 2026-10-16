@@ -3,11 +3,11 @@ import type { Report, ReviewPage, ReviewPlace, Suggestion } from "./api";
 
 /** The review page's words (design/handback-copy.md §2). */
 
-/** "47 answers to review · 12 added · 3 need a visit". */
+/** "47 places to review · 12 added · 3 need a visit": the API counts places (Iris, 10-16). */
 export function countsLine(p: ReviewPage): string {
   const c = p.counts;
   return [
-    `${plural(c.toReview, "answer", "answers")} to review`,
+    `${plural(c.toReview, "place", "places")} to review`,
     `${c.added} added`,
     `${c.needsVisit} ${c.needsVisit === 1 ? "needs" : "need"} a visit`,
     ...(c.disagree ? [`${c.disagree} with different answers`] : []),

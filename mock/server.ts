@@ -792,7 +792,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
           {
             campaign: { name: "Woodbine entrance doors", hashtags: ["#StreetTallyWoodbine"], match: { entrance: "main" } },
             counts: {
-              toReview: places.filter((p) => p.state === "open").reduce((n, p) => n + p.suggestions.length, 0),
+              toReview: places.filter((p) => p.state === "open").length,
               added: places.filter((p) => p.state === "done").length,
               needsVisit: places.filter((p) => p.state === "needs_visit").length,
               stale: places.filter((p) => p.state === "stale").length,

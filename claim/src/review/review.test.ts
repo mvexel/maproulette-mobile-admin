@@ -54,10 +54,10 @@ const page = (over: Partial<ReviewPage> = {}): ReviewPage => ({
 
 describe("review page words (handback-copy §2)", () => {
   it("writes the header counts with plurals", () => {
-    expect(countsLine(page())).toBe("47 answers to review · 12 added · 3 need a visit");
-    expect(countsLine(page({ counts: { toReview: 1, added: 0, needsVisit: 1 } }))).toBe("1 answer to review · 0 added · 1 needs a visit");
+    expect(countsLine(page())).toBe("47 places to review · 12 added · 3 need a visit");
+    expect(countsLine(page({ counts: { toReview: 1, added: 0, needsVisit: 1 } }))).toBe("1 place to review · 0 added · 1 needs a visit");
     expect(countsLine(page({ counts: { toReview: 1, added: 0, needsVisit: 0, stale: 2, gone: 0, disagree: 1 } }))).toBe(
-      "1 answer to review · 0 added · 0 need a visit · 1 with different answers · 2 changed on OSM",
+      "1 place to review · 0 added · 0 need a visit · 1 with different answers · 2 changed on OSM",
     );
   });
 

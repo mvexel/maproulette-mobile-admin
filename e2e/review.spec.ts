@@ -11,7 +11,7 @@ test.beforeEach(async ({ request }) => {
 test("shows the evidence per place, with no Accept and nothing that uploads", async ({ page }) => {
   await page.goto(`${CLAIM}/review/${L.live}`);
   await expect(page).toHaveTitle("Review · Woodbine entrance doors · Street Tally");
-  await expect(page.locator("#counts")).toHaveText("3 answers to review · 1 added · 1 needs a visit · 1 with different answers · 1 changed on OSM · 1 gone from OSM");
+  await expect(page.locator("#counts")).toHaveText("3 places to review · 1 added · 1 needs a visit · 1 with different answers · 1 changed on OSM · 1 gone from OSM");
   await expect(page.locator(".place")).toHaveCount(8);
 
   const granary = page.getByRole("article", { name: "Granary Live" });
@@ -26,6 +26,7 @@ test("shows the evidence per place, with no Accept and nothing that uploads", as
   await expect(page.getByRole("article", { name: "Entrance B" }).locator(".report")).toHaveText("There's no door · 1 person, 14 Oct");
   const moved = page.locator(".place").nth(2);
   await expect(moved.locator(".chip")).toHaveText("Needs a look");
+  await expect(moved.locator("h2")).toHaveText(/^\w+ · node 9003$/);
   await expect(moved.locator(".report")).toHaveText("It's moved · 1 person, 14 Oct");
   // The hint sits under the report, above the buttons.
   await expect(moved.locator(".evidence + .hint")).toHaveText("Not a tag change. Look at it on the ground or on imagery first.");
@@ -75,7 +76,7 @@ test("signs in read-only, skips for you only and marks a visit", async ({ page }
 
   await page.getByRole("article", { name: "Entrance B" }).getByRole("button", { name: "Needs a visit" }).click();
   await expect(page.getByRole("article", { name: "Entrance B" }).locator(".chip")).toHaveText("Needs a visit");
-  await expect(page.locator("#counts")).toHaveText("2 answers to review · 1 added · 2 need a visit · 1 with different answers · 1 changed on OSM · 1 gone from OSM");
+  await expect(page.locator("#counts")).toHaveText("2 places to review · 1 added · 2 need a visit · 1 with different answers · 1 changed on OSM · 1 gone from OSM");
 });
 
 test("a turned-off page and a bad link each say so", async ({ page }) => {

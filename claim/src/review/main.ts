@@ -47,7 +47,11 @@ function message(title: string, body: string) {
 }
 
 /** The live page's label rule; the review API sends null for a missing name or ref. */
-const nameOf = (p: ReviewPlace) => label({ name: p.name ?? undefined, ref: p.ref ?? undefined }, n);
+/** A nameless place adds its OSM id, which mappers recognise: "Place · node 4365677669" (Iris, 10-16). */
+const nameOf = (p: ReviewPlace) => {
+  const l = label({ name: p.name ?? undefined, ref: p.ref ?? undefined }, n);
+  return p.name || p.ref ? l : `${l} · ${p.osm.type} ${p.osm.id}`;
+};
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
