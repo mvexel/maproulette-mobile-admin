@@ -239,12 +239,6 @@ export interface ChallengeDetail extends ChallengeDraft {
 
 export const getChallenge = (id: number) => api<ChallengeDetail>(`/api/v2/challenge/${id}`);
 
-/** The choice payloads of a challenge's first tasks (a sample is enough for the publish check). */
-export async function listTaskWork(challengeId: number, limit = 200): Promise<unknown[]> {
-  const tasks = await api<{ cooperativeWork?: unknown }[]>(`/api/v2/challenge/${challengeId}/tasks?limit=${limit}`);
-  return tasks.map((t) => (typeof t.cooperativeWork === "string" ? JSON.parse(t.cooperativeWork) : t.cooperativeWork));
-}
-
 export type ResultsFormat = "csv" | "geojson";
 
 /** A challenge's campaign results as a file: tasks, statuses, answers, changesets. */
