@@ -207,6 +207,10 @@ export function describeError(e: unknown): { message: string; detail: string[] }
         message: `Saving is off on this server, so changes can't be saved right now. ${role() === "admin" ? "Turn it on under Task writes." : "Ask the Street Tally team to turn it on."}`,
         detail: [],
       };
+    case "nothing_to_check":
+      return { message: "There's nothing left to check in this area. Put some places back, or pick a bigger area.", detail: [] };
+    case "rate_limited":
+      return { message: "Too many requests. Try again in a minute.", detail: [] };
     case "area_too_big":
       return { message: "That area has more than 2,000 places to check. Make it smaller.", detail: [] };
     case "osm_unavailable":
