@@ -374,7 +374,7 @@ function WhatToCheck({
       .catch((e: unknown) => {
         if (!live) return;
         const rate = e instanceof Error && "code" in e && e.code === "rate_limited";
-        setError(rate ? "Too many searches. Try again in a minute." : describeError(e).message);
+        setError(rate ? "Too many searches in a row. Wait a minute and try again." : describeError(e).message);
       });
     return () => {
       live = false;
