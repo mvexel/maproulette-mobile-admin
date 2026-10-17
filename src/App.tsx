@@ -1,17 +1,18 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { describeError, me, type Me } from "./api";
+import { describeError, type Me, me } from "./api";
 import { hasSession, onAuthChange, type Role, role, signOut } from "./auth";
 import { navigate, usePath } from "./router";
 import { Audit } from "./screens/Audit";
 import { Callback } from "./screens/Callback";
-import { Clients } from "./screens/Clients";
 import { CampaignList, CampaignPage } from "./screens/Campaigns";
+import { Clients } from "./screens/Clients";
 import { EnvironmentBadge, WritesPill } from "./screens/Environment";
 import { Help } from "./screens/Help";
 import { Organizers } from "./screens/Organizers";
 import { SignIn } from "./screens/SignIn";
-import { WritePolicy } from "./screens/WritePolicy";
 import { SurveyBuilder } from "./screens/SurveyBuilder";
+import { Wizard } from "./screens/Wizard";
+import { WritePolicy } from "./screens/WritePolicy";
 
 interface Screen {
   title: string;
@@ -21,11 +22,12 @@ interface Screen {
   nav?: Role[];
 }
 
-// Organizers see Campaigns and Help (organizer-admin.md §2). New campaign and Publish write through
-// stock routes, which organizer grants can't, so they wait for the campaign wizard.
+// Organizers see Campaigns and Help (organizer-admin.md §2), and start the wizard from Campaigns.
+// The survey builder (/new/advanced) and stock Publish write through stock routes, which organizer
+// grants can't, so they stay with super-users.
 const SCREENS: Record<string, Screen> = {
   "/": { title: "Campaigns", render: () => <CampaignList />, roles: ["admin", "organizer"] },
-  "/new": { title: "New campaign", render: () => <SurveyBuilder />, roles: ["admin"] },
+  "/new": { title: "New campaign", render: () => <Wizard />, roles: ["admin", "organizer"], nav: ["admin"] },
   "/writes": { title: "Task writes", render: () => <WritePolicy />, roles: ["admin"] },
   "/clients": { title: "Clients", render: () => <Clients />, roles: ["admin"] },
   "/organizers": { title: "Organizers", render: () => <Organizers />, roles: ["admin"] },
@@ -33,19 +35,23 @@ const SCREENS: Record<string, Screen> = {
   "/help": { title: "Help", render: () => <Help />, roles: ["organizer"] },
 };
 
-/** Old addresses, kept working: the survey builder and challenge import now live in New campaign. */
-const MOVED: Record<string, string> = { "/surveys": "/new", "/challenges": "/new" };
+/** Old addresses, kept working: the survey builder and challenge import are New campaign's advanced path. */
+const MOVED: Record<string, string> = { "/surveys": "/new/advanced", "/challenges": "/new/advanced" };
 
 /** The screen for a path, and which nav entry it belongs to. */
 function route(path: string, as: Role): { nav: string; node: React.ReactNode } | undefined {
   const m = /^\/campaigns\/([1-9][0-9]{0,15})$/.exec(path);
   if (m) return { nav: "/", node: <CampaignPage key={m[1]} id={Number(m[1])} /> };
+  // The survey builder: the advanced path under New campaign.
+  if (path === "/new/advanced") return as === "admin" ? { nav: "/new", node: <SurveyBuilder /> } : teamOnly;
   const screen = SCREENS[path];
   if (!screen) return undefined;
   if (screen.roles.includes(as)) return { nav: path, node: screen.render() };
-  // A bookmarked team page, opened by an organizer.
-  return { nav: "", node: <p>This page is for the Street Tally team. Your campaigns are under Campaigns.</p> };
+  return teamOnly;
 }
+
+/** A bookmarked team page, opened by an organizer. */
+const teamOnly = { nav: "", node: <p>This page is for the Street Tally team. Your campaigns are under Campaigns.</p> };
 
 export function App() {
   const path = usePath();

@@ -127,7 +127,7 @@ test("a campaign's live page is created, set up, ended and given a new link", as
 test("old addresses and unknown campaigns", async ({ page }) => {
   await signIn(page);
   await page.goto("/surveys");
-  await expect(page).toHaveURL("/new");
+  await expect(page).toHaveURL("/new/advanced");
   await expect(page.getByRole("heading", { name: "New campaign" })).toBeVisible();
   await page.getByText("Advanced: import a task file into an existing challenge").click();
   await expect(page.getByRole("heading", { name: "Challenges" }).first()).toBeVisible();

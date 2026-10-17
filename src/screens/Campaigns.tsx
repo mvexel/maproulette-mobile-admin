@@ -10,14 +10,14 @@ import {
   publishSurveyChallenge,
 } from "../api";
 import { role } from "../auth";
-import { appLink, appState, type AppState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
+import { type AppState, appLink, appState, progressText, projectName, relativeTime, STATE_LABEL, webLink } from "../campaigns";
 import { config } from "../config";
 import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { LivePanel } from "./LivePanel";
-import { QueuePanel } from "./QueuePanel";
 import { ProjectToggle } from "./Projects";
 import { PublishSheet } from "./PublishSheet";
+import { QueuePanel } from "./QueuePanel";
 import { Reports } from "./Reports";
 import { ShareLine } from "./Share";
 
@@ -63,11 +63,9 @@ export function CampaignList() {
     <section>
       <h2>
         Campaigns{" "}
-        {role() === "admin" && (
-          <button type="button" onClick={() => navigate("/new")}>
-            New campaign
-          </button>
-        )}
+        <button type="button" onClick={() => navigate("/new")}>
+          New campaign
+        </button>
       </h2>
       <p className="hint">
         Choice campaigns on <code>{config().backend}</code>.

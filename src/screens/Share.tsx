@@ -1,14 +1,30 @@
 import qrcode from "qrcode-generator";
 import { useState } from "react";
 
-/** A QR code as an SVG, with a PNG download. */
-function Qr({ text, file }: { text: string; file: string }) {
+function code(text: string) {
   const qr = qrcode(0, "M");
   qr.addData(text);
   qr.make();
   const n = qr.getModuleCount();
   const cells: string[] = [];
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) cells.push(`M${c + 4} ${r + 4}h1v1h-1z`);
+  return { qr, n, d: cells.join("") };
+}
+
+/** A QR code as an SVG, with a four-module quiet zone. */
+export function QrSvg({ text }: { text: string }) {
+  const { n, d } = code(text);
+  return (
+    <svg viewBox={`0 0 ${n + 8} ${n + 8}`} role="img" aria-label={`QR code for ${text}`} shapeRendering="crispEdges">
+      <rect width={n + 8} height={n + 8} fill="#fff" />
+      <path d={d} fill="#000" />
+    </svg>
+  );
+}
+
+/** A QR code as an SVG, with a PNG download. */
+function Qr({ text, file }: { text: string; file: string }) {
+  const { qr, n } = code(text);
   function png() {
     const scale = 12;
     const canvas = document.createElement("canvas");
@@ -26,10 +42,7 @@ function Qr({ text, file }: { text: string; file: string }) {
   }
   return (
     <div className="qr">
-      <svg viewBox={`0 0 ${n + 8} ${n + 8}`} role="img" aria-label={`QR code for ${text}`} shapeRendering="crispEdges">
-        <rect width={n + 8} height={n + 8} fill="#fff" />
-        <path d={cells.join("")} fill="#000" />
-      </svg>
+      <QrSvg text={text} />
       <button type="button" onClick={png}>
         Download PNG
       </button>

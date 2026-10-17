@@ -8,6 +8,7 @@ async function openBuilder(page: Page) {
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await page.getByRole("link", { name: /Sign in as mock-superuser/ }).click();
   await page.getByRole("link", { name: "New campaign" }).click();
+  await page.getByRole("link", { name: "Advanced: build from a survey file" }).click();
 }
 
 test.beforeEach(async ({ request }) => {

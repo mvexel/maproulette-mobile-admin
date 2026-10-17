@@ -90,9 +90,12 @@ test("shows an organizer their campaigns and Help only", async ({ page }) => {
   await expect(page.getByTestId("writes-pill")).not.toHaveAttribute("href");
   await page.goto("/clients");
   await expect(page.getByText("This page is for the Street Tally team. Your campaigns are under Campaigns.")).toBeVisible();
-  // Creating and publishing write through stock routes; organizers get them with the wizard.
-  await expect(page.getByRole("button", { name: "New campaign" })).toHaveCount(0);
+  // Organizers create with the wizard; the survey builder and stock Publish write through stock
+  // routes, which organizer grants can't.
   await page.goto("/new");
+  await expect(page.getByRole("heading", { name: "New campaign" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Advanced: build from a survey file" })).toHaveCount(0);
+  await page.goto("/new/advanced");
   await expect(page.getByText("This page is for the Street Tally team.", { exact: false })).toBeVisible();
   await page.goto("/campaigns/3");
   await expect(page.getByText("No campaign 3 in the projects you organize.")).toBeVisible();
@@ -275,6 +278,7 @@ test("lists a challenge's not-here and moved reports with iD links", async ({ pa
   await signIn(page);
   await expect(page.getByTestId("user")).toHaveText("mock-superuser");
   await page.getByRole("link", { name: "New campaign" }).click();
+  await page.getByRole("link", { name: "Advanced: build from a survey file" }).click();
   await page.getByText("Advanced: import a task file into an existing challenge").click();
   const panel = page.locator(".panel:has(> h3:text-is('Reports'))");
   await panel.getByLabel("Challenge ID").fill("12345");

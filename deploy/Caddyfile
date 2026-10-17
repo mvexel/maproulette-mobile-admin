@@ -20,7 +20,8 @@
 :80 {
 	root * /srv/admin
 	import common
-	header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN}; img-src 'self' data: https://*.openfreemap.org; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	# The campaign wizard: Nominatim for the place search, OpenFreeMap and MapLibre's worker for its maps.
+	header Content-Security-Policy "default-src 'self'; connect-src 'self' {$BACKEND_ORIGIN} https://nominatim.openstreetmap.org https://tiles.openfreemap.org; img-src 'self' data: blob: https://*.openfreemap.org; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 	try_files {path} /index.html
 	file_server
 }

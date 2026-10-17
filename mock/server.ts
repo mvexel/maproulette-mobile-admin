@@ -14,6 +14,93 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 
+/** The wizard's question sets (design/wizard/wizard-api-draft.md §1), from our campaign files. */
+export const QUESTION_SETS = [
+  {
+    id: "entrance-doors",
+    version: 3,
+    name: "Entrance doors",
+    why: "Wheelchair, stroller and walker users know what to expect",
+    audience: "wheelchair, stroller and walker users",
+    noun: { one: "entrance", many: "entrances" },
+    example: "How does this door open?",
+    pace: 30,
+    description: "Help map the {nounMany} around {place}, so {audience} know what to expect.",
+  },
+  {
+    id: "crossings",
+    version: 1,
+    name: "Crossings",
+    why: "Blind and low-vision people find safe crossings",
+    audience: "blind and low-vision people",
+    noun: { one: "crossing", many: "crossings" },
+    example: "Are there bumpy warning tiles at the curb?",
+    pace: 25,
+    description: "Help map the {nounMany} around {place}, so {audience} can find safe ones.",
+  },
+  {
+    id: "bus-stops",
+    version: 2,
+    name: "Bus stops",
+    why: "Riders know if there's a shelter, bench or trash can",
+    audience: "riders",
+    noun: { one: "stop", many: "stops" },
+    example: "Is there a shelter with a roof?",
+    pace: 12,
+    description: "Help map the bus {nounMany} around {place}, so {audience} know what's there.",
+  },
+  {
+    id: "benches",
+    version: 1,
+    name: "Benches",
+    why: "People who need to rest know where they can",
+    audience: "people who need to rest",
+    noun: { one: "bench", many: "benches" },
+    example: "Does the bench have armrests?",
+    pace: 40,
+    description: "Help map the {nounMany} around {place}, so {audience} know where they can.",
+  },
+  {
+    id: "trees",
+    version: 1,
+    name: "Trees",
+    why: "Neighbors and planners see where the shade is",
+    audience: "neighbors and planners",
+    noun: { one: "tree", many: "trees" },
+    example: "Does this tree have leaves or needles?",
+    pace: 60,
+    description: "Help map the {nounMany} around {place}, so {audience} can see where the shade is.",
+  },
+];
+
+/** Nominatim-shaped places for the wizard's search. */
+export const MOCK_PLACES = [
+  { lat: "40.7538166", lon: "-111.9068120", name: "Woodbine Food Hall", display_name: "Woodbine Food Hall, 545 West 700 South, Salt Lake City, Utah, United States" },
+  { lat: "40.7608", lon: "-111.8910", name: "Salt Lake City", display_name: "Salt Lake City, Salt Lake County, Utah, United States" },
+  { lat: "40.7650", lon: "-111.9010", name: "Salt Lake City Library", display_name: "Salt Lake City Library, 210 East 400 South, Salt Lake City, Utah, United States" },
+];
+
+/** The wizard's area from a query, or undefined when it's out of range. */
+function wizardArea(q: URLSearchParams): { lat: number; lon: number; radius: number } | undefined {
+  const lat = Number(q.get("lat"));
+  const lon = Number(q.get("lon"));
+  const radius = Number(q.get("radius"));
+  if (![lat, lon, radius].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lon) > 180 || radius < 200 || radius > 3000) return undefined;
+  return { lat, lon, radius };
+}
+
+/**
+ * The mock's counts grow with the circle's area. Benches have nothing open (every one is complete)
+ * and trees always time out, so both card states show.
+ */
+function wizardCount(set: string, version: number, a: { radius: number }) {
+  if (set === "trees") return { set, version, unavailable: true as const };
+  const scale = (a.radius / 800) ** 2;
+  const base: Record<string, [number, number]> = { "entrance-doors": [23, 41], crossings: [14, 9], "bus-stops": [6, 2], benches: [0, 12] };
+  const [open, complete] = base[set] ?? [0, 0];
+  return { set, version, open: Math.round(open * scale), complete: Math.round(complete * scale) };
+}
+
 /** The one challenge the mock has results for (GET /api/v2/mobile-admin/challenges/:id/results). */
 export const RESULTS_CHALLENGE_ID = 42;
 export const RESULTS_CSV =
@@ -604,7 +691,12 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   const oauthPaths = ["/oauth/mobile/token", "/oauth/mobile/revoke", "/oauth/mobile/me"];
   const adminPaths = (path: string) =>
-    path.startsWith("/api/v2/mobile-admin/") || /^\/api\/v2\/challenge\/[0-9]+$/.test(path) || oauthPaths.includes(path);
+    path.startsWith("/api/v2/mobile-admin/") ||
+    path.startsWith("/api/v2/mobile-admin/wizard/") ||
+    // The wizard's place search (Nominatim's shape), so tests need no network.
+    path === "/search" ||
+    /^\/api\/v2\/challenge\/[0-9]+$/.test(path) ||
+    oauthPaths.includes(path);
   // deferred-signup-api.md §5 and §3.10: the claim origin gets the OAuth and claim routes only.
   const claimPaths = (path: string) =>
     oauthPaths.includes(path) ||
@@ -666,6 +758,11 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     // A MapLibre style with no tiles, so map pages can be checked without the network.
     if (path === "/__mock/style.json" && req.method === "GET")
       return send(res, 200, { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#ECEBE5" } }] }, { "Access-Control-Allow-Origin": "*" });
+    // The server's task-write switch, without an admin sign-in (wizard tests).
+    if (path === "/__mock/write-policy" && req.method === "POST") {
+      writePolicy = q.get("enabled") === "true";
+      return send(res, 204);
+    }
     if (path === "/__mock/claim-writes" && req.method === "POST") {
       claimWrites = q.get("enabled") === "true";
       return send(res, 204);
@@ -883,6 +980,27 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       }
       const { id, name, enabled, projectId, description, instruction, checkinComment, checkinSource } = c;
       return send(res, 200, { id, name, enabled, parent: projectId, description, instruction, checkinComment, checkinSource });
+    }
+
+    // Nominatim's /search, for the wizard's step 1 (design/wizard/wizard-api-draft.md).
+    if (path === "/search" && req.method === "GET") {
+      const term = (q.get("q") ?? "").toLowerCase();
+      return send(res, 200, term.includes("nowhere") ? [] : MOCK_PLACES.filter((p) => term.split(/\s+/).some((w) => w && p.display_name.toLowerCase().includes(w))));
+    }
+
+    // The campaign wizard's endpoints (design/wizard/wizard-api-draft.md): super-users and listed
+    // organizers.
+    if (path.startsWith("/api/v2/mobile-admin/wizard/")) {
+      if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
+      const b = bearer(req);
+      if (!b) return problem(res, 401, "invalid_token");
+      if (b.family.scope === ORGANIZE_SCOPE) {
+        if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
+        return organize(req, res, path, q, b.user, new Set(rolesOf(b.user.id).keys()));
+      }
+      if (b.family.scope !== ADMIN_SCOPE) return problem(res, 403, "insufficient_scope");
+      if (!b.user.superUser) return problem(res, 403, "admin_required");
+      return organize(req, res, path, q, b.user, undefined);
     }
 
     if (path.startsWith("/api/v2/mobile-admin/")) {
@@ -1118,6 +1236,115 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       tasks: { total: c.total, checked: c.checked, needsLook: c.needsLook },
     };
   };
+
+  // --- campaign wizard (design/wizard/wizard-api-draft.md) ------------------------------------------
+
+  /** `own`: an organizer's projects; undefined for a super-user, who may use any project. */
+  async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, own: Set<number> | undefined) {
+    // Scala's wizard backend: create and publish are writes, refused while saving is off (#47's rule).
+    if (path === "/api/v2/mobile-admin/wizard/campaigns" && req.method === "POST") {
+      if (!writePolicy) return problem(res, 403, "mobile_writes_disabled");
+      return createCampaign(req, res, user, own);
+    }
+    const pub = /^\/api\/v2\/mobile-admin\/wizard\/campaigns\/([0-9]+)\/publish$/.exec(path);
+    if (pub && req.method === "POST") {
+      const c = campaigns.find((x) => x.id === Number(pub[1]));
+      if (!c) return problem(res, 404, "not_found");
+      if (own && !own.has(c.projectId)) return problem(res, 403, "organizer_forbidden");
+      if (!writePolicy) return problem(res, 403, "mobile_writes_disabled");
+      c.enabled = c.published = true;
+      c.modified = new Date().toISOString();
+      record(user.id, "campaign.publish", `challenge:${c.id}`, { published: false }, { published: true });
+      // Publish doesn't turn the project on: that would list its other campaigns too.
+      return send(res, 200, { id: c.id, published: true, listed: projects.get(c.projectId)?.enabled ?? false });
+    }
+    if (path === "/api/v2/mobile-admin/wizard/question-sets") return send(res, 200, { sets: QUESTION_SETS });
+    const area = wizardArea(q);
+    if (path === "/api/v2/mobile-admin/wizard/counts") {
+      if (!area) return problem(res, 400, "invalid_request", ["lat, lon and radius (200-3000 m)"]);
+      return send(res, 200, { counts: QUESTION_SETS.map((s) => wizardCount(s.id, s.version, area)) });
+    }
+    const fm = /^\/api\/v2\/mobile-admin\/wizard\/question-sets\/([a-z-]+)\/features$/.exec(path);
+    if (fm) {
+      const s = QUESTION_SETS.find((x) => x.id === fm[1]);
+      if (!s) return problem(res, 404, "not_found");
+      if (!area) return problem(res, 400, "invalid_request", ["lat, lon and radius (200-3000 m)"]);
+      const c = wizardCount(s.id, s.version, area);
+      const n = "unavailable" in c ? 0 : c.open;
+      const open = Array.from({ length: n }, (_, i) => {
+        // A golden-angle spiral inside the circle: spread out, and the same every time.
+        const r = (area.radius * Math.sqrt((i + 0.5) / n)) / 111_320;
+        const t = i * 2.399963;
+        return {
+          id: `node/${9100 + i}`,
+          lon: area.lon + (r * Math.cos(t)) / Math.cos((area.lat * Math.PI) / 180),
+          lat: area.lat + r * Math.sin(t),
+          name: i % 3 === 0 ? `${s.noun.one.charAt(0).toUpperCase()}${s.noun.one.slice(1)} ${i + 1}` : null,
+        };
+      });
+      return send(res, 200, { set: s.id, version: s.version, complete: "unavailable" in c ? 0 : c.complete, truncated: false, open });
+    }
+    return problem(res, 404, "not_found");
+  }
+
+  /**
+   * The wizard's create (wizard-api-draft.md §4): a draft challenge in the pilots project. Like the real
+   * one, it trusts no client list: the task count comes from the area, less what was left out.
+   */
+  async function createCampaign(req: IncomingMessage, res: ServerResponse, user: User, own: Set<number> | undefined) {
+    let b: {
+      projectId?: unknown; set?: unknown; version?: unknown; area?: { lat?: unknown; lon?: unknown; radius?: unknown; place?: unknown }; leaveOut?: unknown; name?: unknown; description?: unknown; eventDate?: unknown };
+    try {
+      b = JSON.parse((await readBody(req)) || "{}");
+    } catch {
+      return problem(res, 400, "invalid_request", ["body is not JSON"]);
+    }
+    const s = QUESTION_SETS.find((x) => x.id === b.set);
+    const area = wizardArea(new URLSearchParams({ lat: String(b.area?.lat), lon: String(b.area?.lon), radius: String(b.area?.radius) }));
+    const leaveOut = Array.isArray(b.leaveOut) && b.leaveOut.every((x) => typeof x === "string" && /^(node|way)\/[0-9]+$/.test(x)) ? (b.leaveOut as string[]) : undefined;
+    const name = typeof b.name === "string" ? b.name.trim() : "";
+    const projectId = typeof b.projectId === "number" && Number.isInteger(b.projectId) ? b.projectId : undefined;
+    const bad = [
+      projectId === undefined && "projectId is required",
+      !s && "set is not a question set",
+      !area && "area needs lat, lon and radius (200-3000 m)",
+      typeof b.area?.place !== "string" && "area.place is required",
+      !leaveOut && "leaveOut must be a list of node/n or way/n",
+      (!name || name.length > 120) && "name is required (up to 120 characters)",
+      typeof b.description !== "string" && "description is required",
+      b.eventDate !== undefined && !(typeof b.eventDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.eventDate)) && "eventDate is YYYY-MM-DD",
+    ].filter((x): x is string => !!x);
+    if (bad.length || !s || !area || !leaveOut || projectId === undefined) return problem(res, 400, "invalid_request", bad);
+    // can(Campaigns(projectId)): the caller's own project, or any project for a super-user.
+    if (own ? !own.has(projectId) : !projects.has(projectId)) return problem(res, 403, "organizer_forbidden");
+    if (b.version !== s.version) return problem(res, 409, "set_changed", [`${s.id} is at version ${s.version}`]);
+    const c = wizardCount(s.id, s.version, area);
+    const open = "unavailable" in c ? 0 : c.open;
+    // The mock's feature ids run node/9100+i (see the features route); every set is nodes only.
+    const inArea = new Set(Array.from({ length: open }, (_, i) => `node/${9100 + i}`));
+    const tasks = open - new Set(leaveOut.filter((id) => inArea.has(id))).size;
+    if (open > 2000) return problem(res, 400, "area_too_big");
+    if (tasks <= 0) return problem(res, 422, "nothing_to_check");
+    const id = Math.max(100, ...campaigns.map((x) => x.id)) + 1;
+    const tag = `#StreetTally${String(b.area?.place).replace(/[^A-Za-z0-9 ]/g, "").replace(/(?:^|\s+)(\w)/g, (_, ch: string) => ch.toUpperCase())}`.slice(0, 40);
+    campaigns.push({
+      id,
+      name,
+      projectId,
+      enabled: false,
+      published: false,
+      total: tasks,
+      checked: 0,
+      needsLook: 0,
+      modified: new Date().toISOString(),
+      description: b.description as string,
+      instruction: s.why,
+      checkinComment: `From a Street Tally survey for ${name}${typeof b.eventDate === "string" ? `, ${new Date(`${b.eventDate}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}` : ""}. Checked by me. #StreetTally ${tag}`,
+      checkinSource: "survey",
+    });
+    record(user.id, "campaign.create", `challenge:${id}`, undefined, { set: s.id, version: s.version, tasks });
+    return send(res, 201, { id, tasks });
+  }
 
   /** MobileOrganizeRoutes: the campaign part of the admin API. */
   const organizerRoute = (method: string, path: string) => {
