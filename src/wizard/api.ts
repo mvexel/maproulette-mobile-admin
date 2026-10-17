@@ -1,7 +1,7 @@
 import { ApiError, api } from "../api";
 import { config } from "../config";
 
-/** The campaign wizard's endpoints (design/wizard/wizard-api-draft.md). Mocked until Scala's slices 4–6. */
+/** The campaign wizard's endpoints under /api/v2/mobile-admin/wizard (backend #48; design/wizard/wizard-api-draft.md). */
 
 export interface QuestionSet {
   id: string;
@@ -89,13 +89,15 @@ export interface Place {
 
 /**
  * Nominatim search, one request per Search press (its usage policy: light use, no autocomplete).
- * The browser sends the admin's origin as the referrer, which identifies us.
+ * The page's Referrer-Policy is no-referrer (Caddy's common block), so this request asks for the admin's
+ * origin as the referrer: their policy needs a Referer or User-Agent that identifies us, and a browser
+ * can't set the User-Agent.
  */
 export async function searchPlaces(q: string): Promise<Place[]> {
   const url = `${config().geocoder}/search?${new URLSearchParams({ q, format: "jsonv2", limit: "5", addressdetails: "0" })}`;
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Accept: "application/json" } });
+    res = await fetch(url, { headers: { Accept: "application/json" }, referrerPolicy: "origin" });
   } catch {
     throw new ApiError(0, "network");
   }
