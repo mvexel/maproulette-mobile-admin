@@ -210,7 +210,7 @@ export function describeError(e: unknown): { message: string; detail: string[] }
     case "nothing_to_check":
       return { message: "There's nothing left to check in this area. Put some places back, or pick a bigger area.", detail: [] };
     case "rate_limited":
-      return { message: "Too many requests. Try again in a minute.", detail: [] };
+      return { message: "Too many tries in a row. Wait a minute and try again.", detail: [] };
     case "area_too_big":
       return { message: "That area has more than 2,000 places to check. Make it smaller.", detail: [] };
     case "osm_unavailable":
