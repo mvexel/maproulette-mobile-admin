@@ -96,7 +96,7 @@ describe("sign-in", () => {
     expect(await completeSignIn(await browserSignIn(mock, "plain"))).toBe("retrying");
     expect(await completeSignIn(await followAuthorize(mock, "plain"))).toBe("retrying");
     const params = await followAuthorize(mock, "plain");
-    expect(params.get("error_description")).toMatch(/requests are closed/);
+    expect(params.get("error_description")).toBe("Organizer requests closed");
     await expect(completeSignIn(params)).rejects.toBeInstanceOf(NotSetUpError);
     expect(hasSession()).toBe(false);
     expect(mock.stats.authorizationCodes).toBe(0);

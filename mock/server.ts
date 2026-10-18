@@ -912,7 +912,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (i.scope === REQUEST_SCOPE && !requestsOpen)
         return appRedirect(res, i.redirectUri, {
           error: "access_denied",
-          error_description: "Organizer requests are closed",
+          error_description: "Organizer requests closed",
           state: i.state,
         });
       const code = token();
@@ -1105,11 +1105,10 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
-      // ORG-ONB: a request grant reaches its own request only, and only while requests are open.
+      // ORG-ONB: a request grant reaches its own request only; reading it still works once requests close.
       if (path === "/api/v2/mobile-admin/organizer-request") {
         if (b.family.scope === ORGANIZE_SCOPE) return problem(res, 403, "insufficient_scope");
         if (b.family.scope !== REQUEST_SCOPE) return problem(res, 403, "organizer_request_grant_required");
-        if (!requestsOpen) return problem(res, 403, "organizer_request_not_allowed");
         return organizerRequest(req, res, b.user);
       }
       if (b.family.scope === REQUEST_SCOPE) return problem(res, 403, "insufficient_scope");
