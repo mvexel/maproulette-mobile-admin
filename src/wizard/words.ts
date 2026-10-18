@@ -15,6 +15,22 @@ export const RADIUS_MAX = 3000;
 /** "800 m" or "1.2 km". */
 export const distance = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(Math.round(m / 100) / 10).toString()} km`);
 
+const DIRECTIONS = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"] as const;
+
+/**
+ * Where a feature is from the picked place: "120 m northeast", or "At the place" within 20 m.
+ * Step 3 names unnamed features this way instead of by their OSM id.
+ */
+export function fromPlace(place: { lat: number; lon: number }, f: { lat: number; lon: number }): string {
+  const rad = Math.PI / 180;
+  const y = (f.lat - place.lat) * 111_320;
+  const x = (f.lon - place.lon) * 111_320 * Math.cos(place.lat * rad);
+  const m = Math.hypot(x, y);
+  if (m < 20) return "At the place";
+  const deg = (Math.atan2(x, y) / rad + 360) % 360;
+  return `${distance(m < 1000 ? Math.round(m / 10) * 10 : m)} ${DIRECTIONS[Math.round(deg / 45) % 8]}`;
+}
+
 const plural = (n: number, noun: { one: string; many: string }) => `${n} ${n === 1 ? noun.one : noun.many}`;
 
 /** A card's count line: "23 to check here", "Nothing to check here" or "Count not available". */

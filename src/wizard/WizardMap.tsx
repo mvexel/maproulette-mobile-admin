@@ -34,22 +34,27 @@ const featureCollection = (features: OpenFeature[], leftOut: ReadonlySet<string>
 });
 
 /**
- * The wizard's map: the area's circle (step 1), plus the open features with left-out ones grey
- * (step 3). Tapping a feature calls `onToggle`. The list beside it does the same for keyboards.
+ * The wizard's map: the area's circle (step 1, with a pin at the place), plus the open features with
+ * left-out ones grey (step 3). Tapping a feature calls `onToggle`. The list beside it does the same
+ * for keyboards, and `focused` rings the feature its pointer or focus is on.
  */
 export function WizardMap({
   style,
   area,
   features = [],
   leftOut = new Set(),
+  focused,
   onToggle,
+  pin = false,
   label,
 }: {
   style: string;
   area: Area;
   features?: OpenFeature[];
   leftOut?: ReadonlySet<string>;
+  focused?: string;
   onToggle?: (id: string) => void;
+  pin?: boolean;
   label: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -57,8 +62,8 @@ export function WizardMap({
   const ready = useRef(false);
   const toggle = useRef(onToggle);
   toggle.current = onToggle;
-  const latest = useRef({ area, features, leftOut });
-  latest.current = { area, features, leftOut };
+  const latest = useRef({ area, features, leftOut, focused, pin });
+  latest.current = { area, features, leftOut, focused, pin };
 
   useEffect(() => {
     if (!box.current) return;
@@ -72,7 +77,7 @@ export function WizardMap({
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     m.on("load", () => {
-      const { area: a, features: f, leftOut: out } = latest.current;
+      const { area: a, features: f, leftOut: out, focused: on, pin: withPin } = latest.current;
       m.addSource("area", { type: "geojson", data: circle(a) });
       m.addLayer({ id: "area-fill", type: "fill", source: "area", paint: { "fill-color": "#f5a623", "fill-opacity": 0.12 } });
       m.addLayer({ id: "area-line", type: "line", source: "area", paint: { "line-color": "#14213d", "line-width": 2 } });
@@ -88,6 +93,23 @@ export function WizardMap({
           "circle-stroke-width": 2,
         },
       });
+      // The ring for the list row under the pointer or focus.
+      m.addLayer({
+        id: "features-focused",
+        type: "circle",
+        source: "features",
+        filter: ["==", ["get", "id"], on ?? ""],
+        paint: { "circle-radius": 11, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": "#14213d", "circle-stroke-width": 3 },
+      });
+      if (withPin) {
+        m.addSource("place", { type: "geojson", data: { type: "Point", coordinates: [a.lon, a.lat] } });
+        m.addLayer({
+          id: "place",
+          type: "circle",
+          source: "place",
+          paint: { "circle-radius": 7, "circle-color": "#14213d", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2 },
+        });
+      }
       m.on("click", "features", (e) => {
         const id = e.features?.[0]?.properties?.id;
         if (typeof id === "string") toggle.current?.(id);
@@ -107,6 +129,7 @@ export function WizardMap({
     const m = map.current;
     if (!m || !ready.current) return;
     (m.getSource("area") as maplibregl.GeoJSONSource | undefined)?.setData(circle(area));
+    (m.getSource("place") as maplibregl.GeoJSONSource | undefined)?.setData({ type: "Point", coordinates: [area.lon, area.lat] });
     m.fitBounds(boundsOf(area), { padding: 24, duration: 300 });
   }, [area]);
 
@@ -115,6 +138,12 @@ export function WizardMap({
     if (!m || !ready.current) return;
     (m.getSource("features") as maplibregl.GeoJSONSource | undefined)?.setData(featureCollection(features, leftOut));
   }, [features, leftOut]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !ready.current) return;
+    m.setFilter("features-focused", ["==", ["get", "id"], focused ?? ""]);
+  }, [focused]);
 
   return <div className="wizard-map" ref={box} role="img" aria-label={label} />;
 }

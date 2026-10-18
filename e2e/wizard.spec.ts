@@ -56,7 +56,9 @@ test("goes from a place to drafted words with no tags or files", async ({ page }
   await expect(list.getByRole("listitem")).toHaveCount(23);
   await list.getByRole("button", { name: "Leave out Entrance 1", exact: true }).click();
   await expect(page.getByTestId("check-line")).toHaveText("22 entrances to check. 41 are already complete, so we left them out.");
-  await list.getByRole("button", { name: "Leave out Entrance · node 9101" }).click();
+  // Unnamed features go by where they are, not by their OSM id.
+  await expect(list.getByRole("listitem").nth(1)).toContainText("Entrance, 200 m northwest");
+  await list.getByRole("button", { name: "Leave out Entrance, 200 m northwest" }).click();
   await list.getByRole("button", { name: "Put back Entrance 1", exact: true }).click();
   await expect(page.getByTestId("check-line")).toHaveText("22 entrances to check. 41 are already complete, so we left them out.");
   await page.getByRole("button", { name: "Next: words" }).click();
@@ -175,7 +177,7 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
   await expect(page.locator(".status-line")).toContainText("Listed in the app");
 });
 
-test("an organizer starts the wizard from Campaigns and the campaign lands in their project", async ({ page }) => {
+test("an organizer starts the wizard from Campaigns and the campaign lands in their project", async ({ page, request }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await page.getByRole("link", { name: /Sign in as mock-organizer/ }).click();
@@ -192,6 +194,12 @@ test("an organizer starts the wizard from Campaigns and the campaign lands in th
   await page.getByRole("button", { name: "Next: check the list" }).click();
   await page.getByRole("button", { name: "Next: words" }).click();
   await page.getByRole("button", { name: "Next: save and share" }).click();
+  // Publishing off: an organizer gets a way to ask the team.
+  await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("Your draft is saved, but publishing is off on this server right now. Ask the Street Tally team to turn it on, then publish.");
+  await expect(page.getByRole("alert").getByRole("link", { name: "Ask the Street Tally team" })).toHaveAttribute("href", /^mailto:martijn@osm\.lol/);
+  await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Your campaign is live. Anyone with the link can join.");
   await page.getByRole("link", { name: "Open the campaign page" }).click();
@@ -212,6 +220,7 @@ test("saves a draft while writing is off, refuses only the publish, and offers t
   await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
   await page.getByRole("button", { name: "Next: save and share" }).click();
   await expect(page.getByText(/^Saved as a draft with/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the campaign page" })).toHaveAttribute("href", "/campaigns/101");
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("Your draft is saved, but publishing is off on this server right now. Turn it on under Task writes, then publish.");
   await request.post(`${MOCK}/__mock/write-policy?enabled=true`);

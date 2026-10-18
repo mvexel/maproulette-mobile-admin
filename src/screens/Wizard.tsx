@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ApiError, describeError, type Project } from "../api";
 import { role } from "../auth";
 import { webLink } from "../campaigns";
@@ -30,6 +30,7 @@ import {
   draftDescription,
   draftName,
   eventDay,
+  fromPlace,
   hashtag,
   inviteText,
   paceHint,
@@ -325,7 +326,7 @@ function Where({
             </label>
           )}
           {style ? (
-            <WizardMap style={style} area={{ lat: place.lat, lon: place.lon, radius }} label={`${distance(radius)} around ${place.name}`} />
+            <WizardMap style={style} area={{ lat: place.lat, lon: place.lon, radius }} pin label={`${distance(radius)} around ${place.name}`} />
           ) : (
             <p className="area-line" data-testid="area">
               {distance(radius)} around {place.name}
@@ -438,6 +439,8 @@ function CheckList({
 }) {
   const [data, setData] = useState<SetFeatures>();
   const [error, setError] = useState<string>();
+  // The row under the pointer or keyboard focus, ringed on the map.
+  const [focused, setFocused] = useState<string>();
   const style = config().mapStyle;
   useEffect(() => {
     let live = true;
@@ -466,17 +469,19 @@ function CheckList({
             area={area}
             features={data.open}
             leftOut={leftOut}
+            focused={focused}
             onToggle={onToggle}
             label={`${data.open.length} ${set.noun.many} on a map. Tap one to leave it out.`}
           />
         )}
         <ul className="features" aria-label={`${set.noun.many} in the campaign`}>
           {data.open.map((f) => (
-            <FeatureRow key={f.id} f={f} set={set} out={leftOut.has(f.id)} onToggle={onToggle} />
+            <FeatureRow key={f.id} f={f} set={set} area={area} out={leftOut.has(f.id)} onToggle={onToggle} onFocus={setFocused} />
           ))}
         </ul>
       </div>
       <p className="hint">
+        {style && "Tap a dot or use Leave out to drop it. "}
         Leave out anything people can't or shouldn't check, such as private or construction sites.{" "}
         <button type="button" className="link" onClick={back}>
           Make the area smaller or bigger
@@ -491,10 +496,31 @@ function CheckList({
   );
 }
 
-function FeatureRow({ f, set, out, onToggle }: { f: OpenFeature; set: QuestionSet; out: boolean; onToggle: (id: string) => void }) {
-  const title = f.name ?? `${set.noun.one.charAt(0).toUpperCase()}${set.noun.one.slice(1)} · ${f.id.replace("/", " ")}`;
+function FeatureRow({
+  f,
+  set,
+  area,
+  out,
+  onToggle,
+  onFocus,
+}: {
+  f: OpenFeature;
+  set: QuestionSet;
+  area: Area;
+  out: boolean;
+  onToggle: (id: string) => void;
+  onFocus: (id: string | undefined) => void;
+}) {
+  // Unnamed features by where they are, not by their OSM id: "Entrance, 120 m northeast".
+  const title = f.name ?? `${set.noun.one.charAt(0).toUpperCase()}${set.noun.one.slice(1)}, ${fromPlace(area, f).toLowerCase()}`;
   return (
-    <li className={out ? "out" : undefined}>
+    <li
+      className={out ? "out" : undefined}
+      onMouseEnter={() => onFocus(f.id)}
+      onMouseLeave={() => onFocus(undefined)}
+      onFocus={() => onFocus(f.id)}
+      onBlur={() => onFocus(undefined)}
+    >
       <span>{title}</span>
       <button type="button" onClick={() => onToggle(f.id)} aria-label={`${out ? "Put back" : "Leave out"} ${title}`}>
         {out ? "Put back" : "Leave out"}
@@ -598,9 +624,40 @@ function Preview({ set, words, open }: { set: QuestionSet; words: Words; open: n
   );
 }
 
-/** Publishing while writes are off: the draft is kept, and super-users are told where the switch is. */
-const publishOffMessage = () =>
-  `Your draft is saved, but publishing is off on this server right now. ${role() === "admin" ? "Turn it on under Task writes, then publish." : "Ask the Street Tally team to turn it on, then publish."}`;
+/** Who turns publishing on for organizers. */
+const TEAM = "martijn@osm.lol";
+
+/** Publishing while writes are off: the draft is kept, super-users are told where the switch is, and organizers get a way to ask. */
+function PublishOff() {
+  return (
+    <>
+      Your draft is saved, but publishing is off on this server right now.{" "}
+      {role() === "admin" ? (
+        "Turn it on under Task writes, then publish."
+      ) : (
+        <>
+          <a href={`mailto:${TEAM}?subject=Publishing%20a%20Street%20Tally%20campaign`}>Ask the Street Tally team</a> to turn it on, then
+          publish.
+        </>
+      )}
+    </>
+  );
+}
+
+/** "Open the campaign page" for the campaign's own page in the admin. */
+function CampaignPageLink({ id }: { id: number }) {
+  return (
+    <a
+      href={`/campaigns/${id}`}
+      onClick={(e) => {
+        e.preventDefault();
+        navigate(`/campaigns/${id}`);
+      }}
+    >
+      Open the campaign page
+    </a>
+  );
+}
 
 /** Step 5: try the draft, publish, then the share panel (link, QR, invite text and table card). */
 function PublishStep({
@@ -619,7 +676,7 @@ function PublishStep({
   // undefined: not published yet; otherwise whether the app lists it (false while the project is off).
   const [listed, setListed] = useState<boolean>();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<ReactNode>();
   const link = webLink(campaign.id);
   async function publish() {
     setBusy(true);
@@ -628,7 +685,7 @@ function PublishStep({
       setListed((await publishCampaign(campaign.id)).listed);
     } catch (e) {
       // W-DRAFT: the draft saves while writes are off; only publishing waits for them.
-      setError(e instanceof ApiError && e.code === "mobile_writes_disabled" ? publishOffMessage() : describeError(e).message);
+      setError(e instanceof ApiError && e.code === "mobile_writes_disabled" ? <PublishOff /> : describeError(e).message);
     } finally {
       setBusy(false);
     }
@@ -638,6 +695,9 @@ function PublishStep({
       <div className="step publish">
         <p className="saved-line">
           Saved as a draft with {campaign.tasks} {campaign.tasks === 1 ? set.noun.one : set.noun.many}. It isn't in the app until you publish.
+        </p>
+        <p className="hint">
+          <CampaignPageLink id={campaign.id} /> to come back to it later.
         </p>
         <ShareLine
           label="Try it on your phone first"
@@ -746,16 +806,7 @@ function SharePanel({
         </button>
       </div>
       <p>
-        <a
-          href={`/campaigns/${id}`}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate(`/campaigns/${id}`);
-          }}
-        >
-          Open the campaign page
-        </a>{" "}
-        for progress, the live page and results.
+        <CampaignPageLink id={id} /> for progress, the live page and results.
       </p>
     </div>
   );

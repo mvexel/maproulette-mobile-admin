@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { QUESTION_SETS } from "../../mock/server.ts";
 import type { QuestionSet, SetCount } from "./api";
-import { bySetCount, changesetComment, checkLine, countLine, distance, draftDescription, draftName, hashtag, inviteText, paceHint, pickable } from "./words";
+import { bySetCount, changesetComment, checkLine, countLine, distance, draftDescription, draftName, fromPlace, hashtag, inviteText, paceHint, pickable } from "./words";
 
 const doors = QUESTION_SETS[0] as QuestionSet;
 const count = (set: string, open: number, complete = 0): SetCount => ({ set, version: 1, open, complete });
@@ -60,5 +60,21 @@ describe("wizard words", () => {
     expect(inviteText(doors, "Woodbine Food Hall", "https://x.test/c/1", "2026-11-10")).toBe(
       "Join us at Woodbine Food Hall on 10 November 2026 to check entrances for Street Tally. No account needed, just your phone: https://x.test/c/1",
     );
+  });
+});
+
+describe("fromPlace", () => {
+  const place = { lat: 40.76, lon: -111.89 };
+  it("gives the distance and direction, rounded to 10 m", () => {
+    expect(fromPlace(place, { lat: 40.76 + 120 / 111_320, lon: -111.89 })).toBe("120 m north");
+    const east = 250 / (111_320 * Math.cos((40.76 * Math.PI) / 180));
+    expect(fromPlace(place, { lat: 40.76 - 250 / 111_320, lon: -111.89 + east })).toBe("350 m southeast");
+    expect(fromPlace(place, { lat: 40.76, lon: -111.89 - 2 * east })).toBe("500 m west");
+  });
+  it("says at the place within 20 m", () => {
+    expect(fromPlace(place, { lat: 40.76 + 10 / 111_320, lon: -111.89 })).toBe("At the place");
+  });
+  it("switches to km past 1000 m", () => {
+    expect(fromPlace(place, { lat: 40.76 + 1250 / 111_320, lon: -111.89 })).toBe("1.3 km north");
   });
 });
