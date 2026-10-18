@@ -397,16 +397,27 @@ const USERS: Record<string, User> = {
   plain: { id: 8, osmId: 80008, displayName: "mock-mapper", superUser: false },
   // On the organizer list for project 2 (Street Tally pilots) after every reset.
   organizer: { id: 9, osmId: 90009, displayName: "mock-organizer", superUser: false },
+  // Has an open organizer request after every reset (organizer-onboarding.md §2.3); can't sign in here.
+  asker: { id: 11, osmId: 110011, displayName: "rosa_slc", superUser: false },
+};
+
+/** The OSM account snapshot a request keeps (organizer-onboarding.md §3, criterion 2). */
+const OSM_ACCOUNTS: Record<number, { createdAt: string; changesets: number }> = {
+  8: { createdAt: "2019-04-02T10:00:00Z", changesets: 312 },
+  11: { createdAt: "2026-09-28T16:20:00Z", changesets: 3 },
 };
 
 const ADMIN_SCOPE = "mobile:admin";
 /** D8: organizers' grant; any client that may hold mobile:admin may also be granted it. */
 const ORGANIZE_SCOPE = "mobile:organize";
+/** ORG-ONB: anyone signed in with OSM may ask to organize; reaches only GET/POST organizer-request. */
+const REQUEST_SCOPE = "mobile:organizer-request";
 // As MobileScopes.clientScopeSets, in its order (backend docs/mobile-admin-api.md, scope-sets).
 const SCOPE_SETS = [
   "tasks:read",
   ADMIN_SCOPE,
   ORGANIZE_SCOPE,
+  REQUEST_SCOPE,
   "tasks:read tasks:write",
   "tasks:read guest",
   "tasks:read tasks:write tasks:edit",
@@ -427,6 +438,20 @@ export interface MockBackend {
   /** Makes every issued access token invalid, as if they had expired on the server. */
   expireAccess(): void;
   stats: { authorizationCodes: number; refreshes: number; revokes: number; replays: number };
+}
+
+interface MockOrganizerRequest {
+  id: number;
+  userId: number;
+  state: "open" | "approved" | "declined";
+  place: string;
+  subject: string;
+  group: string | null;
+  policyAcceptedAt: string;
+  createdAt: string;
+  decidedAt: string | null;
+  note: string | null;
+  projectId: number | null;
 }
 
 interface MockProject {
@@ -485,6 +510,9 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let queues = new Map<number, { queueChallengeId: number; runs: number }>();
   /** The organizer list (backend evolution 145): user id -> who added them. */
   let organizers = new Map<number, { grantedBy: number; createdAt: string }>();
+  /** Organizer requests (ORG-ONB) and whether new ones are taken. */
+  let organizerRequests: MockOrganizerRequest[] = [];
+  let requestsOpen = true;
   /** Upstream project grants, kept apart from the list as on the backend: user id -> project id -> role. */
   let projectRoles = new Map<number, Map<number, "admin" | "write">>();
   const rolesOf = (userId: number) => projectRoles.get(userId) ?? new Map<number, "admin" | "write">();
@@ -610,6 +638,22 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         createdAt: new Date(Date.UTC(2026, 9, 1) + i * 60_000).toISOString(),
       });
     }
+    organizerRequests = [
+      {
+        id: 1,
+        userId: USERS.asker.id,
+        state: "open",
+        place: "Sugar House, Salt Lake City",
+        subject: "Benches and bus shelters",
+        group: "Sugar House Community Council",
+        policyAcceptedAt: "2026-10-18T09:12:00Z",
+        createdAt: "2026-10-18T09:12:00Z",
+        decidedAt: null,
+        note: null,
+        projectId: null,
+      },
+    ];
+    requestsOpen = true;
     organizers = new Map([[USERS.organizer.id, { grantedBy: USERS.super.id, createdAt: "2026-10-16T12:00:00Z" }]]);
     projectRoles = new Map<number, Map<number, "admin" | "write">>([
       [USERS.super.id, new Map<number, "admin" | "write">([[1, "admin"], [2, "admin"]])],
@@ -792,6 +836,20 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       coverageMode = (q.get("mode") ?? "fresh") as typeof coverageMode;
       return send(res, 204);
     }
+    // ORG-ONB: whether the backend takes organizer requests (closed: sign-in ends on NotSetUp).
+    if (path === "/__mock/organizer-requests" && req.method === "POST") {
+      requestsOpen = q.get("open") !== "false";
+      return send(res, 204);
+    }
+    // ORG-ONB: decide the newest request of a user, as a super-user would (e2e).
+    const decide = /^\/__mock\/organizer-requests\/user\/([0-9]+)\/(approve|decline)$/.exec(path);
+    if (decide && req.method === "POST") {
+      const r = organizerRequests.findLast((x) => x.userId === Number(decide[1]));
+      if (!r) return problem(res, 404, "not_found");
+      if (decide[2] === "approve") approveRequest(r, q.get("projectName") ?? r.place, USERS.super.id);
+      else Object.assign(r, { state: "declined", decidedAt: q.get("decidedAt") ?? new Date().toISOString(), note: q.get("note") });
+      return send(res, 204);
+    }
     if (path === "/__mock/write-policy" && req.method === "POST") {
       writePolicy = q.get("enabled") === "true";
       return send(res, 204);
@@ -815,7 +873,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         return problem(res, 400, "invalid_request");
       // `guest` is a client capability, never part of a grant.
       const scope = client.scopes.filter((s) => s !== "guest").join(" ");
-      const organize = scope === ADMIN_SCOPE && q.get("scope") === ORGANIZE_SCOPE;
+      const organize = scope === ADMIN_SCOPE && (q.get("scope") === ORGANIZE_SCOPE || q.get("scope") === REQUEST_SCOPE);
       if (q.get("scope") !== scope && !organize) return problem(res, 400, "invalid_scope");
       const tx = token();
       interactions.set(tx, { clientId: client.id, redirectUri, state: q.get("state")!, challenge: q.get("code_challenge")!, scope: q.get("scope")! });
@@ -825,6 +883,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=super">Sign in as ${USERS.super.displayName} (super-user)</a></p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=plain">Sign in as ${USERS.plain.displayName} (not a super-user)</a></p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=organizer">Sign in as ${USERS.organizer.displayName} (an organizer)</a></p>
+<p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=asker">Sign in as ${USERS.asker.displayName} (asked to organize)</a></p>
 <p><a href="/oauth/mobile/authorize/decide?tx=${tx}&as=cancel">Cancel</a></p>`);
       return;
     }
@@ -848,6 +907,12 @@ export function createMockBackend(opts: MockOptions): MockBackend {
         return appRedirect(res, i.redirectUri, {
           error: "access_denied",
           error_description: "MapRoulette organizer required",
+          state: i.state,
+        });
+      if (i.scope === REQUEST_SCOPE && !requestsOpen)
+        return appRedirect(res, i.redirectUri, {
+          error: "access_denied",
+          error_description: "Organizer requests are closed",
           state: i.state,
         });
       const code = token();
@@ -1040,6 +1105,14 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!req.headers.authorization) return problem(res, 403, "mobile_admin_only");
       const b = bearer(req);
       if (!b) return problem(res, 401, "invalid_token");
+      // ORG-ONB: a request grant reaches its own request only. An organizer's grant may read it too,
+      // for the one-time "You're set up" note (§2.4).
+      if (path === "/api/v2/mobile-admin/organizer-request") {
+        if (b.family.scope === REQUEST_SCOPE || (b.family.scope === ORGANIZE_SCOPE && req.method === "GET"))
+          return organizerRequest(req, res, b.user);
+        return problem(res, 403, "insufficient_scope");
+      }
+      if (b.family.scope === REQUEST_SCOPE) return problem(res, 403, "insufficient_scope");
       if (b.family.scope === ORGANIZE_SCOPE) {
         if (!organizerRoute(req.method ?? "", path)) return problem(res, 403, "insufficient_scope");
         if (!organizers.has(b.user.id)) return problem(res, 403, "organizer_required");
@@ -1403,6 +1476,85 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     return false;
   };
 
+  /** Approve, as one audited step: a project named for the place, Write on it, and the organizer list. */
+  function approveRequest(r: MockOrganizerRequest, projectName: string, by: number) {
+    const id = Math.max(...projects.keys()) + 1;
+    projects.set(id, { id, name: projectName, displayName: projectName, enabled: true });
+    projectRoles.set(r.userId, rolesOf(r.userId).set(id, "write"));
+    if (!organizers.has(r.userId)) organizers.set(r.userId, { grantedBy: by, createdAt: new Date().toISOString() });
+    Object.assign(r, { state: "approved", decidedAt: new Date().toISOString(), projectId: id });
+    record(by, "organizer_request.approve", `user:${r.userId}`, undefined, { requestId: r.id, projectId: id, projectName });
+  }
+
+  const ASK_AGAIN_DAYS = 30;
+  const requestJson = (r: MockOrganizerRequest) => ({
+    id: r.id,
+    state: r.state,
+    place: r.place,
+    subject: r.subject,
+    group: r.group,
+    createdAt: r.createdAt,
+    decidedAt: r.decidedAt,
+    note: r.note,
+    projectId: r.projectId,
+  });
+
+  /** GET and POST /organizer-request: the signed-in user's own request (backend docs "Organizer requests"). */
+  async function organizerRequest(req: IncomingMessage, res: ServerResponse, user: User) {
+    const latest = organizerRequests.findLast((r) => r.userId === user.id) ?? null;
+    const organizer = organizers.has(user.id);
+    const askAgainAt =
+      latest?.state === "declined" && latest.decidedAt
+        ? new Date(Date.parse(latest.decidedAt) + ASK_AGAIN_DAYS * 86_400_000).toISOString()
+        : null;
+    const tooSoon = askAgainAt !== null && Date.parse(askAgainAt) > Date.now();
+    // An approval that was later removed doesn't count (criterion 6): the next request is a new one.
+    const current = latest && !(latest.state === "approved" && !organizer) ? latest : null;
+    if (req.method === "GET")
+      return send(res, 200, {
+        organizer,
+        canRequest: requestsOpen && !organizer && current?.state !== "open" && !tooSoon,
+        askAgainAt: tooSoon ? askAgainAt : null,
+        request: current ? requestJson(current) : null,
+      });
+    if (req.method !== "POST") return problem(res, 405, "method_not_allowed");
+    let body: unknown;
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch {
+      return problem(res, 400, "invalid_request");
+    }
+    const v = checkFields(body, ["place", "subject", "group", "policyAccepted"]);
+    if (Array.isArray(v)) return problem(res, 400, "invalid_request", v);
+    const errors: string[] = [];
+    const text = (x: unknown, max: number) => typeof x === "string" && x.trim().length > 0 && x.trim().length <= max;
+    if (!text(v.place, 200)) errors.push("place: 1 to 200 characters");
+    if (!text(v.subject, 500)) errors.push("subject: 1 to 500 characters");
+    if ("group" in v && v.group !== null && v.group !== "" && !text(v.group, 200)) errors.push("group: up to 200 characters");
+    if (v.policyAccepted !== true) errors.push("policyAccepted must be true");
+    if (errors.length) return problem(res, 400, "invalid_request", errors);
+    if (!requestsOpen) return problem(res, 409, "requests_closed");
+    if (organizer) return problem(res, 409, "already_organizer");
+    if (current?.state === "open") return problem(res, 409, "request_open");
+    if (tooSoon) return send(res, 409, { error: "too_soon", askAgainAt });
+    const now = new Date().toISOString();
+    const r: MockOrganizerRequest = {
+      id: Math.max(0, ...organizerRequests.map((x) => x.id)) + 1,
+      userId: user.id,
+      state: "open",
+      place: (v.place as string).trim(),
+      subject: (v.subject as string).trim(),
+      group: typeof v.group === "string" && v.group.trim() ? v.group.trim() : null,
+      policyAcceptedAt: now,
+      createdAt: now,
+      decidedAt: null,
+      note: null,
+      projectId: null,
+    };
+    organizerRequests.push(r);
+    return send(res, 201, requestJson(r));
+  }
+
   const organizerJson = (userId: number) => {
     const o = organizers.get(userId)!;
     const u = Object.values(USERS).find((x) => x.id === userId)!;
@@ -1529,6 +1681,33 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, {
         organizers: [...organizers.keys()].map(organizerJson).sort((a, b) => a.name.localeCompare(b.name)),
       });
+    if (path === "/api/v2/mobile-admin/organizer-requests" && req.method === "GET")
+      return send(res, 200, {
+        requests: organizerRequests
+          .filter((r) => r.state === "open")
+          .map((r) => {
+            const u = Object.values(USERS).find((x) => x.id === r.userId)!;
+            return { ...requestJson(r), user: { id: u.id, osmId: u.osmId, name: u.displayName }, osmAccount: OSM_ACCOUNTS[u.id] ?? null };
+          }),
+      });
+    const decision = /^\/api\/v2\/mobile-admin\/organizer-requests\/([0-9]+)\/(approve|decline)$/.exec(path);
+    if (decision && req.method === "POST") {
+      const r = organizerRequests.find((x) => x.id === Number(decision[1]));
+      if (!r) return problem(res, 404, "not_found");
+      if (r.state !== "open") return problem(res, 409, "request_decided");
+      const v = JSON.parse((await readBody(req)) || "{}") as { projectName?: unknown; note?: unknown };
+      if (decision[2] === "approve") {
+        const name = typeof v.projectName === "string" ? v.projectName.trim() : "";
+        if (!validName(name)) return problem(res, 400, "invalid_request", [nameError]);
+        if ([...projects.values()].some((p) => p.name.toLowerCase() === name.toLowerCase())) return problem(res, 409, "project_exists");
+        approveRequest(r, name, user.id);
+      } else {
+        const note = typeof v.note === "string" && v.note.trim() ? v.note.trim() : null;
+        Object.assign(r, { state: "declined", decidedAt: new Date().toISOString(), note });
+        record(user.id, "organizer_request.decline", `user:${r.userId}`, undefined, { requestId: r.id, note });
+      }
+      return send(res, 200, requestJson(r));
+    }
     const om = /^\/api\/v2\/mobile-admin\/organizers\/([0-9]+)(?:\/projects\/([0-9]+))?$/.exec(path);
     if (om && req.method === "DELETE") {
       const id = Number(om[1]);
@@ -1537,6 +1716,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       if (!om[2]) {
         const before = organizerJson(id);
         organizers.delete(id);
+        // Criterion 6: the grant on a project made by their request goes too; earlier grants stay.
+        for (const r of organizerRequests) if (r.userId === id && r.state === "approved" && r.projectId !== null) rolesOf(id).delete(r.projectId);
         record(user.id, "organizer.remove", `user:${id}`, before, undefined);
         return send(res, 204);
       }

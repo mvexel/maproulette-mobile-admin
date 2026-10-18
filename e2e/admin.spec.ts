@@ -70,8 +70,12 @@ test("refreshes after a reload and after a 401", async ({ page, request }) => {
   expect(s.replays).toBe(0);
 });
 
-test("explains that someone neither super-user nor organizer isn't set up", async ({ page, request }) => {
+test("explains that someone neither super-user nor organizer isn't set up while requests are closed", async ({ page, request }) => {
+  await request.post(`${MOCK}/__mock/organizer-requests?open=false`);
   await signIn(page, "mock-mapper");
+  // Requests are closed: the backend refuses mobile:organizer-request too.
+  await expect(page).toHaveURL(/authorize\?.*scope=mobile%3Aorganizer-request/);
+  await page.getByRole("link", { name: /Sign in as mock-mapper/ }).click();
   await expect(page.getByRole("heading", { name: "You're not an organizer yet" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ask to become an organizer" })).toHaveAttribute("href", "mailto:martijn@osm.lol?subject=Street%20Tally%20organizer");
   await expect(page.getByTestId("backend")).toHaveText(MOCK);

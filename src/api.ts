@@ -217,6 +217,18 @@ export function describeError(e: unknown): { message: string; detail: string[] }
       return { message: "OpenStreetMap data isn't reachable right now. Try again in a few minutes.", detail: [] };
     case "osm_timeout":
       return { message: "OpenStreetMap took too long to answer. Try a smaller area, or try again in a few minutes.", detail: [] };
+    case "request_open":
+      return { message: "You've already asked. The Street Tally team will look at it.", detail: [] };
+    case "too_soon":
+      return { message: "You can ask again 30 days after the last answer.", detail: [] };
+    case "already_organizer":
+      return { message: "You're already set up. Sign in again to start a campaign.", detail: [] };
+    case "requests_closed":
+      return { message: "We aren't taking requests right now. Email martijn@osm.lol to ask.", detail: [] };
+    case "request_decided":
+      return { message: "Someone already answered this request. Reload the list.", detail: [] };
+    case "project_exists":
+      return { message: "There's already a project with that name. Change the name and approve again.", detail: [] };
     case "write_prerequisites_missing":
       return { message: "OSM edit capability is not configured on this backend.", detail: e.detail };
     default:
@@ -400,6 +412,60 @@ export const updateLivePage = (challengeId: number, change: LivePageChange) =>
 /** A new token: the old link stops working. */
 export const rotateLivePage = (challengeId: number) =>
   api<LivePage>(`/api/v2/mobile-admin/challenges/${challengeId}/live/rotate`, { method: "POST" });
+
+/** ORG-ONB: someone's ask to run campaigns (backend docs/mobile-admin-api.md "Organizer requests"). */
+export interface OrganizerRequest {
+  id: number;
+  state: "open" | "approved" | "declined";
+  place: string;
+  subject: string;
+  group: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  /** The super-user's note on a decline, shown to the requester. */
+  note: string | null;
+  /** The project an approval made. */
+  projectId: number | null;
+}
+
+/** The signed-in user's own request, and whether they may ask now. */
+export interface MyOrganizerRequest {
+  organizer: boolean;
+  canRequest: boolean;
+  /** After a decline: the form comes back then (30 days on). */
+  askAgainAt: string | null;
+  request: OrganizerRequest | null;
+}
+
+export const myOrganizerRequest = () => api<MyOrganizerRequest>("/api/v2/mobile-admin/organizer-request");
+
+export const askToOrganize = (ask: { place: string; subject: string; group?: string }) =>
+  api<OrganizerRequest>("/api/v2/mobile-admin/organizer-request", {
+    method: "POST",
+    body: JSON.stringify({ ...ask, policyAccepted: true }),
+  });
+
+/** An open request as super-users see it, with the OSM account snapshot taken when it was made. */
+export interface OpenOrganizerRequest extends OrganizerRequest {
+  user: { id: number; osmId: number; name: string };
+  osmAccount: { createdAt: string; changesets: number } | null;
+}
+
+export const listOrganizerRequests = () =>
+  api<{ requests: OpenOrganizerRequest[] }>("/api/v2/mobile-admin/organizer-requests").then((r) => r.requests);
+
+/** Makes the project, gives them Write on it and lists them as an organizer, in one step. */
+export const approveOrganizerRequest = (id: number, projectName: string) =>
+  api<OrganizerRequest>(`/api/v2/mobile-admin/organizer-requests/${id}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ projectName }),
+  });
+
+export const declineOrganizerRequest = (id: number, note: string) =>
+  api<OrganizerRequest>(`/api/v2/mobile-admin/organizer-requests/${id}/decline`, {
+    method: "POST",
+    body: JSON.stringify(note.trim() ? { note: note.trim() } : {}),
+  });
 
 /** A campaign organizer and the projects they run (D8, backend docs/mobile-admin-api.md "Organizers"). */
 export interface Organizer {

@@ -15,6 +15,7 @@ import { config } from "../config";
 import { navigate } from "../router";
 import { ErrorMessage } from "./ErrorMessage";
 import { LivePanel } from "./LivePanel";
+import { SetUpNote } from "./OrganizerRequest";
 import { ProjectToggle } from "./Projects";
 import { PublishSheet } from "./PublishSheet";
 import { QueuePanel } from "./QueuePanel";
@@ -61,6 +62,7 @@ export function CampaignList() {
   const shown = campaigns?.filter((c) => matches(filter, appState(c)));
   return (
     <section>
+      {role() === "organizer" && <SetUpNote />}
       <h2>
         Campaigns{" "}
         <button type="button" onClick={() => navigate("/new")}>

@@ -8,7 +8,8 @@ import { CampaignList, CampaignPage } from "./screens/Campaigns";
 import { Clients } from "./screens/Clients";
 import { EnvironmentBadge, WritesPill } from "./screens/Environment";
 import { Help } from "./screens/Help";
-import { Organizers } from "./screens/Organizers";
+import { OrganizerRequestScreen } from "./screens/OrganizerRequest";
+import { Organizers, useOpenRequestCount } from "./screens/Organizers";
 import { SignIn } from "./screens/SignIn";
 import { SurveyBuilder } from "./screens/SurveyBuilder";
 import { Wizard } from "./screens/Wizard";
@@ -64,7 +65,14 @@ export function App() {
   if (!signedIn) return <SignIn />;
 
   const as = role();
+  // Not an organizer yet: asking to become one is all this grant can do (ORG-ONB).
+  if (as === "requester") return <OrganizerRequestScreen />;
+  return <Signed as={as} path={path} />;
+}
+
+function Signed({ as, path }: { as: Role; path: string }) {
   const screen = route(MOVED[path] ?? path, as);
+  const open = useOpenRequestCount(as === "admin");
   return (
     <>
       <header>
@@ -82,7 +90,7 @@ export function App() {
                   navigate(to);
                 }}
               >
-                {s.title}
+                {to === "/organizers" && open ? `${s.title} (${open})` : s.title}
               </a>
             ))}
         </nav>

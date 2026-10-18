@@ -42,7 +42,7 @@ export function reset(mock: MockBackend) {
   mock.reset();
 }
 
-export type MockUser = "super" | "plain" | "organizer";
+export type MockUser = "super" | "plain" | "organizer" | "asker";
 
 /** Plays the browser on the last authorize URL the app went to: pick a user, follow the redirect back. */
 export async function followAuthorize(mock: MockBackend, as: MockUser): Promise<URLSearchParams> {
@@ -68,6 +68,7 @@ export async function browserSignIn(mock: MockBackend, as: MockUser): Promise<UR
 
 /** A full sign-in, including the organizer retry. */
 export async function signIn(mock: MockBackend, as: MockUser = "super") {
-  if ((await completeSignIn(await browserSignIn(mock, as))) === "retrying")
-    await completeSignIn(await followAuthorize(mock, as));
+  // Each "retrying" is the next scope: mobile:organize, then mobile:organizer-request.
+  let done = await completeSignIn(await browserSignIn(mock, as));
+  while (done === "retrying") done = await completeSignIn(await followAuthorize(mock, as));
 }

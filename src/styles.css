@@ -420,3 +420,30 @@ button.link:hover:not(:disabled) { background: none; color: var(--link-hover); }
 .organizer-form { max-width: 34rem; margin-bottom: 1.5rem; }
 button.link { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; font: inherit; font-size: .85rem; cursor: pointer; }
 .wizard .project-choice { display: grid; gap: .3rem; max-width: 24rem; margin: .8rem 0; font-weight: 600; }
+
+/* ORG-ONB: asking to run campaigns (organizer-onboarding.md §2.1, §2.2, §2.5). */
+.center.ask { margin-top: 8vh; }
+.center.ask .ask-form { display: grid; gap: 1rem; margin: 1.4rem 0 1rem; text-align: left; }
+.center.ask .ask-form label.inline { font-weight: 400; }
+.center.ask .ask-form button[type="submit"] { justify-self: start; }
+.center.ask .decline-note { padding: .7rem .9rem; text-align: left; background: var(--surface-strong); border-left: 3px solid var(--line); border-radius: 3px; }
+.center.ask button.link { margin: 0; color: var(--link); background: none; border: 0; }
+.center.ask button.link:hover:not(:disabled) { color: var(--link-hover); background: none; }
+@media (max-width: 480px) {
+  .center.ask { margin-top: 1rem; padding: 1.4rem 1.1rem; }
+  .center.ask h1 { font-size: 1.6rem; }
+}
+
+/* §2.3: open requests on top of Organizers; §2.4: the one-time note on Campaigns. */
+.requests { margin-bottom: 2rem; }
+.request-list { display: grid; gap: .9rem; margin: 0; padding: 0; list-style: none; }
+.request { display: grid; gap: .6rem; padding: 1rem 1.1rem; background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--signal); border-radius: 6px; }
+.request-name { font-weight: 650; }
+.request-answers { display: grid; grid-template-columns: max-content 1fr; gap: .25rem .9rem; margin: 0; }
+.request-q { color: var(--muted); font-size: .85rem; }
+.request-a { margin: 0; overflow-wrap: anywhere; }
+.request-actions, .request-decide { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; }
+.request-field { flex: 1 1 16rem; }
+.request-note { min-height: 3.5rem; }
+.set-up-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: 1.2rem; }
+.set-up-text { margin: 0; }
