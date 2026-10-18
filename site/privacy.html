@@ -8,7 +8,7 @@
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/site.css">
 </head>
-<!-- Approved by Martijn (2026-10-11); the “I'm standing at it” location line was added after that. Wording follows design/deferred-signup.md §6 and deferred-signup-api.md. -->
+<!-- Approved by Martijn (2026-10-11); the “I'm standing at it” location line was added after that. Handback revision approved by Martijn 2026-10-18 (design/privacy-page-draft.md): no email, no 30-day limit. -->
 <body>
 <main>
   <section class="hero">
@@ -21,19 +21,16 @@
   <p>The app uses your location on your phone to show the nearest places to check. If you report that a place has moved, the spot you pick is saved so the organizer can fix the map. If you tap “I'm standing at it”, your phone's location at that moment is saved as the place's new spot. That's the only time your location leaves your phone.</p>
 
   <h2>If you take part without an account</h2>
-  <p>We keep a random ID for your phone, your answers, and which places you answered. Your answers are kept for 30 days after your last one. If you don't put them on the map by then, we remove them. They still count in the campaign's totals, which don't include who answered.</p>
+  <p>We keep a random ID for your phone, your answers, and which places you answered. Local OpenStreetMap mappers see your answers, without your ID or anything else that identifies you, and add the ones that make sense to the map under their own accounts. We keep your answers until local mappers have checked them. They always count in the campaign's totals, which don't include who answered.</p>
 
   <h2>Server logs</h2>
   <p>Our app server doesn't record your IP address in its logs or its database. When you sign up, your IP address is held in memory for up to an hour to limit sign-up abuse, and then it's gone. It's never written to disk. The server logs record which pages and map areas the app asked for, without your IP address or your name, and they're cleared each time we update the server.</p>
 
-  <h2>Your email address</h2>
-  <p>Giving an email is optional. We use it only to send the link to put your answers on the map, two reminders, and a last note when your answers are added or removed. It's stored encrypted and deleted after that last note. Our emails don't track whether you open them.</p>
-
   <h2>When your answers go on the map</h2>
-  <p>Your answers become public edits on OpenStreetMap under your own OpenStreetMap username, tagged with the campaign's hashtag. Anyone can see them. The <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation's privacy policy</a> covers your OpenStreetMap account and edits.</p>
+  <p>A local mapper adds your answer to OpenStreetMap as their own edit, under their username and the campaign's hashtag. If you signed in with OpenStreetMap, your answers go on the map under your own username. Either way, anyone can see edits on OpenStreetMap. The <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation's privacy policy</a> covers OpenStreetMap accounts and edits.</p>
 
   <h2>Delete your data</h2>
-  <p>In the app, go to Settings, then Account, then Delete my data. Or use the Delete my data link in any email from us. This removes your saved answers, your email address and your phone's ID. Edits already on OpenStreetMap stay there, because they're part of the map.</p>
+  <p>In the app, go to Settings, then Account, then Delete my data. This removes your saved answers that aren't on the map yet, including any still waiting on your phone, and your phone's ID. Deleting the app doesn't remove them, so use Delete my data instead. Edits already on OpenStreetMap stay there, because they're part of the map.</p>
 
   <h2>Questions</h2>
   <p>Email <a href="mailto:martijn@osm.lol">martijn@osm.lol</a>.</p>

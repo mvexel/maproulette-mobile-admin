@@ -158,4 +158,7 @@ test("has a privacy page", async ({ page }) => {
   await page.goto(`${SITE}/privacy`);
   await expect(page.getByRole("heading", { name: "Privacy" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Delete your data" })).toBeVisible();
+  // Handback revision (2026-10-18): no email section, no 30-day limit.
+  await expect(page.getByRole("heading", { name: "Your email address" })).toHaveCount(0);
+  await expect(page.getByText(/30 days|email from us/i)).toHaveCount(0);
 });
