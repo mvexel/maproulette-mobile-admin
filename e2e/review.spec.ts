@@ -40,6 +40,9 @@ test("shows the evidence per place, with no Accept and nothing that uploads", as
   await expect(annex.locator(".chip")).toHaveText("Needs a look");
   await expect(annex.locator(".actions > *")).toHaveText(["Skip", "Needs a visit"]);
   await expect(annex.locator(".meta")).toHaveText("1 person, 13 Oct");
+  // R1: its answers stay listed, greyed, with no editor link to add them back.
+  await expect(annex.locator(".evidence .a")).toHaveText("Swings open door=hinged");
+  await expect(annex.locator(".evidence .a")).toHaveCSS("color", "rgb(74, 84, 104)");
   const hall = page.getByRole("article", { name: "Woodbine Food Hall" });
   await expect(hall.locator(".chip")).toHaveText("On the map");
   await expect(hall.getByRole("button", { name: "Skip" })).toHaveCount(0);
