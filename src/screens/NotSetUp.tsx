@@ -13,10 +13,12 @@ export function NotSetUp() {
   const [busy, setBusy] = useState(false);
   return (
     <main className="center">
-      <h1>Not set up yet</h1>
+      <h1>You're not an organizer yet</h1>
+      <p>Organizers are added by the Street Tally team for now. Tell us where you'd like to run a campaign, and we'll set you up.</p>
       <p>
-        Your account isn't set up to run campaigns yet. Ask <a href={`mailto:${OPERATOR}`}>{OPERATOR}</a> to add
-        you.
+        <a className="button-link" href={`mailto:${OPERATOR}?subject=Street%20Tally%20organizer`}>
+          Ask to become an organizer
+        </a>
       </p>
       <p className="hint">
         Server: <code data-testid="backend">{config().backend}</code>

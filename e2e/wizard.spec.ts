@@ -41,7 +41,7 @@ test("goes from a place to drafted words with no tags or files", async ({ page }
 
   // Step 2: cards sorted by count; nothing to check is disabled; a timed-out count can still be picked.
   const cards = page.getByRole("list", { name: "Question sets" }).getByRole("button");
-  await expect(cards.locator(".set-count")).toHaveText(["23 to check here", "14 to check here", "6 to check here", "Count not available", "Nothing to check here"]);
+  await expect(cards.locator(".set-count")).toHaveText(["23 to check here", "14 to check here", "6 to check here", "We couldn't count these right now. You can still pick this set.", "Nothing to check here"]);
   await expect(cards.locator(".name")).toHaveText(["Entrance doors", "Crossings", "Bus stops", "Trees", "Benches"]);
   await expect(cards.nth(4)).toBeDisabled();
   await expect(cards.nth(3)).toBeEnabled();
@@ -56,7 +56,9 @@ test("goes from a place to drafted words with no tags or files", async ({ page }
   await expect(list.getByRole("listitem")).toHaveCount(23);
   await list.getByRole("button", { name: "Leave out Entrance 1", exact: true }).click();
   await expect(page.getByTestId("check-line")).toHaveText("22 entrances to check. 41 are already complete, so we left them out.");
-  await list.getByRole("button", { name: "Leave out Entrance · node 9101" }).click();
+  // Unnamed features go by where they are, not by their OSM id.
+  await expect(list.getByRole("listitem").nth(1)).toContainText("Entrance, 200 m northwest");
+  await list.getByRole("button", { name: "Leave out Entrance, 200 m northwest" }).click();
   await list.getByRole("button", { name: "Put back Entrance 1", exact: true }).click();
   await expect(page.getByTestId("check-line")).toHaveText("22 entrances to check. 41 are already complete, so we left them out.");
   await page.getByRole("button", { name: "Next: words" }).click();
@@ -175,7 +177,7 @@ test("saves a draft, survives a changed question set, publishes and shares", asy
   await expect(page.locator(".status-line")).toContainText("Listed in the app");
 });
 
-test("an organizer starts the wizard from Campaigns and the campaign lands in their project", async ({ page }) => {
+test("an organizer starts the wizard from Campaigns and the campaign lands in their project", async ({ page, request }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Sign in with OpenStreetMap" }).click();
   await page.getByRole("link", { name: /Sign in as mock-organizer/ }).click();
@@ -192,6 +194,12 @@ test("an organizer starts the wizard from Campaigns and the campaign lands in th
   await page.getByRole("button", { name: "Next: check the list" }).click();
   await page.getByRole("button", { name: "Next: words" }).click();
   await page.getByRole("button", { name: "Next: save and share" }).click();
+  // Publishing off: an organizer gets a way to ask the team.
+  await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("Your draft is saved, but publishing is off on this server right now. Ask the Street Tally team to turn it on, then publish.");
+  await expect(page.getByRole("alert").getByRole("link", { name: "Ask the Street Tally team" })).toHaveAttribute("href", /^mailto:martijn@osm\.lol/);
+  await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Your campaign is live. Anyone with the link can join.");
   await page.getByRole("link", { name: "Open the campaign page" }).click();
@@ -212,6 +220,8 @@ test("saves a draft while writing is off, refuses only the publish, and offers t
   await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
   await page.getByRole("button", { name: "Next: save and share" }).click();
   await expect(page.getByText(/^Saved as a draft with/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open the campaign page" })).toHaveAttribute("href", "/campaigns/101");
+  await expect(page.getByText("You'll need to sign in to Street Tally with the OpenStreetMap account you use here.")).toBeVisible();
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("Your draft is saved, but publishing is off on this server right now. Turn it on under Task writes, then publish.");
   await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
@@ -222,4 +232,51 @@ test("saves a draft while writing is off, refuses only the publish, and offers t
   await status.getByRole("button", { name: "Turn project on" }).click();
   await page.getByRole("dialog", { name: "Turn on project “SLC test”?" }).getByRole("button", { name: "Turn on" }).click();
   await expect(page.getByRole("status").first()).toHaveText("Your campaign is live. Anyone with the link can join.");
+});
+
+test("stops at step 1 outside the extract, and goes on when coverage can't be read", async ({ page, request }) => {
+  await openWizard(page);
+  const where = page.getByLabel("Where's your event? A place, an address or a neighbourhood");
+  await where.fill("boise");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await expect(page.getByRole("alert")).toHaveText("We can't make campaigns here yet. For now, Street Tally covers places in Utah. Ask us about your area");
+  await expect(page.getByRole("link", { name: "Ask us about your area" })).toHaveAttribute("href", /^mailto:martijn@osm\.lol/);
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeDisabled();
+
+  // Inside Utah: on to step 2.
+  await where.fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeEnabled();
+
+  // A stale extract covers nothing; a failed request doesn't stop anyone.
+  await request.post(`${MOCK}/__mock/coverage?mode=stale`);
+  await page.goto("/new");
+  await where.fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await expect(page.getByRole("alert")).toContainText("We can't make campaigns here yet.");
+  await request.post(`${MOCK}/__mock/coverage?mode=error`);
+  await page.goto("/new");
+  await where.fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeEnabled();
+});
+
+test("shows every question in a set before picking it", async ({ page }) => {
+  await openWizard(page);
+  await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await page.getByRole("button", { name: "Next: what to check" }).click();
+  const doors = page.getByRole("list", { name: "Question sets" }).getByRole("listitem").filter({ hasText: "Entrance doors" });
+  await doors.getByText("See all questions").click();
+  const questions = doors.locator(".all-questions li");
+  await expect(questions.first()).toContainText("How does this door open?");
+  await expect(questions.first()).toContainText("Swings open · Slides sideways · Revolves · Folds");
+  await expect(questions.nth(1)).toContainText("Does it open by itself?");
+  // Reading the questions doesn't pick the set.
+  await expect(page.getByRole("button", { name: "Next: check the list" })).toBeDisabled();
 });

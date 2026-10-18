@@ -27,15 +27,15 @@ export function WritesPill() {
     return () => { current = false; off(); };
   }, []);
   if (enabled === undefined) return null;
-  // Organizers can't open Task writes: a label for them.
+  // Organizers can't open Task writes: a label for them, in what it means for their campaigns.
   if (role() === "organizer")
     return (
       <span
         className={`writes-pill ${enabled ? "on" : "off"}`}
         data-testid="writes-pill"
-        title="Task writes for this backend. The Street Tally team turns them on and off."
+        title={enabled ? "The Street Tally team turns publishing on and off." : "You can save drafts. Publishing is turned off for now."}
       >
-        {enabled ? "Writes on" : "Writes off"}
+        {enabled ? "Publishing on" : "Publishing off"}
       </span>
     );
   return (

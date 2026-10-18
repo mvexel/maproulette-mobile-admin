@@ -1,3 +1,4 @@
+import type { MultiPolygon, Polygon } from "geojson";
 import { ApiError, api } from "../api";
 import { config } from "../config";
 
@@ -18,6 +19,31 @@ export interface QuestionSet {
   pace: number;
   /** Iris's description template: {place}, {nounMany} and {audience} are filled in. */
   description: string;
+  /** Every question participants answer, in their wording and order (W-EASY L4); absent from older backends. */
+  questions?: SetQuestion[];
+}
+
+/** A set's question as participants see it: the survey's question without its tags. */
+export interface SetQuestion {
+  id: string;
+  prompt: string;
+  description?: string;
+  options: { id: string; label: string }[];
+}
+
+/** Where the wizard's extract has features (backend #61). `extract` is null until one is loaded. */
+export interface Coverage {
+  extract: {
+    source: string;
+    extractAt: string;
+    loadedAt: string;
+    features: number;
+    /** False once the extract is older than `maxAgeHours`. */
+    fresh: boolean;
+    maxAgeHours: number;
+    bbox: [number, number, number, number];
+    coverage: Polygon | MultiPolygon;
+  } | null;
 }
 
 export type SetCount = { set: string; version: number; open: number; complete: number } | { set: string; version: number; unavailable: true };
@@ -50,6 +76,7 @@ const areaQuery = (a: Area) => new URLSearchParams({ lat: a.lat.toFixed(6), lon:
 
 export const questionSets = async () => (await api<{ sets: QuestionSet[] }>(`${ORGANIZE}/question-sets`)).sets;
 export const countSets = async (a: Area) => (await api<{ counts: SetCount[] }>(`${ORGANIZE}/counts?${areaQuery(a)}`)).counts;
+export const coverage = () => api<Coverage>(`${ORGANIZE}/coverage`);
 export const setFeatures = (set: string, a: Area) => api<SetFeatures>(`${ORGANIZE}/question-sets/${encodeURIComponent(set)}/features?${areaQuery(a)}`);
 
 /** What the admin sends to create a campaign. The server re-queries the features and drops `leaveOut`. */
