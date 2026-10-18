@@ -428,8 +428,11 @@ export interface OrganizerRequest {
   projectId: number | null;
 }
 
-/** The signed-in user's own request, and whether they may ask now. */
+/** The signed-in user's own request, and whether they may ask now. Only a request grant reads it. */
 export interface MyOrganizerRequest {
+  /** Their OpenStreetMap username. */
+  name: string;
+  osmId: number;
   organizer: boolean;
   canRequest: boolean;
   /** After a decline: the form comes back then (30 days on). */
@@ -446,9 +449,18 @@ export const askToOrganize = (ask: { place: string; subject: string; group?: str
   });
 
 /** An open request as super-users see it, with the OSM account snapshot taken when it was made. */
-export interface OpenOrganizerRequest extends OrganizerRequest {
-  user: { id: number; osmId: number; name: string };
-  osmAccount: { createdAt: string; changesets: number } | null;
+export interface OpenOrganizerRequest {
+  id: number;
+  userId: number;
+  osmId: number;
+  /** Their OpenStreetMap username. */
+  name: string;
+  osmAccount: { createdAt: string | null; changesets: number | null } | null;
+  place: string;
+  subject: string;
+  group: string | null;
+  policyAcceptedAt: string;
+  createdAt: string;
 }
 
 export const listOrganizerRequests = () =>

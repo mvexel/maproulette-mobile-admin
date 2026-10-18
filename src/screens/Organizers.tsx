@@ -86,13 +86,13 @@ export function Organizers() {
           onApprove={(r, projectName) =>
             act(async () => {
               await approveOrganizerRequest(r.id, projectName);
-              return `${r.user.name} can now run campaigns in ${projectName}.`;
+              return `${r.name} can now run campaigns in ${projectName}.`;
             })
           }
           onDecline={(r, note) =>
             act(async () => {
               await declineOrganizerRequest(r.id, note);
-              return `Declined ${r.user.name}'s request.`;
+              return `Declined ${r.name}'s request.`;
             })
           }
         />
@@ -292,15 +292,11 @@ function RequestRow({
   return (
     <li className="request" data-testid={`request-${r.id}`}>
       <div className="request-who">
-        <a className="request-name" href={osmProfile(r.user.name)} target="_blank" rel="noopener noreferrer">
-          {r.user.name}
+        <a className="request-name" href={osmProfile(r.name)} target="_blank" rel="noopener noreferrer">
+          {r.name}
         </a>
-        {r.osmAccount && (
-          <span className="hint">
-            {" "}
-            · account {accountAge(r.osmAccount.createdAt)} · {r.osmAccount.changesets.toLocaleString()} edits
-          </span>
-        )}
+        {r.osmAccount?.createdAt && <span className="hint"> · account {accountAge(r.osmAccount.createdAt)}</span>}
+        {r.osmAccount?.changesets != null && <span className="hint"> · {r.osmAccount.changesets.toLocaleString()} edits</span>}
         <span className="hint"> · asked {new Date(r.createdAt).toLocaleDateString()}</span>
       </div>
       <dl className="request-answers">

@@ -83,6 +83,10 @@ for (const width of [1280, 390]) {
 
   test(`lands an approved organizer on Campaigns with a one-time note (${width} px)`, async ({ page, request }) => {
     await page.setViewportSize({ width, height: 900 });
+    // This browser saw the open request, so it can show the note once the approval lands.
+    await signIn(page, "rosa_slc", 3);
+    await expect(page.getByRole("heading", { name: "We've got your request" })).toBeVisible();
+    await page.getByRole("button", { name: "Sign out" }).click();
     await request.post(`${MOCK}/__mock/organizer-requests/user/11/approve?projectName=Sugar%20House`);
     await signIn(page, "rosa_slc", 2);
     await expect(page).toHaveURL("/");

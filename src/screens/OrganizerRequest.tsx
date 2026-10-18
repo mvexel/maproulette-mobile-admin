@@ -16,16 +16,16 @@ export const GUIDELINES = "https://wiki.openstreetmap.org/wiki/Organised_Editing
  */
 export function OrganizerRequestScreen() {
   const [mine, setMine] = useState<MyOrganizerRequest>();
-  const [name, setName] = useState<string>();
   const [error, setError] = useState<unknown>();
   useEffect(() => {
     myOrganizerRequest()
       .then(setMine)
       .catch((e: unknown) => setError(e));
-    me()
-      .then((u) => setName(u.displayName))
-      .catch(() => undefined);
   }, []);
+  // An organizer's grant can't read the request, so the §2.4 note goes by what this browser saw.
+  useEffect(() => {
+    if (mine?.request?.state === "open") rememberAsked(mine.osmId);
+  }, [mine]);
 
   if (!mine) return <main className="center ask">{error ? <ErrorMessage error={error} /> : <p>Loading…</p>}</main>;
   const { request } = mine;
@@ -34,7 +34,7 @@ export function OrganizerRequestScreen() {
       {mine.organizer ? (
         <SetUp />
       ) : mine.canRequest ? (
-        <AskForm name={name} onSent={(r) => setMine({ ...mine, canRequest: false, request: r })} />
+        <AskForm name={mine.name} onSent={(r) => setMine({ ...mine, canRequest: false, request: r })} />
       ) : request?.state === "open" ? (
         <>
           <h1>We've got your request</h1>
@@ -99,7 +99,7 @@ function AskForm({ name, onSent }: { name?: string; onSent: (r: NonNullable<MyOr
         </label>
         <label>
           What will people check?
-          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Entrances and crossings" maxLength={500} required />
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Entrances and crossings" maxLength={200} required />
         </label>
         <label>
           <span>
@@ -165,33 +165,49 @@ function NotYou() {
   );
 }
 
-const seenKey = (id: number) => `mrma.setUpSeen.${id}`;
+/** The OSM id of whoever last had an open request in this browser. */
+const ASKED_KEY = "mrma.askedToOrganize";
+
+function rememberAsked(osmId: number) {
+  try {
+    localStorage.setItem(ASKED_KEY, String(osmId));
+  } catch {
+    // No storage: no note after the approval.
+  }
+}
 
 /**
- * §2.4: the one-time note on Campaigns after an approval. Shown once per approved request in this
- * browser; a failed read shows nothing.
+ * §2.4: the one-time note on Campaigns after an approval. An organizer's grant can't read the
+ * request (backend: mobile:organizer-request only), so it shows when this browser last saw this
+ * person's open request, once. Another browser shows nothing.
  */
 export function SetUpNote() {
-  const [requestId, setRequestId] = useState<number>();
+  const [show, setShow] = useState(false);
   useEffect(() => {
     let current = true;
-    myOrganizerRequest()
-      .then(({ request }) => {
-        if (!current || request?.state !== "approved") return;
+    let asked: string | null = null;
+    try {
+      asked = localStorage.getItem(ASKED_KEY);
+    } catch {
+      return;
+    }
+    if (!asked) return;
+    me()
+      .then((u) => {
+        if (!current || String(u.osmId) !== asked) return;
         try {
-          if (localStorage.getItem(seenKey(request.id))) return;
-          localStorage.setItem(seenKey(request.id), new Date().toISOString());
+          localStorage.removeItem(ASKED_KEY);
         } catch {
-          // No storage: show it anyway; it may show again next time.
+          // It may show again next time.
         }
-        setRequestId(request.id);
+        setShow(true);
       })
       .catch(() => undefined);
     return () => {
       current = false;
     };
   }, []);
-  if (requestId === undefined) return null;
+  if (!show) return null;
   return (
     <div className="notice set-up-note" role="status">
       <p className="set-up-text">You're set up. Start your first campaign.</p>
