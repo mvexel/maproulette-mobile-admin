@@ -747,6 +747,7 @@ function PublishStep({
           url={`${link}?preview=1`}
           file={`campaign-${campaign.id}-preview-qr.png`}
         />
+        <p className="hint">You'll need to sign in to Street Tally with the OpenStreetMap account you use here.</p>
         {error && (
           <p className="error" role="alert">
             {error}

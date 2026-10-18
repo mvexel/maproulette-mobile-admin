@@ -221,6 +221,7 @@ test("saves a draft while writing is off, refuses only the publish, and offers t
   await page.getByRole("button", { name: "Next: save and share" }).click();
   await expect(page.getByText(/^Saved as a draft with/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the campaign page" })).toHaveAttribute("href", "/campaigns/101");
+  await expect(page.getByText("You'll need to sign in to Street Tally with the OpenStreetMap account you use here.")).toBeVisible();
   await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("Your draft is saved, but publishing is off on this server right now. Turn it on under Task writes, then publish.");
   await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
