@@ -8,13 +8,13 @@ import { defineConfig, type Plugin } from "vite";
  * The participant site for streettally.osm.lol: the claim page (claim/, a React app under /claim/,
  * deferred-signup-api.md §3.7), the live progress page (claim/live.html, served at /live/<token>)
  * plus the static pages in site/ (the root page, the campaign landing
- * page at /challenge/<id> and the apple-app-site-association file). The build writes both to
+ * page at /challenge/<id>, the apple-app-site-association file and assetlinks.json). The build writes both to
  * dist-street/; production serves that folder with Caddy (deploy/Caddyfile, port 8080).
  *
  * The dev and preview servers serve site/ the way Caddy does. With CLAIM_BACKEND set (e.g. the mock
  * at http://127.0.0.1:9300), they also answer /config.json and /claim/config.json with that backend
  * and no map tiles, so tests never reach the network. APPLE_TEAM_ID and APPLE_BUNDLE_ID add the
- * apple-app-site-association file.
+ * apple-app-site-association file; ANDROID_PACKAGE and ANDROID_CERT_SHA256 add assetlinks.json.
  */
 const SITE = resolve(import.meta.dirname, "site");
 const TYPES: Record<string, string> = {
@@ -53,6 +53,17 @@ function participantSite(): Plugin {
       return json(res, {
         applinks: { details: [{ appIDs: [`${team}.${bundle}`], components: [{ "/": "/challenge/*" }] }] },
       });
+    }
+    if (path === "/.well-known/assetlinks.json") {
+      const pkg = process.env.ANDROID_PACKAGE;
+      const cert = process.env.ANDROID_CERT_SHA256;
+      if (!pkg || !cert) return next();
+      return json(res, [
+        {
+          relation: ["delegate_permission/common.handle_all_urls"],
+          target: { namespace: "android_app", package_name: pkg, sha256_cert_fingerprints: [cert] },
+        },
+      ]);
     }
     // The live progress page (BACKLOG #12): /live/<token> is the claim build's live.html.
     if (/^\/live\/[A-Za-z0-9_-]+\/?$/.test(path)) {

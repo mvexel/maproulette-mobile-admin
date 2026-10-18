@@ -135,6 +135,21 @@ test("serves the apple-app-site-association file as JSON", async ({ request }) =
   });
 });
 
+test("serves assetlinks.json for Android App Links", async ({ request }) => {
+  const res = await request.get(`${SITE}/.well-known/assetlinks.json`);
+  expect(res.headers()["content-type"]).toContain("application/json");
+  expect(await res.json()).toEqual([
+    {
+      relation: ["delegate_permission/common.handle_all_urls"],
+      target: {
+        namespace: "android_app",
+        package_name: "lol.osm.maproulette.choice",
+        sha256_cert_fingerprints: [Array(32).fill("AB").join(":")],
+      },
+    },
+  ]);
+});
+
 test("shows the Woodbine campaign", async ({ page }) => {
   await page.goto(`${SITE}/challenge/8`);
   await expect(page.getByRole("heading", { name: "Woodbine entrance doors" })).toBeVisible();

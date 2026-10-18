@@ -27,6 +27,8 @@ services:
       ANDROID_VERSION: ${ANDROID_VERSION:-}
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
       APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-}
+      ANDROID_PACKAGE: ${ANDROID_PACKAGE:-}
+      ANDROID_CERT_SHA256: ${ANDROID_CERT_SHA256:-}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/config.json"]
       interval: 30s

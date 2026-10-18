@@ -39,6 +39,14 @@
 		file_server
 	}
 
+	# Android App Links (/challenge/*). Written at start only when ANDROID_PACKAGE and
+	# ANDROID_CERT_SHA256 are set; Android also wants JSON at this path with no redirect.
+	handle /.well-known/assetlinks.json {
+		header Content-Type application/json
+		header Cache-Control "public, max-age=3600"
+		file_server
+	}
+
 	# The claim page: its own SPA under /claim. MapLibre fetches the OpenFreeMap style, tiles,
 	# fonts and sprites, and runs its worker from a blob: URL.
 	@claim path /claim /claim/*
