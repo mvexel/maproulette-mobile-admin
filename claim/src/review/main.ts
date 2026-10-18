@@ -148,6 +148,8 @@ function placeRow(p: ReviewPlace, osmWeb: string): HTMLElement {
     ev.append(li);
   }
   for (const r of p.reports) ev.append(el("li", "report", `${reportText(r)} · ${whoLine(r)}`));
+  // R1: a deleted place keeps its answers, greyed; this says why in words, for screen readers too (Iris).
+  if (p.state === "gone" && ev.childElementCount) row.append(el("p", "held", "Answered before it was deleted"));
   row.append(ev);
   const hint = stateHint(p);
   if (hint) row.append(el("p", "hint", hint));
