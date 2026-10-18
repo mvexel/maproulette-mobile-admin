@@ -126,6 +126,8 @@ serves them on port 8080, and the shared Caddy puts them on https://streettally.
   `community/participant-faq-woodbine.md`. Keep it in step with `/privacy`.
 - `/.well-known/apple-app-site-association`: the universal-link file for `/challenge/*`, written
   at start from `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID`.
+- `/.well-known/assetlinks.json`: the Android App Links file, written at start from
+  `ANDROID_PACKAGE` and `ANDROID_CERT_SHA256`.
 - `/claim` (`claim/`): the page participants open from the deferred sign-up email to put their
   saved answers on OpenStreetMap (design docs `deferred-signup-ux.md` §3 and
   `deferred-signup-api.md` §3.6, §3.7, §3.10 and §3.11). It is a React app with the Street Tally brand
@@ -154,7 +156,8 @@ on port 80 and the participant site on port 8080. At start, `deploy/entrypoint.s
 admin `config.json` from `BACKEND_ORIGIN`, `CLIENT_ID`, `OSM_WEB` (for "sign out of OpenStreetMap") and the optional `ADMIN_ENVIRONMENT`; the
 participant site's `config.json` from `BACKEND_ORIGIN`, `INSTALL_URL`, `ANDROID_INSTALL_URL` and
 `ANDROID_VERSION`; `claim/config.json` from `BACKEND_ORIGIN`, `CLAIM_CLIENT_ID` and `OSM_WEB`; and
-the apple-app-site-association file when `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID` are set. The
+the apple-app-site-association file when `APPLE_TEAM_ID` and `APPLE_BUNDLE_ID` are set, and
+`.well-known/assetlinks.json` when `ANDROID_PACKAGE` and `ANDROID_CERT_SHA256` are set. The
 container's Caddyfile (`deploy/Caddyfile`) sets the CSP (with `BACKEND_ORIGIN` in
 `connect-src`), `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on `config.json` and the
 app's HTML, and the single-page-app fallback. It does no TLS.

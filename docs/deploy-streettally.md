@@ -37,6 +37,8 @@ OSM_WEB = https://master.apis.dev.openstreetmap.org
 INSTALL_URL = https://testflight.apple.com/join/<code>
 APPLE_TEAM_ID = <10-character team ID>
 APPLE_BUNDLE_ID = <bundle ID>
+ANDROID_PACKAGE = lol.osm.maproulette.choice
+ANDROID_CERT_SHA256 = B4:9B:04:E4:E0:F6:B1:A2:1D:06:33:A7:D9:3D:91:19:19:14:79:28:AE:47:52:07:F7:5F:15:02:02:CD:85:76
 """
 ```
 
@@ -48,6 +50,11 @@ APPLE_BUNDLE_ID = <bundle ID>
   empty, no apple-app-site-association file is served, and campaign links open the landing page
   instead of the app. With a free personal team, universal links may not work at all; the
   landing page's "Open the campaign" button (`mrchoice://`) still does.
+- `ANDROID_PACKAGE` and `ANDROID_CERT_SHA256`: the Android app's package name and the SHA-256
+  fingerprint of its release signing key (the values above are the release APK's, read from
+  `street-tally.apk`; the debug key's fingerprint won't verify). With either one empty, no
+  assetlinks.json is served. App Links also need an `https` intent filter with
+  `android:autoVerify="true"` in the app.
 - `CLAIM_CLIENT_ID` defaults to `maproulette-claim`.
 - `REVIEW_CLIENT_ID` defaults to `street-tally-review`: the review page's public client, scopes `tasks:read` (no OSM scope), redirect URI `https://<site>/review/callback`. The backend needs that client registered before mappers can sign in on `/review/<token>`; reading the page works without it.
 
@@ -76,6 +83,7 @@ curl -sI https://streettally.osm.lol/ | head -1                      # 200
 curl -s  https://streettally.osm.lol/config.json                     # backend and installUrl
 curl -s  https://streettally.osm.lol/claim/config.json               # backend and maproulette-claim
 curl -sI https://streettally.osm.lol/.well-known/apple-app-site-association | grep -i content-type  # application/json
+curl -s  https://streettally.osm.lol/.well-known/assetlinks.json     # package and release fingerprint
 ```
 
 Then open https://streettally.osm.lol/challenge/<id> on an iPhone without the app (landing page)

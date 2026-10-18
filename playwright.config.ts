@@ -37,6 +37,8 @@ export default defineConfig({
         SITE_ANDROID_VERSION: "test-1.0",
         APPLE_TEAM_ID: "ABCDE12345",
         APPLE_BUNDLE_ID: "lol.osm.streettally",
+        ANDROID_PACKAGE: "lol.osm.maproulette.choice",
+        ANDROID_CERT_SHA256: Array(32).fill("AB").join(":"),
       },
       url: `${CLAIM}/claim/`,
       reuseExistingServer: !process.env.CI,

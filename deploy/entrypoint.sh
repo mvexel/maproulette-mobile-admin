@@ -64,5 +64,16 @@ if [ -n "${APPLE_TEAM_ID:-}" ] && [ -n "${APPLE_BUNDLE_ID:-}" ]; then
 	printf '{"applinks":{"details":[{"appIDs":["%s.%s"],"components":[{"/":"/challenge/*"}]}]}}\n' \
 		"$APPLE_TEAM_ID" "$APPLE_BUNDLE_ID" > /srv/street/.well-known/apple-app-site-association
 fi
+# Android App Links: only with both values (a package like lol.osm.maproulette.choice and the release
+# key's SHA-256 as 32 colon-separated hex pairs).
+if [ -n "${ANDROID_PACKAGE:-}" ] && [ -n "${ANDROID_CERT_SHA256:-}" ]; then
+	echo "$ANDROID_PACKAGE" | grep -Eq '^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$' ||
+		{ echo "ANDROID_PACKAGE must be a package name like lol.osm.maproulette.choice" >&2; exit 1; }
+	echo "$ANDROID_CERT_SHA256" | grep -Eq '^[0-9A-F]{2}(:[0-9A-F]{2}){31}$' ||
+		{ echo "ANDROID_CERT_SHA256 must be the SHA-256 fingerprint as AA:BB:... in upper case" >&2; exit 1; }
+	mkdir -p /srv/street/.well-known
+	printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"%s","sha256_cert_fingerprints":["%s"]}}]\n' \
+		"$ANDROID_PACKAGE" "$ANDROID_CERT_SHA256" > /srv/street/.well-known/assetlinks.json
+fi
 export BACKEND_ORIGIN
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
