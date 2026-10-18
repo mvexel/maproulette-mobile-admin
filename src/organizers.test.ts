@@ -16,7 +16,7 @@ import {
   setProjectEnabled,
   setWritePolicy,
 } from "./api";
-import { clearSession } from "./auth";
+import { clearSession, role } from "./auth";
 import { reset, setUp, signIn } from "./testing";
 
 let mock: MockBackend;
@@ -78,9 +78,11 @@ describe("organizers (D8)", () => {
     expect(last.code).toBe("last_project_admin");
     expect(describeError(last).message).toMatch(/only administrator/);
 
-    // The removed organizer's next request is refused.
+    // The removed organizer's next sign-in gets the request grant only (ORG-ONB).
     clearSession();
-    await expect(signIn(mock, "organizer")).rejects.toThrow(/set up to run campaigns/);
+    await signIn(mock, "organizer");
+    expect(role()).toBe("requester");
+    expect((await failure(listCampaigns())).code).toBe("insufficient_scope");
   });
 
   it("keep their project roles when taken off the list", async () => {

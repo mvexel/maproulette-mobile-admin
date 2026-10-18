@@ -4,6 +4,8 @@ import { challengeFor, randomString } from "./pkce";
 const ADMIN = "mobile:admin";
 /** D8: an organizer's grant, for the campaigns of their own projects. */
 const ORGANIZE = "mobile:organize";
+/** ORG-ONB: someone who isn't an organizer yet; reaches their own organizer request only. */
+const REQUEST = "mobile:organizer-request";
 const PENDING_KEY = "mrma.pending";
 const REFRESH_KEY = "mrma.refresh";
 const SCOPE_KEY = "mrma.scope";
@@ -11,7 +13,10 @@ const SCOPE_KEY = "mrma.scope";
 /** A sign-in or session problem, with a user-facing message. */
 export class AuthError extends Error {}
 
-/** The backend refused the sign-in: the account is neither a super-user nor an organizer. */
+/**
+ * The backend refused every sign-in: the account is neither a super-user nor an organizer, and
+ * organizer requests are closed.
+ */
 export class NotSetUpError extends AuthError {}
 
 interface TokenResponse {
@@ -21,11 +26,15 @@ interface TokenResponse {
   scope?: string;
 }
 
-/** Super-users administer the backend; organizers run the campaigns of their own projects. */
-export type Role = "admin" | "organizer";
+/**
+ * Super-users administer the backend; organizers run the campaigns of their own projects;
+ * requesters may only ask to become organizers (organizer-onboarding.md §2).
+ */
+export type Role = "admin" | "organizer" | "requester";
 
 export function role(): Role {
-  return sessionStorage.getItem(SCOPE_KEY) === ORGANIZE ? "organizer" : "admin";
+  const scope = sessionStorage.getItem(SCOPE_KEY);
+  return scope === ORGANIZE ? "organizer" : scope === REQUEST ? "requester" : "admin";
 }
 
 // The access token lives in memory only; the refresh token in sessionStorage, so it survives a
@@ -51,8 +60,8 @@ const redirectUri = () => `${location.origin}/callback`;
 
 /**
  * Asks for mobile:admin first. The backend answers a non-super-user with access_denied before any
- * consent page, and completeSignIn then asks for mobile:organize: OpenStreetMap remembers the
- * sign-in, so the second round trip needs no input.
+ * consent page, and completeSignIn then asks for mobile:organize, and a non-organizer for
+ * mobile:organizer-request: OpenStreetMap remembers the sign-in, so those round trips need no input.
  */
 export async function startSignIn(scope: string = ADMIN): Promise<void> {
   const verifier = randomString(48); // 64 characters; RFC 7636 allows 43 to 128
@@ -72,7 +81,7 @@ export async function startSignIn(scope: string = ADMIN): Promise<void> {
 
 /**
  * Handles the /callback redirect: "signed-in", or "retrying" when it has gone back to the backend
- * to ask for mobile:organize. Throws AuthError with a user-facing message.
+ * to ask for the next scope. Throws AuthError with a user-facing message.
  */
 export async function completeSignIn(params: URLSearchParams): Promise<"signed-in" | "retrying"> {
   const pending = sessionStorage.getItem(PENDING_KEY);
@@ -86,6 +95,10 @@ export async function completeSignIn(params: URLSearchParams): Promise<"signed-i
   const description = params.get("error_description") ?? "";
   if (err === "access_denied" && /super-user/i.test(description) && (scope ?? ADMIN) === ADMIN) {
     await startSignIn(ORGANIZE);
+    return "retrying";
+  }
+  if (err === "access_denied" && /organizer required/i.test(description) && scope === ORGANIZE) {
+    await startSignIn(REQUEST);
     return "retrying";
   }
   if (err === "access_denied" && /super-user|organizer/i.test(description)) {

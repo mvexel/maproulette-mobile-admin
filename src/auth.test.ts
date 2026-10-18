@@ -80,10 +80,23 @@ describe("sign-in", () => {
     expect(sessionStorage.getItem("mrma.scope")).toBeNull();
   });
 
-  it("reports an account that is neither as NotSetUpError, without a session", async () => {
+  it("asks for mobile:organizer-request when the account is neither (ORG-ONB)", async () => {
     expect(await completeSignIn(await browserSignIn(mock, "plain"))).toBe("retrying");
     const params = await followAuthorize(mock, "plain");
     expect(params.get("error_description")).toMatch(/organizer required/);
+    expect(await completeSignIn(params)).toBe("retrying");
+    expect(new URL(assign.mock.calls.at(-1)![0]).searchParams.get("scope")).toBe("mobile:organizer-request");
+    expect(await completeSignIn(await followAuthorize(mock, "plain"))).toBe("signed-in");
+    expect(role()).toBe("requester");
+    expect((await me()).displayName).toBe("mock-mapper");
+  });
+
+  it("reports an account that is neither as NotSetUpError while requests are closed, without a session", async () => {
+    await fetch(`${mock.url}/__mock/organizer-requests?open=false`, { method: "POST" });
+    expect(await completeSignIn(await browserSignIn(mock, "plain"))).toBe("retrying");
+    expect(await completeSignIn(await followAuthorize(mock, "plain"))).toBe("retrying");
+    const params = await followAuthorize(mock, "plain");
+    expect(params.get("error_description")).toBe("Organizer requests closed");
     await expect(completeSignIn(params)).rejects.toBeInstanceOf(NotSetUpError);
     expect(hasSession()).toBe(false);
     expect(mock.stats.authorizationCodes).toBe(0);

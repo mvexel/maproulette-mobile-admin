@@ -1,14 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   addOrganizer,
+  approveOrganizerRequest,
+  declineOrganizerRequest,
+  listOrganizerRequests,
   listOrganizers,
+  type OpenOrganizerRequest,
   type Organizer,
   type OrganizerRole,
   removeOrganizer,
   removeOrganizerProject,
 } from "../api";
+import { config } from "../config";
 import { ErrorMessage } from "./ErrorMessage";
 import { useProjects } from "./Projects";
+
+// The nav's "Organizers (N)": the open request count, re-read after an Approve or Decline here.
+const countListeners = new Set<() => void>();
+const requestsChanged = () => {
+  for (const l of countListeners) l();
+};
+
+/** Open organizer requests, for super-users; 0 when there are none or the list can't be read. */
+export function useOpenRequestCount(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    let current = true;
+    const read = () =>
+      void listOrganizerRequests()
+        .then((r) => current && setCount(r.length))
+        .catch(() => current && setCount(0));
+    read();
+    countListeners.add(read);
+    return () => {
+      current = false;
+      countListeners.delete(read);
+    };
+  }, [enabled]);
+  return enabled ? count : 0;
+}
 
 /**
  * Super-users only: who may run campaigns (D8, organizer-admin.md §4.1). Adding someone gives them
@@ -17,6 +48,7 @@ import { useProjects } from "./Projects";
  */
 export function Organizers() {
   const [organizers, setOrganizers] = useState<Organizer[]>();
+  const [requests, setRequests] = useState<OpenOrganizerRequest[]>();
   const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState<string>();
 
@@ -24,22 +56,47 @@ export function Organizers() {
     listOrganizers()
       .then(setOrganizers)
       .catch((e: unknown) => setError(e));
+    // Requests come with the backend's ORG-ONB routes; without them the section stays away.
+    listOrganizerRequests()
+      .then(setRequests)
+      .catch(() => setRequests(undefined));
+    requestsChanged();
   }, []);
   useEffect(reload, [reload]);
 
+  /** Runs one change; false when it failed (the error shows above the list). */
   const act = async (work: () => Promise<string>) => {
     setError(undefined);
     setNotice(undefined);
     try {
       setNotice(await work());
       reload();
+      return true;
     } catch (e) {
       setError(e);
+      return false;
     }
   };
 
   return (
     <section>
+      {requests && requests.length > 0 && (
+        <Requests
+          requests={requests}
+          onApprove={(r, projectName) =>
+            act(async () => {
+              await approveOrganizerRequest(r.id, projectName);
+              return `${r.name} can now run campaigns in ${projectName}.`;
+            })
+          }
+          onDecline={(r, note) =>
+            act(async () => {
+              await declineOrganizerRequest(r.id, note);
+              return `Declined ${r.name}'s request.`;
+            })
+          }
+        />
+      )}
       <h2>Organizers</h2>
       <p className="hint">
         Organizers run the campaigns of their projects in this app: create, publish, share and export them. They
@@ -174,5 +231,132 @@ function AddOrganizer({ onAdded, onError }: { onAdded: (o: Organizer) => void; o
       </button>
       <p className="hint">They need to have signed in to MapRoulette once with that account.</p>
     </form>
+  );
+}
+
+const osmProfile = (name: string) => `${config().osmWeb}/user/${encodeURIComponent(name)}`;
+
+/** "3 weeks old", from the OSM account snapshot taken when they asked. */
+function accountAge(createdAt: string): string {
+  const days = Math.max(0, Math.floor((Date.now() - Date.parse(createdAt)) / 86_400_000));
+  if (days < 1) return "new today";
+  if (days < 14) return `${days} day${days === 1 ? "" : "s"} old`;
+  if (days < 61) return `${Math.floor(days / 7)} weeks old`;
+  if (days < 730) return `${Math.floor(days / 30.4)} months old`;
+  return `${Math.floor(days / 365.25)} years old`;
+}
+
+/** ORG-ONB (organizer-onboarding.md §2.3): open requests, on top of the list. */
+function Requests({
+  requests,
+  onApprove,
+  onDecline,
+}: {
+  requests: OpenOrganizerRequest[];
+  onApprove: (r: OpenOrganizerRequest, projectName: string) => Promise<boolean>;
+  onDecline: (r: OpenOrganizerRequest, note: string) => Promise<boolean>;
+}) {
+  return (
+    <section className="requests" aria-labelledby="requests-heading">
+      <h2 id="requests-heading">Requests</h2>
+      <p className="hint">
+        People who asked to run campaigns. Approve makes a project for their place, gives them Write on it and adds them
+        to the list below.
+      </p>
+      <ul className="request-list">
+        {requests.map((r) => (
+          <RequestRow key={r.id} r={r} onApprove={onApprove} onDecline={onDecline} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function RequestRow({
+  r,
+  onApprove,
+  onDecline,
+}: {
+  r: OpenOrganizerRequest;
+  onApprove: (r: OpenOrganizerRequest, projectName: string) => Promise<boolean>;
+  onDecline: (r: OpenOrganizerRequest, note: string) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState<"approve" | "decline">();
+  const [projectName, setProjectName] = useState(r.place);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async (work: () => Promise<boolean>) => {
+    setBusy(true);
+    if (!(await work())) setBusy(false);
+  };
+  return (
+    <li className="request" data-testid={`request-${r.id}`}>
+      <div className="request-who">
+        <a className="request-name" href={osmProfile(r.name)} target="_blank" rel="noopener noreferrer">
+          {r.name}
+        </a>
+        {r.osmAccount?.createdAt && <span className="hint"> · account {accountAge(r.osmAccount.createdAt)}</span>}
+        {r.osmAccount?.changesets != null && <span className="hint"> · {r.osmAccount.changesets.toLocaleString()} changesets</span>}
+        <span className="hint"> · asked {new Date(r.createdAt).toLocaleDateString()}</span>
+      </div>
+      <dl className="request-answers">
+        <dt className="request-q">Where</dt>
+        <dd className="request-a">{r.place}</dd>
+        <dt className="request-q">What</dt>
+        <dd className="request-a">{r.subject}</dd>
+        <dt className="request-q">Group</dt>
+        <dd className="request-a">{r.group ?? <span className="hint">None given</span>}</dd>
+      </dl>
+      {open === undefined && (
+        <div className="request-actions">
+          <button type="button" onClick={() => setOpen("approve")}>
+            Approve
+          </button>
+          <button type="button" onClick={() => setOpen("decline")}>
+            Decline
+          </button>
+        </div>
+      )}
+      {open === "approve" && (
+        <form
+          className="request-decide"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (projectName.trim()) void run(() => onApprove(r, projectName.trim()));
+          }}
+        >
+          <label className="request-field">
+            Project name
+            <input value={projectName} onChange={(e) => setProjectName(e.target.value)} maxLength={200} />
+          </label>
+          <button type="submit" disabled={busy || !projectName.trim()}>
+            Approve and make the project
+          </button>
+          <button type="button" className="link" onClick={() => setOpen(undefined)}>
+            Cancel
+          </button>
+        </form>
+      )}
+      {open === "decline" && (
+        <form
+          className="request-decide"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => onDecline(r, note));
+          }}
+        >
+          <label className="request-field">
+            Note to them <span className="hint">(optional, they'll see it)</span>
+            <textarea className="request-note" value={note} onChange={(e) => setNote(e.target.value)} rows={2} maxLength={1000} />
+          </label>
+          <button type="submit" disabled={busy}>
+            Decline
+          </button>
+          <button type="button" className="link" onClick={() => setOpen(undefined)}>
+            Cancel
+          </button>
+        </form>
+      )}
+    </li>
   );
 }
