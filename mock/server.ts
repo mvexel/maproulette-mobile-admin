@@ -1241,11 +1241,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
 
   /** `own`: an organizer's projects; undefined for a super-user, who may use any project. */
   async function organize(req: IncomingMessage, res: ServerResponse, path: string, q: URLSearchParams, user: User, own: Set<number> | undefined) {
-    // Scala's wizard backend: create and publish are writes, refused while saving is off (#47's rule).
-    if (path === "/api/v2/mobile-admin/wizard/campaigns" && req.method === "POST") {
-      if (!writePolicy) return problem(res, 403, "mobile_writes_disabled");
-      return createCampaign(req, res, user, own);
-    }
+    // Otto's wizard backend: a draft saves while writes are off (W-DRAFT, backend #60); publish is refused.
+    if (path === "/api/v2/mobile-admin/wizard/campaigns" && req.method === "POST") return createCampaign(req, res, user, own);
     const pub = /^\/api\/v2\/mobile-admin\/wizard\/campaigns\/([0-9]+)\/publish$/.exec(path);
     if (pub && req.method === "POST") {
       const c = campaigns.find((x) => x.id === Number(pub[1]));

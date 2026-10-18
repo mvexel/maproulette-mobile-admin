@@ -598,6 +598,10 @@ function Preview({ set, words, open }: { set: QuestionSet; words: Words; open: n
   );
 }
 
+/** Publishing while writes are off: the draft is kept, and super-users are told where the switch is. */
+const publishOffMessage = () =>
+  `Your draft is saved, but publishing is off on this server right now. ${role() === "admin" ? "Turn it on under Task writes, then publish." : "Ask the Street Tally team to turn it on, then publish."}`;
+
 /** Step 5: try the draft, publish, then the share panel (link, QR, invite text and table card). */
 function PublishStep({
   set,
@@ -623,7 +627,8 @@ function PublishStep({
     try {
       setListed((await publishCampaign(campaign.id)).listed);
     } catch (e) {
-      setError(describeError(e).message);
+      // W-DRAFT: the draft saves while writes are off; only publishing waits for them.
+      setError(e instanceof ApiError && e.code === "mobile_writes_disabled" ? publishOffMessage() : describeError(e).message);
     } finally {
       setBusy(false);
     }

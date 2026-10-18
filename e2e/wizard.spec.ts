@@ -12,7 +12,7 @@ async function openWizard(page: Page) {
 
 test.beforeEach(async ({ request }) => {
   expect((await request.post(`${MOCK}/__mock/reset`)).status()).toBe(204);
-  // Create and publish are writes: refused while saving is off (backend #47's rule).
+  // Publishing is refused while saving is off (backend #47's rule); a draft saves anyway (W-DRAFT, backend #60).
   expect((await request.post(`${MOCK}/__mock/write-policy?enabled=true`)).status()).toBe(204);
 });
 
@@ -199,7 +199,7 @@ test("an organizer starts the wizard from Campaigns and the campaign lands in th
   await expect(page.getByRole("heading", { level: 2, name: /^Crossings around Woodbine Food Hall/ })).toBeVisible();
 });
 
-test("says when saving is off, and offers to turn an off project on after publishing", async ({ page, request }) => {
+test("saves a draft while writing is off, refuses only the publish, and offers to turn an off project on after publishing", async ({ page, request }) => {
   await openWizard(page);
   await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
   await page.getByRole("button", { name: "Search" }).click();
@@ -211,11 +211,10 @@ test("says when saving is off, and offers to turn an off project on after publis
 
   await request.post(`${MOCK}/__mock/write-policy?enabled=false`);
   await page.getByRole("button", { name: "Next: save and share" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "Saving is off on this server, so changes can't be saved right now. Turn it on under Task writes.",
-  );
+  await expect(page.getByText(/^Saved as a draft with/)).toBeVisible();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText("Your draft is saved, but publishing is off on this server right now. Turn it on under Task writes, then publish.");
   await request.post(`${MOCK}/__mock/write-policy?enabled=true`);
-  await page.getByRole("button", { name: "Next: save and share" }).click();
   await page.getByRole("button", { name: "Publish", exact: true }).click();
 
   const status = page.getByRole("status").first();
