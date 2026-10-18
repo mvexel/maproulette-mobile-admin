@@ -260,6 +260,23 @@ body.review {
   color: var(--text2);
   font-size: 14px;
 }
+/* R1: a deleted place keeps its answers on show, greyed and read-only: nothing to add back from here. */
+.place .held {
+  margin: 10px 0 0;
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.place .held + .evidence {
+  margin-top: 4px;
+}
+.place.gone .evidence .a {
+  color: var(--text2);
+}
+.place.gone .evidence code {
+  background: none;
+  border: 1px dashed var(--line);
+}
 .evidence .report::before {
   content: "Reported: ";
   font-weight: 700;
