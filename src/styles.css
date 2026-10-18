@@ -340,6 +340,8 @@ progress { width: 100%; max-width: 30rem; height: .8rem; accent-color: var(--suc
 .wizard .all-questions .prompt { display: block; font-weight: 600; }
 .wizard .all-questions .help, .wizard .all-questions .answers { display: block; color: var(--muted); }
 .wizard .set:disabled .set-count { color: #6B7486; font-weight: 400; }
+/* A count that timed out isn't a warning: the set can still be picked (W-EASY L6). */
+.wizard .set .set-count.unavailable { color: var(--muted); font-weight: 400; font-size: .9rem; }
 .wizard .check { display: grid; gap: .8rem; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
 .wizard .check:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
 .wizard .features { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }

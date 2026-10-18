@@ -427,7 +427,7 @@ function WhatToCheck({
                 <span className="name">{s.name}</span>
                 <span className="why">{s.why}</span>
                 <span className="example">For example: {s.example}</span>
-                <span className="set-count">{countLine(c)}</span>
+                <span className={c && "unavailable" in c ? "set-count unavailable" : "set-count"}>{countLine(c)}</span>
               </button>
               {s.questions && s.questions.length > 0 && <AllQuestions questions={s.questions} />}
             </li>
