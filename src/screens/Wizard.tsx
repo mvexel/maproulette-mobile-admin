@@ -6,8 +6,10 @@ import { config } from "../config";
 import { navigate } from "../router";
 import {
   type Area,
+  type Coverage,
   type CreatedCampaign,
   countSets,
+  coverage,
   createCampaign,
   type OpenFeature,
   type Place,
@@ -16,9 +18,11 @@ import {
   questionSets,
   type SetCount,
   type SetFeatures,
+  type SetQuestion,
   searchPlaces,
   setFeatures,
 } from "../wizard/api";
+import { covers } from "../wizard/geo";
 import { WizardMap } from "../wizard/WizardMap";
 import {
   bySetCount,
@@ -227,6 +231,19 @@ function Where({
   const custom = !RADII.some((r) => r.metres === radius);
   const [showCustom, setShowCustom] = useState(custom);
   const style = config().mapStyle;
+  // Where the extract has features (W-EASY L2). If the request fails, the organizer goes on and step 2
+  // says what it finds; only an answer that leaves the place out stops them here.
+  const [extract, setExtract] = useState<Coverage | "failed">();
+  useEffect(() => {
+    let live = true;
+    coverage()
+      .then((c) => live && setExtract(c))
+      .catch(() => live && setExtract("failed"));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const outside = place && extract && extract !== "failed" && !covers(extract, { lat: place.lat, lon: place.lon, radius });
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -332,9 +349,16 @@ function Where({
               {distance(radius)} around {place.name}
             </p>
           )}
-          <p className="hint">You can change this later.</p>
+          {outside ? (
+            <p className="warning" role="alert">
+              We can't make campaigns here yet. For now, Street Tally covers places in Utah.{" "}
+              <a href="mailto:martijn@osm.lol?subject=Street%20Tally%20in%20my%20area">Ask us about your area</a>
+            </p>
+          ) : (
+            <p className="hint">You can change this later.</p>
+          )}
           <div className="actions">
-            <button type="button" className="primary" disabled={projectId === undefined} onClick={next}>
+            <button type="button" className="primary" disabled={projectId === undefined || !extract || !!outside} onClick={next}>
               Next: what to check
             </button>
           </div>
@@ -405,6 +429,7 @@ function WhatToCheck({
                 <span className="example">For example: {s.example}</span>
                 <span className="set-count">{countLine(c)}</span>
               </button>
+              {s.questions && s.questions.length > 0 && <AllQuestions questions={s.questions} />}
             </li>
           );
         })}
@@ -419,6 +444,24 @@ function WhatToCheck({
         </button>
       </div>
     </div>
+  );
+}
+
+/** "See all questions" under a set card (W-EASY L4): what participants are asked, read-only. */
+function AllQuestions({ questions }: { questions: SetQuestion[] }) {
+  return (
+    <details className="all-questions">
+      <summary>See all questions</summary>
+      <ol>
+        {questions.map((q) => (
+          <li key={q.id}>
+            <span className="prompt">{q.prompt}</span>
+            {q.description && <span className="help">{q.description}</span>}
+            <span className="answers">{q.options.map((o) => o.label).join(" · ")}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 
@@ -703,7 +746,6 @@ function PublishStep({
           label="Try it on your phone first"
           url={`${link}?preview=1`}
           file={`campaign-${campaign.id}-preview-qr.png`}
-          warning="Preview mode isn't in the app yet. Until it is, this opens the campaign normally, and anything you answer is saved and goes to the mappers."
         />
         {error && (
           <p className="error" role="alert">

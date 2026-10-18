@@ -33,10 +33,10 @@ export function fromPlace(place: { lat: number; lon: number }, f: { lat: number;
 
 const plural = (n: number, noun: { one: string; many: string }) => `${n} ${n === 1 ? noun.one : noun.many}`;
 
-/** A card's count line: "23 to check here", "Nothing to check here" or "Count not available". */
+/** A card's count line: "23 to check here", "Nothing to check here", or a count that timed out (still pickable). */
 export function countLine(c: SetCount | undefined): string {
   if (!c) return "Counting…";
-  if ("unavailable" in c) return "Count not available";
+  if ("unavailable" in c) return "We couldn't count these right now. You can still pick this set.";
   return c.open === 0 ? "Nothing to check here" : `${c.open} to check here`;
 }
 

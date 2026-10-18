@@ -72,8 +72,8 @@ test("refreshes after a reload and after a 401", async ({ page, request }) => {
 
 test("explains that someone neither super-user nor organizer isn't set up", async ({ page, request }) => {
   await signIn(page, "mock-mapper");
-  await expect(page.getByRole("heading", { name: "Not set up yet" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "martijn@osm.lol" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You're not an organizer yet" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ask to become an organizer" })).toHaveAttribute("href", "mailto:martijn@osm.lol?subject=Street%20Tally%20organizer");
   await expect(page.getByTestId("backend")).toHaveText(MOCK);
   expect((await stats(request)).authorizationCodes).toBe(0);
   await page.goto("/");
@@ -88,6 +88,9 @@ test("shows an organizer their campaigns and Help only", async ({ page }) => {
   await expect(page.getByText("SLC Bus Stops")).toBeVisible();
   await expect(page.getByText("Street Tally test: 1300 S 900 E bus stops")).toHaveCount(0);
   await expect(page.getByTestId("writes-pill")).not.toHaveAttribute("href");
+  // Organizers read the switch as what it means for them (W-EASY L5).
+  await expect(page.getByTestId("writes-pill")).toHaveText("Publishing off");
+  await expect(page.getByTestId("writes-pill")).toHaveAttribute("title", "You can save drafts. Publishing is turned off for now.");
   await page.goto("/clients");
   await expect(page.getByText("This page is for the Street Tally team. Your campaigns are under Campaigns.")).toBeVisible();
   // Organizers create with the wizard; the survey builder and stock Publish write through stock

@@ -70,8 +70,10 @@
       // The app's welcome card shows the description, so it leads here too.
       const text = [campaign.description, campaign.blurb].find((t) => typeof t === "string" && t.trim())?.trim() ?? "";
       find("blurb").textContent = text ? (text.length > 280 ? `${text.slice(0, 279)}…` : text) : "Check the places around you and answer a few quick questions.";
-      // Both app manifests already support mrchoice. Keep the same campaign through installation.
-      find("open").href = `mrchoice://challenge/${id}`;
+      // Both app manifests already support mrchoice. Keep the same campaign through installation, and
+      // the wizard's "try it on your phone" link in preview mode (design/preview-mode.md §3).
+      const preview = new URLSearchParams(location.search).get("preview") === "1";
+      find("open").href = `mrchoice://challenge/${id}${preview ? "?preview=1" : ""}`;
       setInstall("ios", httpsUrl(config.installUrl));
       const version = typeof config.androidVersion === "string" ? config.androidVersion.trim() : "";
       // A version is required to identify the intended pilot artifact, not just an arbitrary APK.

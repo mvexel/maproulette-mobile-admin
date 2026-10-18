@@ -41,7 +41,7 @@ test("goes from a place to drafted words with no tags or files", async ({ page }
 
   // Step 2: cards sorted by count; nothing to check is disabled; a timed-out count can still be picked.
   const cards = page.getByRole("list", { name: "Question sets" }).getByRole("button");
-  await expect(cards.locator(".set-count")).toHaveText(["23 to check here", "14 to check here", "6 to check here", "Count not available", "Nothing to check here"]);
+  await expect(cards.locator(".set-count")).toHaveText(["23 to check here", "14 to check here", "6 to check here", "We couldn't count these right now. You can still pick this set.", "Nothing to check here"]);
   await expect(cards.locator(".name")).toHaveText(["Entrance doors", "Crossings", "Bus stops", "Trees", "Benches"]);
   await expect(cards.nth(4)).toBeDisabled();
   await expect(cards.nth(3)).toBeEnabled();
@@ -231,4 +231,51 @@ test("saves a draft while writing is off, refuses only the publish, and offers t
   await status.getByRole("button", { name: "Turn project on" }).click();
   await page.getByRole("dialog", { name: "Turn on project “SLC test”?" }).getByRole("button", { name: "Turn on" }).click();
   await expect(page.getByRole("status").first()).toHaveText("Your campaign is live. Anyone with the link can join.");
+});
+
+test("stops at step 1 outside the extract, and goes on when coverage can't be read", async ({ page, request }) => {
+  await openWizard(page);
+  const where = page.getByLabel("Where's your event? A place, an address or a neighbourhood");
+  await where.fill("boise");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await expect(page.getByRole("alert")).toHaveText("We can't make campaigns here yet. For now, Street Tally covers places in Utah. Ask us about your area");
+  await expect(page.getByRole("link", { name: "Ask us about your area" })).toHaveAttribute("href", /^mailto:martijn@osm\.lol/);
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeDisabled();
+
+  // Inside Utah: on to step 2.
+  await where.fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeEnabled();
+
+  // A stale extract covers nothing; a failed request doesn't stop anyone.
+  await request.post(`${MOCK}/__mock/coverage?mode=stale`);
+  await page.goto("/new");
+  await where.fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await expect(page.getByRole("alert")).toContainText("We can't make campaigns here yet.");
+  await request.post(`${MOCK}/__mock/coverage?mode=error`);
+  await page.goto("/new");
+  await where.fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await expect(page.getByRole("button", { name: "Next: what to check" })).toBeEnabled();
+});
+
+test("shows every question in a set before picking it", async ({ page }) => {
+  await openWizard(page);
+  await page.getByLabel("Where's your event? A place, an address or a neighbourhood").fill("woodbine");
+  await page.getByRole("button", { name: "Search" }).click();
+  await page.getByLabel("Which project is it for?").selectOption({ label: "Street Tally pilots" });
+  await page.getByRole("button", { name: "Next: what to check" }).click();
+  const doors = page.getByRole("list", { name: "Question sets" }).getByRole("listitem").filter({ hasText: "Entrance doors" });
+  await doors.getByText("See all questions").click();
+  const questions = doors.locator(".all-questions li");
+  await expect(questions.first()).toContainText("How does this door open?");
+  await expect(questions.first()).toContainText("Swings open · Slides sideways · Revolves · Folds");
+  await expect(questions.nth(1)).toContainText("Does it open by itself?");
+  // Reading the questions doesn't pick the set.
+  await expect(page.getByRole("button", { name: "Next: check the list" })).toBeDisabled();
 });

@@ -1,21 +1,10 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "../maplibre-worker";
-import type { FeatureCollection, Polygon } from "geojson";
+import type { FeatureCollection } from "geojson";
 import { useEffect, useRef } from "react";
 import type { Area, OpenFeature } from "./api";
-
-/** A circle of `radius` metres as a 64-point polygon (close enough at city scale). */
-function circle(a: Area): Polygon {
-  const ring: [number, number][] = [];
-  const dLat = a.radius / 111_320;
-  const dLon = dLat / Math.cos((a.lat * Math.PI) / 180);
-  for (let i = 0; i <= 64; i++) {
-    const t = (i / 64) * 2 * Math.PI;
-    ring.push([a.lon + dLon * Math.cos(t), a.lat + dLat * Math.sin(t)]);
-  }
-  return { type: "Polygon", coordinates: [ring] };
-}
+import { circle } from "./geo";
 
 const boundsOf = (a: Area): maplibregl.LngLatBoundsLike => {
   const [ring] = circle(a).coordinates;

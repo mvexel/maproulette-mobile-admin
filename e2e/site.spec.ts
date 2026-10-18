@@ -150,6 +150,11 @@ test("serves assetlinks.json for Android App Links", async ({ request }) => {
   ]);
 });
 
+test("keeps the wizard's preview link in preview mode when opening the app", async ({ page }) => {
+  await page.goto(`${SITE}/challenge/7?preview=1`);
+  await expect(page.locator("#open")).toHaveAttribute("href", "mrchoice://challenge/7?preview=1");
+});
+
 test("shows the Woodbine campaign", async ({ page }) => {
   await page.goto(`${SITE}/challenge/8`);
   await expect(page.getByRole("heading", { name: "Woodbine entrance doors" })).toBeVisible();

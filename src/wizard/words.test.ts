@@ -14,7 +14,7 @@ describe("wizard words", () => {
     expect(countLine(undefined)).toBe("Counting…");
     expect(countLine(count("x", 23))).toBe("23 to check here");
     expect(countLine(count("x", 0))).toBe("Nothing to check here");
-    expect(countLine({ set: "x", version: 1, unavailable: true })).toBe("Count not available");
+    expect(countLine({ set: "x", version: 1, unavailable: true })).toBe("We couldn't count these right now. You can still pick this set.");
   });
 
   it("sorts cards by count, keeps unavailable ones pickable and empty ones last", () => {

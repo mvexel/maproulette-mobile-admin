@@ -14,7 +14,10 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
 
-/** The wizard's question sets (design/wizard/wizard-api-draft.md §1), from our campaign files. */
+/**
+ * The wizard's question sets (design/wizard/wizard-api-draft.md §1), from our campaign files. `questions`
+ * is the participant's wording for "See all questions" (W-EASY L4): the survey's questions without tags.
+ */
 export const QUESTION_SETS = [
   {
     id: "entrance-doors",
@@ -26,6 +29,7 @@ export const QUESTION_SETS = [
     example: "How does this door open?",
     pace: 30,
     description: "Help map the {nounMany} around {place}, so {audience} know what to expect.",
+    questions: [{"id": "door-type", "prompt": "How does this door open?", "description": "Look only at the door at this entrance.", "options": [{"id": "hinged", "label": "Swings open"}, {"id": "sliding", "label": "Slides sideways"}, {"id": "revolving", "label": "Revolves"}, {"id": "folding", "label": "Folds"}]}, {"id": "automatic-opening", "prompt": "Does it open by itself?", "description": "A door that's propped open doesn't count.", "options": [{"id": "no", "label": "No, you push or pull it"}, {"id": "button", "label": "Yes, with a button"}, {"id": "motion", "label": "Yes, when you walk up"}, {"id": "yes", "label": "Yes, not sure how"}]}],
   },
   {
     id: "crossings",
@@ -37,6 +41,7 @@ export const QUESTION_SETS = [
     example: "Are there bumpy warning tiles at the curb?",
     pace: 25,
     description: "Help map the {nounMany} around {place}, so {audience} can find safe ones.",
+    questions: [{"id": "tactile", "prompt": "Are there bumpy warning tiles at the curb?", "options": [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}]}],
   },
   {
     id: "bus-stops",
@@ -48,6 +53,7 @@ export const QUESTION_SETS = [
     example: "Is there a shelter with a roof?",
     pace: 12,
     description: "Help map the bus {nounMany} around {place}, so {audience} know what's there.",
+    questions: [{"id": "shelter", "prompt": "Is there a shelter with a roof?", "options": [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}]}],
   },
   {
     id: "benches",
@@ -59,6 +65,7 @@ export const QUESTION_SETS = [
     example: "Does the bench have armrests?",
     pace: 40,
     description: "Help map the {nounMany} around {place}, so {audience} know where they can.",
+    questions: [{"id": "armrest", "prompt": "Does the bench have armrests?", "options": [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}]}],
   },
   {
     id: "trees",
@@ -70,6 +77,7 @@ export const QUESTION_SETS = [
     example: "Does this tree have leaves or needles?",
     pace: 60,
     description: "Help map the {nounMany} around {place}, so {audience} can see where the shade is.",
+    questions: [{"id": "leaf-type", "prompt": "Does this tree have leaves or needles?", "options": [{"id": "broadleaved", "label": "Leaves"}, {"id": "needleleaved", "label": "Needles"}]}],
   },
 ];
 
@@ -78,7 +86,25 @@ export const MOCK_PLACES = [
   { lat: "40.7538166", lon: "-111.9068120", name: "Woodbine Food Hall", display_name: "Woodbine Food Hall, 545 West 700 South, Salt Lake City, Utah, United States" },
   { lat: "40.7608", lon: "-111.8910", name: "Salt Lake City", display_name: "Salt Lake City, Salt Lake County, Utah, United States" },
   { lat: "40.7650", lon: "-111.9010", name: "Salt Lake City Library", display_name: "Salt Lake City Library, 210 East 400 South, Salt Lake City, Utah, United States" },
+  // Outside the extract (W-EASY L2).
+  { lat: "43.6150", lon: "-116.2023", name: "Boise City Hall", display_name: "Boise City Hall, 150 North Capitol Boulevard, Boise, Idaho, United States" },
 ];
+
+/** The extract's coverage (backend #61, GET /wizard/coverage): Utah's outline, roughly. */
+export const MOCK_COVERAGE = {
+  type: "Polygon" as const,
+  coordinates: [
+    [
+      [-114.05, 37.0],
+      [-109.05, 37.0],
+      [-109.05, 41.0],
+      [-111.05, 41.0],
+      [-111.05, 42.0],
+      [-114.05, 42.0],
+      [-114.05, 37.0],
+    ],
+  ],
+};
 
 /** The wizard's area from a query, or undefined when it's out of range. */
 function wizardArea(q: URLSearchParams): { lat: number; lon: number; radius: number } | undefined {
@@ -442,6 +468,8 @@ export function createMockBackend(opts: MockOptions): MockBackend {
   let clients = new Map<string, Client>();
   let audit: Audit[] = [];
   let writePolicy = false;
+  /** What GET /wizard/coverage answers: the extract, a stale one, none loaded, or a server error. */
+  let coverageMode: "fresh" | "stale" | "none" | "error" = "fresh";
   let guests = new Map<string, Guest>();
   let claims = new Map<number, Claim>();
   let nextClaimId = 1;
@@ -558,6 +586,7 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     seedGuests();
     audit = [];
     writePolicy = false;
+    coverageMode = "fresh";
     livePages = new Map();
     reviewVisits = new Set();
     reviewSkips = new Map();
@@ -759,6 +788,10 @@ export function createMockBackend(opts: MockOptions): MockBackend {
     if (path === "/__mock/style.json" && req.method === "GET")
       return send(res, 200, { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#ECEBE5" } }] }, { "Access-Control-Allow-Origin": "*" });
     // The server's task-write switch, without an admin sign-in (wizard tests).
+    if (path === "/__mock/coverage" && req.method === "POST") {
+      coverageMode = (q.get("mode") ?? "fresh") as typeof coverageMode;
+      return send(res, 204);
+    }
     if (path === "/__mock/write-policy" && req.method === "POST") {
       writePolicy = q.get("enabled") === "true";
       return send(res, 204);
@@ -1256,6 +1289,22 @@ export function createMockBackend(opts: MockOptions): MockBackend {
       return send(res, 200, { id: c.id, published: true, listed: projects.get(c.projectId)?.enabled ?? false });
     }
     if (path === "/api/v2/mobile-admin/wizard/question-sets") return send(res, 200, { sets: QUESTION_SETS });
+    if (path === "/api/v2/mobile-admin/wizard/coverage") {
+      if (coverageMode === "error") return problem(res, 500, "internal_error");
+      if (coverageMode === "none") return send(res, 200, { extract: null });
+      return send(res, 200, {
+        extract: {
+          source: "geofabrik-utah",
+          extractAt: "2026-10-18T03:30:12Z",
+          loadedAt: "2026-10-18T03:41:02Z",
+          features: 221676,
+          fresh: coverageMode === "fresh",
+          maxAgeHours: 48,
+          bbox: [-114.05, 37.0, -109.05, 42.0],
+          coverage: MOCK_COVERAGE,
+        },
+      });
+    }
     const area = wizardArea(q);
     if (path === "/api/v2/mobile-admin/wizard/counts") {
       if (!area) return problem(res, 400, "invalid_request", ["lat, lon and radius (200-3000 m)"]);
