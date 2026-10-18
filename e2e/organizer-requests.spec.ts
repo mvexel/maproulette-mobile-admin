@@ -72,7 +72,7 @@ for (const width of [1280, 390]) {
     await expect(page.getByRole("heading", { name: "We've got your request" })).toBeVisible();
     await request.post(`${MOCK}/__mock/organizer-requests/user/8/decline?note=${encodeURIComponent("We're only running Utah campaigns this year.")}`);
     await page.reload();
-    await expect(page.getByRole("heading", { name: "We can't set you up right now." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "We can't set you up right now" })).toBeVisible();
     await expect(page.getByText("We're only running Utah campaigns this year.")).toBeVisible();
     await expect(page.getByText(/You can ask again on/)).toBeVisible();
     await expect(page.getByRole("link", { name: "Questions? Email martijn@osm.lol" })).toBeVisible();
@@ -120,7 +120,7 @@ test("lets a super-user approve with an editable project name, or decline with a
   await nav.getByRole("link", { name: "Organizers (2)" }).click();
   const rosa = page.getByTestId("request-1");
   await expect(rosa).toContainText("rosa_slc");
-  await expect(rosa).toContainText("3 edits");
+  await expect(rosa).toContainText("3 changesets");
   await expect(rosa).toContainText("Sugar House, Salt Lake City");
   await expect(rosa).toContainText("Benches and bus shelters");
   await expect(rosa).toContainText("Sugar House Community Council");

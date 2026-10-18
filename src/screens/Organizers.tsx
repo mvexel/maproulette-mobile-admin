@@ -296,7 +296,7 @@ function RequestRow({
           {r.name}
         </a>
         {r.osmAccount?.createdAt && <span className="hint"> · account {accountAge(r.osmAccount.createdAt)}</span>}
-        {r.osmAccount?.changesets != null && <span className="hint"> · {r.osmAccount.changesets.toLocaleString()} edits</span>}
+        {r.osmAccount?.changesets != null && <span className="hint"> · {r.osmAccount.changesets.toLocaleString()} changesets</span>}
         <span className="hint"> · asked {new Date(r.createdAt).toLocaleDateString()}</span>
       </div>
       <dl className="request-answers">

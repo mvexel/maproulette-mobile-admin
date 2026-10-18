@@ -43,7 +43,7 @@ export function OrganizerRequestScreen() {
         </>
       ) : request?.state === "declined" ? (
         <>
-          <h1>We can't set you up right now.</h1>
+          <h1>We can't set you up right now</h1>
           {request.note && <p className="decline-note">{request.note}</p>}
           {mine.askAgainAt && <p className="hint">You can ask again on {new Date(mine.askAgainAt).toLocaleDateString()}.</p>}
           <Questions />

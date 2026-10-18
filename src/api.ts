@@ -220,7 +220,7 @@ export function describeError(e: unknown): { message: string; detail: string[] }
     case "request_open":
       return { message: "You've already asked. The Street Tally team will look at it.", detail: [] };
     case "too_soon":
-      return { message: "You can ask again 30 days after the last answer.", detail: [] };
+      return { message: "You can ask again 30 days after we declined your last request.", detail: [] };
     case "already_organizer":
       return { message: "You're already set up. Sign in again to start a campaign.", detail: [] };
     case "requests_closed":
