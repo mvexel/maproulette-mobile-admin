@@ -149,6 +149,9 @@ test("has a questions and answers page", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Questions and answers" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Is Street Tally tracking me?" })).toBeVisible();
   await expect(page.getByRole("link", { name: "privacy page" })).toHaveAttribute("href", "/privacy");
+  // The merged FAQ (2026-10-17): local mappers add answers; no email claim, no "finish on a computer".
+  await expect(page.getByRole("heading", { name: "Who puts my answers on the map?" })).toBeVisible();
+  await expect(page.getByText(/30 days|on a computer|link in the email/i)).toHaveCount(0);
 });
 
 test("has a privacy page", async ({ page }) => {
